@@ -5,7 +5,7 @@
 #──────────────────────────────────────────────────────────────────────────────────────────
 
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.3.20.36"
+VERSION="V25.3.26.46"
 echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 
@@ -806,6 +806,158 @@ WARNUNG
 }
 
 #──────────────────────────────────────────────────────────────────────────────────────────
+#* Konfigurationen
+#──────────────────────────────────────────────────────────────────────────────────────────
+
+# Funktion zur Generierung von UUIDs
+function generate_uuid() {
+    uuidgen | tr '[:upper:]' '[:lower:]'
+}
+
+# Funktion zur Generierung von Zufallsnamen
+function generate_name() {
+    local adjectives=("Mystic" "Golden" "Silent" "Emerald" "Crystal" "Ancient" "Floating" "Hidden" "Lost" "Secret")
+    local nouns=("Forest" "Island" "Sanctuary" "Realm" "Valley" "Garden" "Haven" "Retreat" "Domain" "Shore")
+    echo "${adjectives[$RANDOM % 10]}-${nouns[$RANDOM % 10]}-$((RANDOM % 900 + 100))"
+}
+
+# Hauptfunktion
+function regionsconfig() {
+    # Konstanten
+    local center_x=4000
+    local center_y=4000
+    local base_port=9000
+    
+    # Variablen
+    local regions_per_sim
+    local system_ip
+    local sim_num
+    local region_num
+    local sim_dir
+    local offset
+    local pos_x
+    local pos_y
+    local location
+    local port
+    local region_name
+    local region_uuid
+    #local maptile_uuid
+    local config_file
+
+    # Benutzereingabe
+    echo "Wie viele Zufallsregionen sollen pro Simulator erstellt werden?"
+    read -r regions_per_sim
+
+    # Eingabeprüfung
+    if ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
+        echo "Ungültige Eingabe: Bitte eine positive Zahl eingeben" >&2
+        return 1
+    fi
+
+    system_ip=$(hostname -I | awk '{print $1}')
+
+    echo "Starte Regionserstellung..."
+    echo "--------------------------"
+
+    # Simulatoren durchlaufen
+    for ((sim_num=1; sim_num<=999; sim_num++)); do
+        sim_dir="sim${sim_num}/bin/Regions"
+        
+        if [[ -d "$sim_dir" ]]; then
+            #echo "Simulator $sim_num: Erstelle $regions_per_sim Region(en)"
+            echo -e "\e[33mSimulator $sim_num: Erstelle $regions_per_sim Region(en)\e[0m" >&2
+            
+            # Regionen erstellen
+            for ((region_num=1; region_num<=regions_per_sim; region_num++)); do
+                # Position berechnen
+                offset=$((region_num * 100))
+                [[ $((RANDOM % 2)) -eq 0 ]] && offset=$((offset * -1))
+                
+                pos_x=$((center_x + offset))
+                pos_y=$((center_y + offset))
+                location="$pos_x,$pos_y"
+                port=$((base_port + sim_num * 100 + region_num))
+                
+                # Eindeutige Werte
+                region_name=$(generate_name)
+                region_uuid=$(generate_uuid)
+                #maptile_uuid=$(generate_uuid)
+                
+                # Config-Datei
+                config_file="${sim_dir}/${region_name}.ini"
+                
+                # Datei erstellen
+                if ! cat > "$config_file" <<EOF
+[${region_name}]
+RegionUUID = ${region_uuid}
+Location = ${location}
+SizeX = 256
+SizeY = 256
+SizeZ = 256
+InternalPort = ${port}
+ExternalHostName = ${system_ip}
+MaxPrims = 15000
+MaxAgents = 40
+MaptileStaticUUID = ${region_uuid}
+InternalAddress = 0.0.0.0
+AllowAlternatePorts = False
+NonPhysicalPrimMax = 512
+PhysicalPrimMax = 128
+;RegionType = Estate
+;MasterAvatarFirstName = System
+;MasterAvatarLastName = Admin
+;MasterAvatarSandboxPassword = $(openssl rand -base64 12)
+EOF
+                then
+                    #echo "Fehler beim Erstellen der Config für ${region_name}" >&2
+                    echo -e "\e[31mFehler beim Erstellen der Config für ${region_name}\e[0m" >&2
+                    continue
+                fi
+                
+                #echo " - ${region_name} (${location}, Port ${port})"
+                echo -e "\e[36m ✓ ${region_name} (${location}, Port ${port})\e[0m" >&2
+            done
+        fi
+    done
+
+    echo "--------------------------"
+    echo "Regionserstellung abgeschlossen!"
+    return 0
+}
+
+function regionsclean() {
+    echo -e "\033[33mWARNUNG: Dies wird ALLE Regionskonfigurationen in allen Simulatoren löschen!\033[0m"
+    echo "Sicher fortfahren? (j/N): " 
+    read -r confirm
+    
+    if [[ "$confirm" =~ ^[jJ] ]]; then
+        echo "Starte Bereinigung..."
+        deleted_count=0
+        
+        # Durch alle Simulatoren iterieren
+        for ((sim_num=1; sim_num<=999; sim_num++)); do
+            sim_dir="sim${sim_num}/bin/Regions"
+            
+            if [[ -d "$sim_dir" ]]; then
+                echo -e "\033[33m ✓ Überprüfe $sim_dir...\033[0m"
+                
+                # Lösche nur .ini-Dateien (keine anderen Dateitypen)
+                while IFS= read -r -d $'\0' config_file; do
+                    if [[ "$config_file" == *.ini ]]; then
+                        rm -v "$config_file"
+                        ((deleted_count++))
+                    fi
+                done < <(find "$sim_dir" -maxdepth 1 -type f -name "*.ini" -print0)
+            fi
+        done
+        
+        echo -e "\033[32mFertig! Gelöschte Regionen: $deleted_count\033[0m"
+    else
+        echo "Abbruch: Keine Dateien wurden gelöscht."
+    fi
+}
+
+#──────────────────────────────────────────────────────────────────────────────────────────
 #* Automatischer Test
 #──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -856,7 +1008,7 @@ function help () {
     echo -e "\e[35mOpenSim vorkonfigurieren fehlt noch.\e[0m"
     echo -e "\e[32mopensimcopy\e[0m # OpenSim kopieren (in alle Verzeichnisse)."
     echo -e "\e[35mOpenSim konfigurieren fehlt noch.\e[0m"
-    echo -e "\e[35mOpenSim Regionen konfigurieren fehlt noch.\e[0m"
+    echo -e "\e[35mregionsconfig\e[0m # OpenSim Regionen konfigurieren."
     echo " "    
 
     echo -e "\e[36mOpenSim Grid Bereinigen von alten Dateien, Verzeichnissen und Cache:\e[0m"
@@ -866,6 +1018,7 @@ function help () {
     echo -e "\e[32mlogclean\e[0m # Robust und simX von alten Logs befreien.\e[0m"
     echo -e "\e[32mmapclean\e[0m # Robust und simX von alten Maptile Karten befreien.\e[0m"
     echo -e "\e[32mautoallclean\e[0m # Robust und simX von alten Dateien und Verzeichnissen befreien (Neuinstallation erforderlich).\e[0m"
+    echo -e "\e[32mregionsclean\e[0m # Löscht alle konfigurierten Regionen aus allen Simulatoren.\e[0m"    
     echo " "
 }
 
@@ -881,6 +1034,7 @@ case $KOMMANDO in
     moneygitcopy) moneygitcopy ;;
     opensimbuild) opensimbuild ;;
     opensimcopy) opensimcopy ;;
+    regionsconfig) regionsconfig ;;
     start|opensimstart) opensimstart ;;
     stop|opensimstop) opensimstop ;;
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
@@ -891,6 +1045,7 @@ case $KOMMANDO in
     logclean) logclean ;;
     mapclean) mapclean ;;
     autoallclean) autoallclean ;;
+    regionsclean) regionsclean ;;
     automatic) automatic ;; # Die automatische Installation zu testzwecken.
 	h|help|hilfe|*) help ;;
 esac
