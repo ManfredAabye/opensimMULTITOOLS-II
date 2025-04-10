@@ -1,5 +1,21 @@
-# opensimMULTITOOL II V25.3
-Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, Installation).  
+# **opensimMULTITOOL II V25.3 – Skript-Dokumentation**  
+Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, Installation).
+
+**Benutzung ausschließlich auf eigene Gefahr**  
+*Dieses Skript ist im Entwicklungsstadium und kann unbeabsichtigte Datenverluste verursachen.*
+
+```diff
+- WICHTIGE WARNUNGEN:
+1. Dies ist ein ALPHA-Skript - Im Produktivbetrieb nur nach ausführlichem Testing verwenden
+2. Immer Backups erstellen VOR jeder Ausführung
+3. Keine Haftung für Datenverlust oder Grid-Ausfälle
+```
+
+### 📜 **Nutzungsbedingungen**  
+> Durch die Ausführung dieses Skripts bestätigen Sie:  
+> - Die Risiken vollständig zu verstehen  
+> - Ausreichende Backups erstellt zu haben  
+> - Dass der Autor nicht für Schäden haftet  
 
 ---
 
