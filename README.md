@@ -42,8 +42,8 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 |--------|-------------|  
 | `servercheck` | Prüft, ob der Server für OpenSim bereit ist. |  
 | `createdirectory` | Erstellt die benötigten Verzeichnisse. |  
-| `mariasetup` | Erstellt Richtet die MariaDB-Datenbanken ein. |  
-| `sqlsetup` | Erstellt Richtet die SQL-Datenbanken ein. |
+| `mariasetup` | Erstellt und Richtet die MariaDB-Datenbanken ein. |  
+| `sqlsetup` | Erstellt und Richtet die SQL-Datenbanken ein. |
 
 ### **Schritt 2: OpenSim herunterladen & kompilieren**  
 | Befehl | Beschreibung |  
