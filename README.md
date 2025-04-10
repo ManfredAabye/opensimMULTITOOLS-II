@@ -1,4 +1,4 @@
-# opensimMULTITOOL II V25.3.20.31
+# opensimMULTITOOL II V25.3
 Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient.
 
 Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt.
