@@ -57,7 +57,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 |--------|-------------|  
 | `opensimcopy` | Kopiert OpenSim in alle Zielverzeichnisse. |  
 | *(Geplant)* `opensimconfig` | Konfiguriert OpenSim-Einstellungen. |  
-| *(Geplant)* `regionconfig` | Konfiguriert OpenSim-Regionen. |  
+| `regionconfig` | Konfiguriert Automatisch OpenSim Regionen in eine Fibonacci-Folge. |
 
 ---
 
@@ -93,6 +93,6 @@ Diese Cleaner entfernen nur überflüssige Daten, während Backups und Konfigura
 
 ## **📜 Lizenz & Nutzung**  
 - **Skriptname**: `osmtool.sh`  
-- **Version**: *V25.3.20.36*  
+- **Version**: *V25.3.26.46*  
 - **Autor**: *Manfred Aabye*  
 - **Lizenz**: *MIT*  
