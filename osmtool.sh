@@ -5,7 +5,7 @@
 #──────────────────────────────────────────────────────────────────────────────────────────
 
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.31.55"
+VERSION="V25.4.35.62"
 echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 
@@ -404,7 +404,7 @@ function opensimcopy () {
     fi
 
     # Prüfen, ob das Verzeichnis "robust" existiert und Dateien kopieren
-    if [[ -d "robust" ]]; then
+    if [[ -d "robust/bin" ]]; then
         cp -r opensim/bin/* robust/bin
         echo "✓ Dateien aus 'opensim/bin' wurden nach 'robust/bin' kopiert."
     else
@@ -984,165 +984,242 @@ function regionsclean() {
 #* Funktion zur Konfiguration von OpenSimulator
 #──────────────────────────────────────────────────────────────────────────────────────────
 
-function configureopensim() {
-    # Funktion für sichere Eingabeaufforderung
-    prompt() {
-        echo -n -e "${CYAN}$1${RESET}"
-        read -r
-    }
+# #* NEUE FUNKTIONEN
+#────────────────────────────────────────────────────────────────────────────
+# Farben
+#────────────────────────────────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+LIGHT_BLUE='\033[1;34m'
+LIGHT_CYAN='\033[1;36m'
+RESET='\033[0m'
 
-    # Funktion zur Vorbereitung der Konfigurationsdateien
+#────────────────────────────────────────────────────────────────────────────
+# Hilfsfunktionen für INI-Dateien
+#────────────────────────────────────────────────────────────────────────────
+
+# shellcheck disable=SC2317
+function read_ini_value() {    
+    local file=$1
+    local section=$2
+    local key=$3
+    awk -F '=' -v section="$section" -v key="$key" '
+    $0 ~ "\\["section"\\]" { in_section=1; next }
+    $0 ~ "^\\[" && $0 !~ "\\["section"\\]" { in_section=0 }
+    in_section && $1 ~ key {
+        gsub(/^[ \t]+|[ \t]+$/, "", $2)
+        print $2
+        exit
+    }
+    ' "$file"
+}
+
+function write_ini_value() {
+    local file=$1
+    local section=$2
+    local key=$3
+    local value=$4
+
+    awk -v section="$section" -v key="$key" -v value="$value" '
+    BEGIN { OFS = "="; in_section=0 }
+    $0 ~ "\\["section"\\]" { print; in_section=1; next }
+    $0 ~ "^\\[" && $0 !~ "\\["section"\\]" { in_section=0 }
+    in_section && $1 == key {
+        print key, value
+        found=1
+        next
+    }
+    { print }
+    END {
+        if (!found) {
+            if (!in_section) print "["section"]"
+            print key "=" value
+        }
+    }
+    ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+}
+
+# shellcheck disable=SC2317
+function ini_value_equals() {
+    local file=$1
+    local section=$2
+    local key=$3
+    local expected_value=$4
+    local actual_value
+    actual_value=$(read_ini_value "$file" "$section" "$key")
+    [[ "$actual_value" == "$expected_value" ]]
+}
+
+print_section() {
+    echo -e "\n${LIGHT_BLUE}>> $1${RESET}"
+}
+
+function prompt() {
+    echo -n -e "${CYAN}$1${RESET}"
+    read -r
+}
+
+#────────────────────────────────────────────────────────────────────────────
+# Konfigurationsfunktionen
+#────────────────────────────────────────────────────────────────────────────
+
+function configureopensim() {
+
     prepare_config_files() {
         local target_dir=$1
-        
+        local timestamp
+        timestamp=$(date +"%Y%m%d_%H%M%S")
+
         if [ ! -d "$target_dir" ]; then
             echo -e "${RED}Fehler: Verzeichnis $target_dir nicht gefunden!${RESET}"
             return 1
         fi
 
-        # In bin/config-include alle .example Dateien kopieren
-        if [ -d "${target_dir}/bin/config-include" ]; then
-            for example_file in "${target_dir}"/bin/config-include/*.example; do
-                if [ -f "$example_file" ]; then
-                    local target_file="${example_file%.example}"
-                    if [ ! -f "$target_file" ]; then
-                        cp "$example_file" "$target_file"
-                        echo -e "${GREEN}Erstellt: ${target_file}${RESET}"
-                    fi
-                fi
-            done
-        fi
+        print_section "Kopiere *.example Dateien in $target_dir"
 
-        # OpenSim.ini.example kopieren falls benötigt
-        if [ -f "${target_dir}/bin/OpenSim.ini.example" ] && [ ! -f "${target_dir}/bin/OpenSim.ini" ]; then
-            cp "${target_dir}/bin/OpenSim.ini.example" "${target_dir}/bin/OpenSim.ini"
-            echo -e "${GREEN}Erstellt: ${target_dir}/bin/OpenSim.ini${RESET}"
-        fi
+        find "$target_dir/bin/config-include" -type f -name "*.example" 2>/dev/null | while read -r example_file; do
+            local target_file="${example_file%.example}"
+            if [ -f "$target_file" ]; then
+                cp "$target_file" "${target_file}_${timestamp}.bak"
+                echo -e "${YELLOW}Gesichert: ${target_file}${RESET}"
+            fi
+            cp "$example_file" "$target_file"
+            echo -e "${GREEN}Aktualisiert: ${target_file}${RESET}"
+        done
+
+        find "$target_dir/bin" -maxdepth 1 -type f -name "*.example" | while read -r example_file; do
+            local target_file="${example_file%.example}"
+            if [ -f "$target_file" ]; then
+                cp "$target_file" "${target_file}_${timestamp}.bak"
+                echo -e "${YELLOW}Gesichert: ${target_file}${RESET}"
+            fi
+            cp "$example_file" "$target_file"
+            echo -e "${GREEN}Aktualisiert: ${target_file}${RESET}"
+        done
 
         return 0
     }
 
-    # Funktion für Robust-Konfiguration
-function configure_robust() {
+    function configure_robust() {
         local config_type=$1
         local robust_ini="${SCRIPT_DIR}/robust/bin/Robust.ini"
-        
-        if [ ! -f "$robust_ini" ]; then
-            echo -e "${RED}Fehler: Robust.ini nicht gefunden!${RESET}"
-            return 1
-        fi
+        local robust_hg_ini="${SCRIPT_DIR}/robust/bin/Robust.HG.ini"
 
-        # Sicherungskopie erstellen
+        print_section "Konfiguriere Robust"
+
         cp "$robust_ini" "${robust_ini}.bak"
+        cp "$robust_hg_ini" "${robust_hg_ini}.bak"
+        echo -e "${YELLOW}Backups erstellt:${RESET}"
+        echo -e " - ${robust_ini}.bak"
+        echo -e " - ${robust_hg_ini}.bak"
 
-        # Hostname setzen
-        local hostname="Netzwerkadresse"
-        [[ "$config_type" == *"Hypergrid"* ]] && hostname="Externe IP"
-        
-        sed -i "s/^BaseHostname = .*/BaseHostname = \"${hostname}\"/" "$robust_ini"
-        sed -i "s/^;BaseHostname = .*/BaseHostname = \"${hostname}\"/" "$robust_ini"
+        if [[ "$config_type" == "Grid" ]]; then
+            write_ini_value "$robust_ini" "Const" "BaseHostname" "Netzwerkadresse"
+            echo -e "${GREEN}Robust.ini: BaseHostname auf \"Netzwerkadresse\" gesetzt${RESET}"
+        fi
 
-        # Hypergrid-Einstellungen für Hypergrid-Modi
         if [[ "$config_type" == *"Hypergrid"* ]]; then
-            sed -i 's/^;HomeURI =/HomeURI =/' "$robust_ini"
-            sed -i 's/^;GatekeeperURI =/GatekeeperURI =/' "$robust_ini"
+            write_ini_value "$robust_hg_ini" "Const" "BaseHostname" "Externe IP"
+            echo -e "${GREEN}Robust.HG.ini: BaseHostname auf \"Externe IP\" gesetzt${RESET}"
         fi
 
-        # Datenbankeinstellungen
-        db_password=$(grep "robust" "${SCRIPT_DIR}/mariadb_passwords.txt" | cut -d'=' -f2)
+        local db_password
+        #db_password=$(grep "robust" "${SCRIPT_DIR}/mariadb_passwords.txt" | cut -d'=' -f2)
+        db_password=$(grep "^robust DB Passwort:" "${SCRIPT_DIR}/mariadb_passwords.txt" | awk -F': ' '{print $2}')
+
+
         if [ -n "$db_password" ]; then
-            sed -i "s/^ConnectionString = .*/ConnectionString = \"Data Source=localhost;Database=robust;User ID=opensim;Password=${db_password};Old Guids=true;SslMode=None;\"/" "$robust_ini"
+            write_ini_value "$robust_ini" "DatabaseService" "ConnectionString" \
+                "Data Source=localhost;Database=robust;User ID=opensim;Password=${db_password};Old Guids=true;SslMode=None;"
+            echo -e "${GREEN}Robust.ini: Datenbankverbindung aktualisiert${RESET}"
         else
-            echo -e "${YELLOW}Warnung: Passwort für robust-Datenbank nicht gefunden!${RESET}"
+            echo -e "${YELLOW}Warnung: Kein Datenbankpasswort für robust gefunden!${RESET}"
         fi
 
-        echo -e "${GREEN}Robust.ini erfolgreich konfiguriert${RESET}"
-        return 0
+        echo -e "${GREEN}Konfiguration abgeschlossen.${RESET}"
     }
 
-    # Funktion für GridCommon-Konfiguration
 function configure_gridcommon() {
-        local config_type=$1
-        local gridcommon_ini="${SCRIPT_DIR}/opensim/bin/config-include/GridCommon.ini"
-        
-        if [ ! -f "$gridcommon_ini" ]; then
-            echo -e "${RED}Fehler: GridCommon.ini nicht gefunden!${RESET}"
-            return 1
-        fi
+    local config_type=$1
+    local target_dir=$2
+    local gridcommon_ini="${target_dir}/bin/config-include/GridCommon.ini"
 
-        # Sicherungskopie erstellen
-        cp "$gridcommon_ini" "${gridcommon_ini}.bak"
+    print_section "Konfiguriere GridCommon.ini in $target_dir"
 
-        # Const-Einstellungen aus der Grid.ini übernehmen
-        const_settings=$(grep -A10 "^\[Const\]" "${SCRIPT_DIR}/opensim/bin/config-include/${config_type}.ini")
-        
-        # Vor [DatabaseService] einfügen
-        sed -i "/^\[DatabaseService\]/i $const_settings" "$gridcommon_ini"
-
-        # Datenbankeinstellungen
-        db_password=$(grep "opensim" "${SCRIPT_DIR}/mariadb_passwords.txt" | cut -d'=' -f2)
-        if [ -n "$db_password" ]; then
-            sed -i "/^\[DatabaseService\]/,/^\[/ s/^StorageProvider = .*/StorageProvider = \"OpenSim.Data.MySQL.dll\"/" "$gridcommon_ini"
-            sed -i "/^\[DatabaseService\]/,/^\[/ s/^ConnectionString = .*/ConnectionString = \"Data Source=localhost;Database=opensim;User ID=opensim;Password=${db_password};Old Guids=true;SslMode=None;\"/" "$gridcommon_ini"
-        else
-            echo -e "${YELLOW}Warnung: Passwort für opensim-Datenbank nicht gefunden!${RESET}"
-        fi
-
-        echo -e "${GREEN}GridCommon.ini erfolgreich konfiguriert${RESET}"
+    if [ ! -f "$gridcommon_ini" ]; then
+        echo -e "${YELLOW}Überspringe: GridCommon.ini nicht gefunden in $gridcommon_ini${RESET}"
         return 0
-    }
+    fi
 
-    # Hauptkonfigurationsfunktion
+    cp "$gridcommon_ini" "${gridcommon_ini}.bak"
+
+    local db_password
+    #db_password=$(grep "opensim" "${SCRIPT_DIR}/mariadb_passwords.txt" | cut -d'=' -f2)
+    db_password=$(grep "^sim1 DB Passwort:" "${SCRIPT_DIR}/mariadb_passwords.txt" | awk -F': ' '{print $2}')
+
+
+    if [ -n "$db_password" ]; then
+        write_ini_value "$gridcommon_ini" "DatabaseService" "StorageProvider" "OpenSim.Data.MySQL.dll"
+        write_ini_value "$gridcommon_ini" "DatabaseService" "ConnectionString" \
+            "Data Source=localhost;Database=opensim;User ID=opensim;Password=${db_password};Old Guids=true;SslMode=None;"
+        echo -e "${GREEN}GridCommon.ini erfolgreich konfiguriert für $target_dir${RESET}"
+    else
+        echo -e "${YELLOW}Warnung: Passwort für opensim-Datenbank nicht gefunden!${RESET}"
+    fi
+
+    return 0
+}
+
 function do_configuration() {
-        clear
-        echo -e "${LIGHT_BLUE}=== OpenSimulator Konfiguration ===${RESET}"
-        echo -e "${YELLOW}Warnung: Diese Aktion wird Konfigurationsdateien ändern!${RESET}"
-        echo
-        
-        # Konfigurationsoptionen anzeigen
-        echo -e "${LIGHT_CYAN}Verfügbare Modi:${RESET}"
-        echo -e "1) Standalone (localhost)"
-        echo -e "2) Standalone mit Hypergrid (externe IP)"
-        echo -e "3) Grid (Netzwerk)"
-        echo -e "4) Grid mit Hypergrid (externe IP)"
-        echo -e "0) Abbrechen"
-        echo
-        
-        prompt "Auswahl [1-4, 0 zum Abbrechen]: "
-        case $REPLY in
-            1) config_type="Standalone" ;;
-            2) config_type="StandaloneHypergrid" ;;
-            3) config_type="Grid" ;;
-            4) config_type="GridHypergrid" ;;
-            0) return ;;
-            *) echo -e "${RED}Ungültige Auswahl!${RESET}"; return 1 ;;
-        esac
+    clear
+    echo -e "${LIGHT_BLUE}=== OpenSimulator Konfiguration ===${RESET}"
+    echo -e "${YELLOW}Warnung: Diese Aktion wird Konfigurationsdateien ändern!${RESET}"
+    echo
 
-        # Verzeichnisse vorbereiten
-        case $config_type in
-            "Standalone"|"StandaloneHypergrid")
-                prepare_config_files "${SCRIPT_DIR}/opensim"
-                ;;
-            "Grid"|"GridHypergrid")
-                prepare_config_files "${SCRIPT_DIR}/robust"
-                configure_robust "$config_type"
+    echo -e "${LIGHT_CYAN}Verfügbare Modi:${RESET}"
+    echo -e "1) Standalone (localhost)"
+    echo -e "2) Standalone mit Hypergrid (externe IP)"
+    echo -e "3) Grid (Netzwerk)"
+    echo -e "4) Grid mit Hypergrid (externe IP)"
+    echo -e "0) Abbrechen"
+    echo
+
+    prompt "Auswahl [1-4, 0 zum Abbrechen]: "
+    case $REPLY in
+        1) config_type="Standalone" ;;
+        2) config_type="StandaloneHypergrid" ;;
+        3) config_type="Grid" ;;
+        4) config_type="GridHypergrid" ;;
+        0) return ;;
+        *) echo -e "${RED}Ungültige Auswahl!${RESET}"; return 1 ;;
+    esac
+
+    case $config_type in
+        "Standalone"|"StandaloneHypergrid")
+            prepare_config_files "${SCRIPT_DIR}/opensim"
+            ;;
+        "Grid"|"GridHypergrid")
+            prepare_config_files "${SCRIPT_DIR}/robust"
+            configure_robust "$config_type"
+            for ((i=1; i<=999; i++)); do
+                sim_dir="${SCRIPT_DIR}/sim$i"
+                config_file="${sim_dir}/bin/config-include/GridCommon.ini"
                 
-                # Alle Simulator-Instanzen konfigurieren
-                for sim_dir in "${SCRIPT_DIR}"/sim*; do
-                    if [ -d "$sim_dir" ]; then
-                        prepare_config_files "$sim_dir"
-                    fi
-                done
-                
-                configure_gridcommon "$config_type"
-                ;;
-        esac
+                if [[ -f "$config_file" ]]; then
+                    prepare_config_files "$sim_dir"
+                    configure_gridcommon "$config_type" "$sim_dir"
+                fi
+            done
 
-        echo -e "${GREEN}Konfiguration abgeschlossen für ${config_type}-Modus${RESET}"
-        prompt "Drücken Sie Enter um fortzufahren..."
-    }
+            ;;
+    esac
 
-    do_configuration
+    echo -e "${GREEN}Konfiguration abgeschlossen für ${config_type}-Modus${RESET}"
+}
+
+do_configuration
 }
 
 #──────────────────────────────────────────────────────────────────────────────────────────
