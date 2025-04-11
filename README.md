@@ -88,7 +88,37 @@ Diese Cleaner entfernen nur überflüssige Daten, während Backups und Konfigura
 - **Backups erstellen**, bevor Bereinigungsbefehle ausgeführt werden.
 - Auch wenn keine Konfigurationsdateien gelöscht werden würde ich empfehlen das sie eine Manuelle Sicherung vornehmen.
 - Einige Funktionen sind noch in Arbeit (`opensimconfig`, `regionconfig`).  
+---
 
+## **🔄 OpenSimulator auto- start stop restart Beispiel**
+
+### List crontabs:
+     crontab -l
+
+### Edit crontabs:
+     crontab -e
+```
+# Minute Hour Day Month Year Command
+#
+# Restart at 5 AM, and on the 1st of each month, restart the entire server.
+#
+
+# Restart server on the first of each month to clear cache data debris.
+40 4 1 * * bash /opt/osmtool.sh cacheclean
+45 4 1 * * bash /opt/osmtool.sh reboot
+
+# Restart the grid every morning at 5 AM.
+55 4 * * * bash /opt/osmtool.sh logclean
+0 5 * * * bash /opt/osmtool.sh autorestart
+
+# If Robust or the Welcome region fails, restart the grid.
+*/30 * * * * bash /opt/osmtool.sh check_screens
+```
+### Save crontabs
+     ctrl O
+     Enter
+### Exit editor
+     ctrl X
 ---
 
 ## **📜 Lizenz & Nutzung**  
