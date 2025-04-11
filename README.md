@@ -123,6 +123,6 @@ Diese Cleaner entfernen nur überflüssige Daten, während Backups und Konfigura
 
 ## **📜 Lizenz & Nutzung**  
 - **Skriptname**: `osmtool.sh`  
-- **Version**: *V25.4.31.53*  
+- **Version**: *V25.4.31.55*  
 - **Autor**: *Manfred Aabye*  
 - **Lizenz**: *MIT*  
