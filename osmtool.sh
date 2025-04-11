@@ -5,7 +5,7 @@
 #──────────────────────────────────────────────────────────────────────────────────────────
 
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.3.26.46"
+VERSION="V25.4.31.53"
 echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 
@@ -14,14 +14,6 @@ echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
 echo -e "\e[33mZum Abbrechen bitte STRG+C oder CTRL+C drücken.\e[0m"
 echo " "
-
-#   ColorNames=( Black Red Green Yellow Blue Magenta Cyan White )
-#   FgColors=(    30   31   32    33     34   35      36   37  )
-#   BgColors=(    40   41   42    43     44   45      46   47  )
-
-# echo "Symbole für Statusanzeigen"
-# echo "✅ Pfeile: → ← ↑ ↓ ✅ Kreise: ○ ● ⭘ ◯ ✅ Quadrate: ■ □ ▪ ▫ ✅ Sterne: ★ ☆ ✦ ✧ ✪" 
-# echo "✅ Haken und Kreuze: ✓ ✘ ✅ Uhren & Zeit: ⏳ ⌛ ⏰ ✅ Zahlen als Kreise: ➀ ➁ ➂ ➃"
 
 #──────────────────────────────────────────────────────────────────────────────────────────
 #* Variablen
@@ -250,10 +242,19 @@ function check_screens() {
     done
 }
 
+function reboot() {
+    echo "Server wird jetzt heruntergefahren und neu gestartet!"
+    
+    # Stoppen des ganzen OpenSim Grids.
+    opensimstop
+
+    # Starte den Server neu.
+    shutdown -r now
+}
+
 #──────────────────────────────────────────────────────────────────────────────────────────
 #* Erstellen eines OpenSimulators
 #──────────────────────────────────────────────────────────────────────────────────────────
-
 
 function opensimgitcopy() {
     echo "Möchten Sie den OpenSimulator vom GitHub verwenden? ([ja]/nein)"
@@ -387,7 +388,6 @@ function createdirectory () {
         echo "✘ Ungültige Anzahl an Regionsserver. Bitte geben Sie eine gültige Zahl zwischen 1 und 999 ein."
     fi
 }
-
 
 function opensimcopy () {
     echo -e "\e[32m"
@@ -740,7 +740,6 @@ function logclean() {
     echo -e "\033[0m"
 }
 
-# Wie erstelle ich am beseten folgende Bash Funktion wie sie in der Funktion beschrieben wird?:
 function mapclean() {
     echo -e "\033[32m"
     
@@ -958,6 +957,171 @@ function regionsclean() {
 }
 
 #──────────────────────────────────────────────────────────────────────────────────────────
+#* Funktion zur Konfiguration von OpenSimulator
+#──────────────────────────────────────────────────────────────────────────────────────────
+
+function configureopensim() {
+    # Funktion für sichere Eingabeaufforderung
+    prompt() {
+        echo -n -e "${CYAN}$1${RESET}"
+        read -r
+    }
+
+    # Funktion zur Vorbereitung der Konfigurationsdateien
+    prepare_config_files() {
+        local target_dir=$1
+        
+        if [ ! -d "$target_dir" ]; then
+            echo -e "${RED}Fehler: Verzeichnis $target_dir nicht gefunden!${RESET}"
+            return 1
+        fi
+
+        # In bin/config-include alle .example Dateien kopieren
+        if [ -d "${target_dir}/bin/config-include" ]; then
+            for example_file in "${target_dir}"/bin/config-include/*.example; do
+                if [ -f "$example_file" ]; then
+                    local target_file="${example_file%.example}"
+                    if [ ! -f "$target_file" ]; then
+                        cp "$example_file" "$target_file"
+                        echo -e "${GREEN}Erstellt: ${target_file}${RESET}"
+                    fi
+                fi
+            done
+        fi
+
+        # OpenSim.ini.example kopieren falls benötigt
+        if [ -f "${target_dir}/bin/OpenSim.ini.example" ] && [ ! -f "${target_dir}/bin/OpenSim.ini" ]; then
+            cp "${target_dir}/bin/OpenSim.ini.example" "${target_dir}/bin/OpenSim.ini"
+            echo -e "${GREEN}Erstellt: ${target_dir}/bin/OpenSim.ini${RESET}"
+        fi
+
+        return 0
+    }
+
+    # Funktion für Robust-Konfiguration
+function configure_robust() {
+        local config_type=$1
+        local robust_ini="${SCRIPT_DIR}/robust/bin/Robust.ini"
+        
+        if [ ! -f "$robust_ini" ]; then
+            echo -e "${RED}Fehler: Robust.ini nicht gefunden!${RESET}"
+            return 1
+        fi
+
+        # Sicherungskopie erstellen
+        cp "$robust_ini" "${robust_ini}.bak"
+
+        # Hostname setzen
+        local hostname="Netzwerkadresse"
+        [[ "$config_type" == *"Hypergrid"* ]] && hostname="Externe IP"
+        
+        sed -i "s/^BaseHostname = .*/BaseHostname = \"${hostname}\"/" "$robust_ini"
+        sed -i "s/^;BaseHostname = .*/BaseHostname = \"${hostname}\"/" "$robust_ini"
+
+        # Hypergrid-Einstellungen für Hypergrid-Modi
+        if [[ "$config_type" == *"Hypergrid"* ]]; then
+            sed -i 's/^;HomeURI =/HomeURI =/' "$robust_ini"
+            sed -i 's/^;GatekeeperURI =/GatekeeperURI =/' "$robust_ini"
+        fi
+
+        # Datenbankeinstellungen
+        db_password=$(grep "robust" "${SCRIPT_DIR}/mariadb_passwords.txt" | cut -d'=' -f2)
+        if [ -n "$db_password" ]; then
+            sed -i "s/^ConnectionString = .*/ConnectionString = \"Data Source=localhost;Database=robust;User ID=opensim;Password=${db_password};Old Guids=true;SslMode=None;\"/" "$robust_ini"
+        else
+            echo -e "${YELLOW}Warnung: Passwort für robust-Datenbank nicht gefunden!${RESET}"
+        fi
+
+        echo -e "${GREEN}Robust.ini erfolgreich konfiguriert${RESET}"
+        return 0
+    }
+
+    # Funktion für GridCommon-Konfiguration
+function configure_gridcommon() {
+        local config_type=$1
+        local gridcommon_ini="${SCRIPT_DIR}/opensim/bin/config-include/GridCommon.ini"
+        
+        if [ ! -f "$gridcommon_ini" ]; then
+            echo -e "${RED}Fehler: GridCommon.ini nicht gefunden!${RESET}"
+            return 1
+        fi
+
+        # Sicherungskopie erstellen
+        cp "$gridcommon_ini" "${gridcommon_ini}.bak"
+
+        # Const-Einstellungen aus der Grid.ini übernehmen
+        const_settings=$(grep -A10 "^\[Const\]" "${SCRIPT_DIR}/opensim/bin/config-include/${config_type}.ini")
+        
+        # Vor [DatabaseService] einfügen
+        sed -i "/^\[DatabaseService\]/i $const_settings" "$gridcommon_ini"
+
+        # Datenbankeinstellungen
+        db_password=$(grep "opensim" "${SCRIPT_DIR}/mariadb_passwords.txt" | cut -d'=' -f2)
+        if [ -n "$db_password" ]; then
+            sed -i "/^\[DatabaseService\]/,/^\[/ s/^StorageProvider = .*/StorageProvider = \"OpenSim.Data.MySQL.dll\"/" "$gridcommon_ini"
+            sed -i "/^\[DatabaseService\]/,/^\[/ s/^ConnectionString = .*/ConnectionString = \"Data Source=localhost;Database=opensim;User ID=opensim;Password=${db_password};Old Guids=true;SslMode=None;\"/" "$gridcommon_ini"
+        else
+            echo -e "${YELLOW}Warnung: Passwort für opensim-Datenbank nicht gefunden!${RESET}"
+        fi
+
+        echo -e "${GREEN}GridCommon.ini erfolgreich konfiguriert${RESET}"
+        return 0
+    }
+
+    # Hauptkonfigurationsfunktion
+function do_configuration() {
+        clear
+        echo -e "${LIGHT_BLUE}=== OpenSimulator Konfiguration ===${RESET}"
+        echo -e "${YELLOW}Warnung: Diese Aktion wird Konfigurationsdateien ändern!${RESET}"
+        echo
+        
+        # Konfigurationsoptionen anzeigen
+        echo -e "${LIGHT_CYAN}Verfügbare Modi:${RESET}"
+        echo -e "1) Standalone (localhost)"
+        echo -e "2) Standalone mit Hypergrid (externe IP)"
+        echo -e "3) Grid (Netzwerk)"
+        echo -e "4) Grid mit Hypergrid (externe IP)"
+        echo -e "0) Abbrechen"
+        echo
+        
+        prompt "Auswahl [1-4, 0 zum Abbrechen]: "
+        case $REPLY in
+            1) config_type="Standalone" ;;
+            2) config_type="StandaloneHypergrid" ;;
+            3) config_type="Grid" ;;
+            4) config_type="GridHypergrid" ;;
+            0) return ;;
+            *) echo -e "${RED}Ungültige Auswahl!${RESET}"; return 1 ;;
+        esac
+
+        # Verzeichnisse vorbereiten
+        case $config_type in
+            "Standalone"|"StandaloneHypergrid")
+                prepare_config_files "${SCRIPT_DIR}/opensim"
+                ;;
+            "Grid"|"GridHypergrid")
+                prepare_config_files "${SCRIPT_DIR}/robust"
+                configure_robust "$config_type"
+                
+                # Alle Simulator-Instanzen konfigurieren
+                for sim_dir in "${SCRIPT_DIR}"/sim*; do
+                    if [ -d "$sim_dir" ]; then
+                        prepare_config_files "$sim_dir"
+                    fi
+                done
+                
+                configure_gridcommon "$config_type"
+                ;;
+        esac
+
+        echo -e "${GREEN}Konfiguration abgeschlossen für ${config_type}-Modus${RESET}"
+        prompt "Drücken Sie Enter um fortzufahren..."
+    }
+
+    do_configuration
+}
+
+#──────────────────────────────────────────────────────────────────────────────────────────
 #* Automatischer Test
 #──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -1005,10 +1169,10 @@ function help () {
     echo -e "\e[32mopensimgitcopy\e[0m # OpenSim aus dem Git herunterladen."
     echo -e "\e[32mmoneygitcopy\e[0m # MoneyServer aus dem Git herunterladen."
     echo -e "\e[32mopensimbuild\e[0m # OpenSim kompilieren."
-    echo -e "\e[35mOpenSim vorkonfigurieren fehlt noch.\e[0m"
+    echo -e "\e[32mconfigureopensim\e[0m # Vorkonfigurieren des OpenSimulators.\e[0m"
     echo -e "\e[32mopensimcopy\e[0m # OpenSim kopieren (in alle Verzeichnisse)."
-    echo -e "\e[35mOpenSim konfigurieren fehlt noch.\e[0m"
-    echo -e "\e[35mregionsconfig\e[0m # OpenSim Regionen konfigurieren."
+    echo -e "\e[35mopensimconfig # Eine funktionsfähige konfiguration fehlt noch.\e[0m"
+    echo -e "\e[32mregionsconfig\e[0m # OpenSim Regionen konfigurieren."
     echo " "    
 
     echo -e "\e[36mOpenSim Grid Bereinigen von alten Dateien, Verzeichnissen und Cache:\e[0m"
@@ -1034,10 +1198,12 @@ case $KOMMANDO in
     moneygitcopy) moneygitcopy ;;
     opensimbuild) opensimbuild ;;
     opensimcopy) opensimcopy ;;
+    configure|configureopensim) configureopensim ;; # Die automatische konfiguration zu testzwecken.
     regionsconfig) regionsconfig ;;
     start|opensimstart) opensimstart ;;
     stop|opensimstop) opensimstop ;;
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
+    reboot) reboot ;;
     check_screens) check_screens ;;
     dataclean) dataclean ;;
     pathclean) pathclean ;;
