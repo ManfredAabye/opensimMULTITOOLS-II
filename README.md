@@ -1,4 +1,4 @@
-# **opensimMULTITOOL II V25.3 – Skript-Dokumentation**  
+# **opensimMULTITOOL II V25.4 – Skript-Dokumentation**  
 Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, Installation).
 
 **Benutzung ausschließlich auf eigene Gefahr**  
@@ -123,6 +123,6 @@ Diese Cleaner entfernen nur überflüssige Daten, während Backups und Konfigura
 
 ## **📜 Lizenz & Nutzung**  
 - **Skriptname**: `osmtool.sh`  
-- **Version**: *V25.3.26.46*  
+- **Version**: *V25.4.31.53*  
 - **Autor**: *Manfred Aabye*  
 - **Lizenz**: *MIT*  
