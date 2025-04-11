@@ -5,7 +5,7 @@
 #──────────────────────────────────────────────────────────────────────────────────────────
 
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.31.53"
+VERSION="V25.4.31.55"
 echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 
@@ -601,6 +601,8 @@ function sqlsetup() {
 #* Upgrade des OpenSimulators Grids
 #──────────────────────────────────────────────────────────────────────────────────────────
 
+# Upgrade ist eigentlich nur ein entpacken eines OpenSimulator und umbenennen des Ordners in opensim.
+# Dann das stoppen des Grids, neues OpenSim kopieren und alles neu starten.
 
 #──────────────────────────────────────────────────────────────────────────────────────────
 #* Bereinigen des OpenSimulators Grids
@@ -815,9 +817,31 @@ function generate_uuid() {
 
 # Funktion zur Generierung von Zufallsnamen
 function generate_name() {
-    local adjectives=("Mystic" "Golden" "Silent" "Emerald" "Crystal" "Ancient" "Floating" "Hidden" "Lost" "Secret")
-    local nouns=("Forest" "Island" "Sanctuary" "Realm" "Valley" "Garden" "Haven" "Retreat" "Domain" "Shore")
-    echo "${adjectives[$RANDOM % 10]}-${nouns[$RANDOM % 10]}-$((RANDOM % 900 + 100))"
+    local adjectives=(
+        # Mystisch & Magisch (25)
+        "Mystic" "Arcane" "Eldritch" "Enigmatic" "Esoteric" "Occult" "Cryptic" "Celestial" "Astral" "Ethereal" 
+        "Luminous" "Radiant" "Prismatic" "Iridescent" "Phantasmal" "Spectral" "Otherworldly" "Transcendent" "Timeless" "Unearthly"
+        "Enchanted" "Charmed" "Bewitched" "Mythic" "Legendary"
+        
+        # Natürlich & Elementar (25)
+        "Verdant" "Sylvan" "Petrified" "Thundering" "Whispering" "Howling" "Roaring" "Rumbling" "Crystalline" "Obsidian"
+        "Amber" "Jade" "Sapphire" "Emerald" "Ruby" "Topaz" "Opaline" "Pearlescent" "Gilded" "Argent"
+        "Solar" "Lunar" "Stellar" "Nebular" "Galactic"
+    )    
+    local nouns=(
+        # Natürliche Orte (25)
+        "Forest" "Grove" "Copse" "Thicket" "Wildwood" "Jungle" "Rainforest" "Mangrove" "Taiga" "Tundra"
+        "Mountain" "Peak" "Summit" "Cliff" "Crag" "Bluff" "Mesa" "Plateau" "Canyon" "Ravine"
+        "Valley" "Dale" "Glen" "Hollow" "Basin"
+        
+        # Gewässer (15)
+        "River" "Stream" "Brook" "Creek" "Fjord" "Lagoon" "Estuary" "Delta" "Bayou" "Wetland"
+        "Oasis" "Geyser" "Spring" "Well" "Aquifer"
+        
+        # Künstliche Strukturen (10)
+        "Observatory" "Planetarium" "Orrery" "Reflectory" "Conservatory" "Atrium" "Rotunda" "Gazebo" "Pavilion" "Terrace"
+    )    
+    echo "${adjectives[$RANDOM % 50]}${nouns[$RANDOM % 50]}$((RANDOM % 900 + 100))"
 }
 
 # Hauptfunktion
@@ -1200,6 +1224,7 @@ case $KOMMANDO in
     opensimcopy) opensimcopy ;;
     configure|configureopensim) configureopensim ;; # Die automatische konfiguration zu testzwecken.
     regionsconfig) regionsconfig ;;
+    generatename|generate_name) generate_name ;;
     start|opensimstart) opensimstart ;;
     stop|opensimstop) opensimstop ;;
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
