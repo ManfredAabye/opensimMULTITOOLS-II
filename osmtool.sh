@@ -5,7 +5,7 @@
 #──────────────────────────────────────────────────────────────────────────────────────────
 
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.35.62"
+VERSION="V25.4.37.69"
 echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 
@@ -104,6 +104,21 @@ function servercheck() {
 #──────────────────────────────────────────────────────────────────────────────────────────
 #* Start Stop Restart
 #──────────────────────────────────────────────────────────────────────────────────────────
+
+function standalonestart() {
+    cd opensim/bin || exit 1
+    screen -fa -S opensim -d -U -m dotnet OpenSim.dll
+}
+
+function standalonestop() {
+    screen -S opensim -p 0 -X stuff "shutdown^M"
+}
+
+function standalonerestart() {
+    standalonestart
+    sleep 30
+    standalonestop
+}
 
 # OpenSim starten (robust → money → sim1 bis sim999)
 function opensimstart() {
@@ -247,6 +262,8 @@ function reboot() {
     
     # Stoppen des ganzen OpenSim Grids.
     opensimstop
+
+    sleep 30
 
     # Starte den Server neu.
     shutdown -r now
@@ -597,6 +614,63 @@ function sqlsetup() {
     echo -e "\033[0m"
 }
 
+setcrontab() {
+    # Strict Mode: Fehler sofort erkennen
+    set -euo pipefail
+
+    # Sicherheitsabfrage: Nur als root/sudo ausführen
+    if [ "$(id -u)" -ne 0 ]; then
+        echo >&2 "FEHLER: Dieses Skript benötigt root-Rechte! (sudo verwenden)"
+        return 1
+    fi
+
+    # Prüfen, ob SCRIPT_DIR gesetzt und gültig ist
+    if [ -z "${SCRIPT_DIR:-}" ]; then
+        echo >&2 "FEHLER: 'SCRIPT_DIR' muss gesetzt sein!"
+        return 1
+    fi
+
+    if [ ! -d "$SCRIPT_DIR" ]; then
+        echo >&2 "FEHLER: Verzeichnis '$SCRIPT_DIR' existiert nicht!"
+        return 1
+    fi
+
+    # Temporäre Datei für neue Cron-Jobs
+    local temp_cron
+    temp_cron=$(mktemp) || {
+        echo >&2 "FEHLER: Temp-Datei konnte nicht erstellt werden"
+        return 1
+    }
+
+    # Neue Cron-Jobs schreiben (ERSETZT alle alten)
+    cat << EOF > "$temp_cron"
+# === OpenSimGrid-Automatisierung ===
+# Minute Stunde Tag Monat Jahr Befehl
+
+# Server-Neustart am 1. jedes Monats
+40 4 1 * * bash '$SCRIPT_DIR/osmtool.sh' cacheclean
+45 4 1 * * bash '$SCRIPT_DIR/osmtool.sh' reboot
+
+# Taegliche Wartung
+55 4 * * * bash '$SCRIPT_DIR/osmtool.sh' logclean
+0 5 * * * bash '$SCRIPT_DIR/osmtool.sh' autorestart
+
+# Ueberwachung alle 30 Minuten
+*/30 * * * * bash '$SCRIPT_DIR/osmtool.sh' check_screens
+EOF
+
+    # Cron-Jobs installieren
+    if crontab "$temp_cron"; then
+        rm -f "$temp_cron"
+        echo "Cron-Jobs wurden ERFOLGREICH ersetzt:"
+        crontab -l | grep -v '^#' | sed '/^$/d'
+        return 0
+    else
+        echo >&2 "FEHLER: Installation fehlgeschlagen. Prüfe $temp_cron manuell."
+        return 1
+    fi
+}
+
 #──────────────────────────────────────────────────────────────────────────────────────────
 #* Upgrade des OpenSimulators Grids
 #──────────────────────────────────────────────────────────────────────────────────────────
@@ -864,8 +938,14 @@ function regionsconfig() {
     local port
     local region_name
     local region_uuid
-    #local maptile_uuid
     local config_file
+    declare -A used_locations  # Assoziatives Array für bereits verwendete Positionen
+
+    # Überprüfen, ob crudini installiert ist
+    if ! command -v crudini &> /dev/null; then
+        echo -e "\e[31mFehler: crudini ist nicht installiert. Bitte installieren Sie es zuerst.\e[0m" >&2
+        return 1
+    fi
 
     # Benutzereingabe
     echo "Wie viele Zufallsregionen sollen pro Simulator erstellt werden?"
@@ -873,13 +953,13 @@ function regionsconfig() {
 
     # Eingabeprüfung
     if ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
-        echo "Ungültige Eingabe: Bitte eine positive Zahl eingeben" >&2
+        echo -e "\e[31mUngültige Eingabe: Bitte eine positive Zahl eingeben\e[0m" >&2
         return 1
     fi
 
     system_ip=$(hostname -I | awk '{print $1}')
 
-    echo "Starte Regionserstellung..."
+    echo -e "\e[33mStarte Regionserstellung...\e[0m"
     echo "--------------------------"
 
     # Simulatoren durchlaufen
@@ -887,64 +967,73 @@ function regionsconfig() {
         sim_dir="sim${sim_num}/bin/Regions"
         
         if [[ -d "$sim_dir" ]]; then
-            #echo "Simulator $sim_num: Erstelle $regions_per_sim Region(en)"
             echo -e "\e[33mSimulator $sim_num: Erstelle $regions_per_sim Region(en)\e[0m" >&2
             
             # Regionen erstellen
             for ((region_num=1; region_num<=regions_per_sim; region_num++)); do
-                # Position berechnen
-                offset=$((region_num * 100))
-                [[ $((RANDOM % 2)) -eq 0 ]] && offset=$((offset * -1))
+                # Position berechnen und sicherstellen, dass sie eindeutig ist
+                local attempts=0
+                local max_attempts=100
                 
-                pos_x=$((center_x + offset))
-                pos_y=$((center_y + offset))
-                location="$pos_x,$pos_y"
+                while true; do
+                    # Position berechnen
+                    offset=$(( (RANDOM % 2000) - 1000 ))  # Zufälliger Offset zwischen -1000 und +1000
+                    pos_x=$((center_x + offset))
+                    
+                    offset=$(( (RANDOM % 2000) - 1000 ))  # Unabhängiger Offset für Y
+                    pos_y=$((center_y + offset))
+                    
+                    location="$pos_x,$pos_y"
+                    
+                    # Prüfen, ob die Position bereits verwendet wurde
+                    if [[ -z "${used_locations[$location]}" ]]; then
+                        used_locations[$location]=1
+                        break
+                    fi
+                    
+                    attempts=$((attempts + 1))
+                    if (( attempts >= max_attempts )); then
+                        echo -e "\e[31mFehler: Konnte nach $max_attempts Versuchen keine eindeutige Position finden\e[0m" >&2
+                        return 1
+                    fi
+                done
+                
                 port=$((base_port + sim_num * 100 + region_num))
                 
                 # Eindeutige Werte
                 region_name=$(generate_name)
                 region_uuid=$(generate_uuid)
-                #maptile_uuid=$(generate_uuid)
-                
-                # Config-Datei
                 config_file="${sim_dir}/${region_name}.ini"
                 
-                # Datei erstellen
-                if ! cat > "$config_file" <<EOF
-[${region_name}]
-RegionUUID = ${region_uuid}
-Location = ${location}
-SizeX = 256
-SizeY = 256
-SizeZ = 256
-InternalPort = ${port}
-ExternalHostName = ${system_ip}
-MaxPrims = 15000
-MaxAgents = 40
-MaptileStaticUUID = ${region_uuid}
-InternalAddress = 0.0.0.0
-AllowAlternatePorts = False
-NonPhysicalPrimMax = 512
-PhysicalPrimMax = 128
-;RegionType = Estate
-;MasterAvatarFirstName = System
-;MasterAvatarLastName = Admin
-;MasterAvatarSandboxPassword = $(openssl rand -base64 12)
-EOF
-                then
-                    #echo "Fehler beim Erstellen der Config für ${region_name}" >&2
-                    echo -e "\e[31mFehler beim Erstellen der Config für ${region_name}\e[0m" >&2
-                    continue
-                fi
+                # Config-Datei mit crudini erstellen
+                crudini --set "$config_file" "$region_name" "RegionUUID" "$region_uuid"
+                crudini --set "$config_file" "$region_name" "Location" "$location"
+                crudini --set "$config_file" "$region_name" "SizeX" "256"
+                crudini --set "$config_file" "$region_name" "SizeY" "256"
+                crudini --set "$config_file" "$region_name" "SizeZ" "256"
+                crudini --set "$config_file" "$region_name" "InternalPort" "$port"
+                crudini --set "$config_file" "$region_name" "ExternalHostName" "$system_ip"
+                crudini --set "$config_file" "$region_name" "MaxPrims" "15000"
+                crudini --set "$config_file" "$region_name" "MaxAgents" "40"
+                crudini --set "$config_file" "$region_name" "MaptileStaticUUID" "$region_uuid"
+                crudini --set "$config_file" "$region_name" "InternalAddress" "0.0.0.0"
+                crudini --set "$config_file" "$region_name" "AllowAlternatePorts" "False"
+                crudini --set "$config_file" "$region_name" "NonPhysicalPrimMax" "512"
+                crudini --set "$config_file" "$region_name" "PhysicalPrimMax" "128"
                 
-                #echo " - ${region_name} (${location}, Port ${port})"
+                # Optionale Parameter als Kommentare
+                crudini --set "$config_file" "$region_name" ";RegionType" "Estate"
+                crudini --set "$config_file" "$region_name" ";MasterAvatarFirstName" "System"
+                crudini --set "$config_file" "$region_name" ";MasterAvatarLastName" "Admin"
+                crudini --set "$config_file" "$region_name" ";MasterAvatarSandboxPassword" "$(openssl rand -base64 12)"
+                
                 echo -e "\e[36m ✓ ${region_name} (${location}, Port ${port})\e[0m" >&2
             done
         fi
     done
 
     echo "--------------------------"
-    echo "Regionserstellung abgeschlossen!"
+    echo -e "\e[32mRegionserstellung abgeschlossen!\e[0m"
     return 0
 }
 
@@ -981,273 +1070,371 @@ function regionsclean() {
 }
 
 #──────────────────────────────────────────────────────────────────────────────────────────
-#* Funktion zur Konfiguration von OpenSimulator
+#* Funktionen zur Konfiguration von OpenSimulator
 #──────────────────────────────────────────────────────────────────────────────────────────
 
-# #* NEUE FUNKTIONEN
-#────────────────────────────────────────────────────────────────────────────
-# Farben
-#────────────────────────────────────────────────────────────────────────────
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-LIGHT_BLUE='\033[1;34m'
-LIGHT_CYAN='\033[1;36m'
-RESET='\033[0m'
 
 #────────────────────────────────────────────────────────────────────────────
-# Hilfsfunktionen für INI-Dateien
+# Konfigurationsfunktionen für INI-Dateien mit crudini
 #────────────────────────────────────────────────────────────────────────────
 
-# shellcheck disable=SC2317
-function read_ini_value() {    
-    local file=$1
-    local section=$2
-    local key=$3
-    awk -F '=' -v section="$section" -v key="$key" '
-    $0 ~ "\\["section"\\]" { in_section=1; next }
-    $0 ~ "^\\[" && $0 !~ "\\["section"\\]" { in_section=0 }
-    in_section && $1 ~ key {
-        gsub(/^[ \t]+|[ \t]+$/, "", $2)
-        print $2
-        exit
-    }
-    ' "$file"
-}
+function renamefiles() {
+    timestamp=$(date +"%Y%m%d_%H%M%S")
 
-function write_ini_value() {
-    local file=$1
-    local section=$2
-    local key=$3
-    local value=$4
-
-    awk -v section="$section" -v key="$key" -v value="$value" '
-    BEGIN { OFS = "="; in_section=0 }
-    $0 ~ "\\["section"\\]" { print; in_section=1; next }
-    $0 ~ "^\\[" && $0 !~ "\\["section"\\]" { in_section=0 }
-    in_section && $1 == key {
-        print key, value
-        found=1
-        next
-    }
-    { print }
-    END {
-        if (!found) {
-            if (!in_section) print "["section"]"
-            print key "=" value
-        }
-    }
-    ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
-}
-
-# shellcheck disable=SC2317
-function ini_value_equals() {
-    local file=$1
-    local section=$2
-    local key=$3
-    local expected_value=$4
-    local actual_value
-    actual_value=$(read_ini_value "$file" "$section" "$key")
-    [[ "$actual_value" == "$expected_value" ]]
-}
-
-print_section() {
-    echo -e "\n${LIGHT_BLUE}>> $1${RESET}"
-}
-
-function prompt() {
-    echo -n -e "${CYAN}$1${RESET}"
-    read -r
-}
-
-#────────────────────────────────────────────────────────────────────────────
-# Konfigurationsfunktionen
-#────────────────────────────────────────────────────────────────────────────
-
-function configureopensim() {
-
-    prepare_config_files() {
-        local target_dir=$1
-        local timestamp
-        timestamp=$(date +"%Y%m%d_%H%M%S")
-
-        if [ ! -d "$target_dir" ]; then
-            echo -e "${RED}Fehler: Verzeichnis $target_dir nicht gefunden!${RESET}"
-            return 1
-        fi
-
-        print_section "Kopiere *.example Dateien in $target_dir"
-
-        find "$target_dir/bin/config-include" -type f -name "*.example" 2>/dev/null | while read -r example_file; do
-            local target_file="${example_file%.example}"
-            if [ -f "$target_file" ]; then
-                cp "$target_file" "${target_file}_${timestamp}.bak"
-                echo -e "${YELLOW}Gesichert: ${target_file}${RESET}"
-            fi
-            cp "$example_file" "$target_file"
-            echo -e "${GREEN}Aktualisiert: ${target_file}${RESET}"
-        done
-
-        find "$target_dir/bin" -maxdepth 1 -type f -name "*.example" | while read -r example_file; do
-            local target_file="${example_file%.example}"
-            if [ -f "$target_file" ]; then
-                cp "$target_file" "${target_file}_${timestamp}.bak"
-                echo -e "${YELLOW}Gesichert: ${target_file}${RESET}"
-            fi
-            cp "$example_file" "$target_file"
-            echo -e "${GREEN}Aktualisiert: ${target_file}${RESET}"
-        done
-
-        return 0
-    }
-
-    function configure_robust() {
-        local config_type=$1
-        local robust_ini="${SCRIPT_DIR}/robust/bin/Robust.ini"
-        local robust_hg_ini="${SCRIPT_DIR}/robust/bin/Robust.HG.ini"
-
-        print_section "Konfiguriere Robust"
-
-        cp "$robust_ini" "${robust_ini}.bak"
-        cp "$robust_hg_ini" "${robust_hg_ini}.bak"
-        echo -e "${YELLOW}Backups erstellt:${RESET}"
-        echo -e " - ${robust_ini}.bak"
-        echo -e " - ${robust_hg_ini}.bak"
-
-        if [[ "$config_type" == "Grid" ]]; then
-            write_ini_value "$robust_ini" "Const" "BaseHostname" "Netzwerkadresse"
-            echo -e "${GREEN}Robust.ini: BaseHostname auf \"Netzwerkadresse\" gesetzt${RESET}"
-        fi
-
-        if [[ "$config_type" == *"Hypergrid"* ]]; then
-            write_ini_value "$robust_hg_ini" "Const" "BaseHostname" "Externe IP"
-            echo -e "${GREEN}Robust.HG.ini: BaseHostname auf \"Externe IP\" gesetzt${RESET}"
-        fi
-
-        local db_password
-        #db_password=$(grep "robust" "${SCRIPT_DIR}/mariadb_passwords.txt" | cut -d'=' -f2)
-        db_password=$(grep "^robust DB Passwort:" "${SCRIPT_DIR}/mariadb_passwords.txt" | awk -F': ' '{print $2}')
-
-
-        if [ -n "$db_password" ]; then
-            write_ini_value "$robust_ini" "DatabaseService" "ConnectionString" \
-                "Data Source=localhost;Database=robust;User ID=opensim;Password=${db_password};Old Guids=true;SslMode=None;"
-            echo -e "${GREEN}Robust.ini: Datenbankverbindung aktualisiert${RESET}"
-        else
-            echo -e "${YELLOW}Warnung: Kein Datenbankpasswort für robust gefunden!${RESET}"
-        fi
-
-        echo -e "${GREEN}Konfiguration abgeschlossen.${RESET}"
-    }
-
-function configure_gridcommon() {
-    local config_type=$1
-    local target_dir=$2
-    local gridcommon_ini="${target_dir}/bin/config-include/GridCommon.ini"
-
-    print_section "Konfiguriere GridCommon.ini in $target_dir"
-
-    if [ ! -f "$gridcommon_ini" ]; then
-        echo -e "${YELLOW}Überspringe: GridCommon.ini nicht gefunden in $gridcommon_ini${RESET}"
-        return 0
+    if [ ! -d "$SCRIPT_DIR" ]; then
+        echo -e "${RED}Fehler: Verzeichnis $SCRIPT_DIR nicht gefunden!${RESET}"
+        return 1
     fi
 
-    cp "$gridcommon_ini" "${gridcommon_ini}.bak"
+    echo -e "${CYAN}Starte Umbenennung aller *.example Dateien in ${SCRIPT_DIR} und Unterverzeichnissen...${RESET}"
 
-    local db_password
-    #db_password=$(grep "opensim" "${SCRIPT_DIR}/mariadb_passwords.txt" | cut -d'=' -f2)
-    db_password=$(grep "^sim1 DB Passwort:" "${SCRIPT_DIR}/mariadb_passwords.txt" | awk -F': ' '{print $2}')
+    # Verarbeite robust/bin zuerst
+    find "$SCRIPT_DIR" -type f -name "*.example" 2>/dev/null | while read -r example_file; do
+        local target_file="${example_file%.example}"  # Entfernt .example
 
+        if [ -f "$target_file" ]; then
+            local backup_file="${target_file}_${timestamp}.bak"
+            mv "$target_file" "$backup_file"
+            echo -e "${YELLOW}Gesichert: ${target_file} → ${backup_file}${RESET}"
+        fi
 
-    if [ -n "$db_password" ]; then
-        write_ini_value "$gridcommon_ini" "DatabaseService" "StorageProvider" "OpenSim.Data.MySQL.dll"
-        write_ini_value "$gridcommon_ini" "DatabaseService" "ConnectionString" \
-            "Data Source=localhost;Database=opensim;User ID=opensim;Password=${db_password};Old Guids=true;SslMode=None;"
-        echo -e "${GREEN}GridCommon.ini erfolgreich konfiguriert für $target_dir${RESET}"
-    else
-        echo -e "${YELLOW}Warnung: Passwort für opensim-Datenbank nicht gefunden!${RESET}"
-    fi
+        mv "$example_file" "$target_file"
+        echo -e "${GREEN}Umbenannt: ${example_file} → ${target_file}${RESET}"
+    done
 
+    # Jetzt alle simX/bin Verzeichnisse durchlaufen
+    for ((i=999; i>=1; i--)); do
+        sim_dir="${SCRIPT_DIR}/sim$i/bin"
+        if [ -d "$sim_dir" ]; then
+            echo -e "${CYAN}Verarbeite: $sim_dir ${RESET}"
+            find "$sim_dir" -type f -name "*.example" 2>/dev/null | while read -r example_file; do
+                local target_file="${example_file%.example}"  
+
+                if [ -f "$target_file" ]; then
+                    local backup_file="${target_file}_${timestamp}.bak"
+                    mv "$target_file" "$backup_file"
+                    echo -e "${YELLOW}Gesichert: ${target_file} → ${backup_file}${RESET}"
+                fi
+
+                mv "$example_file" "$target_file"
+                echo -e "${GREEN}Umbenannt: ${example_file} → ${target_file}${RESET}"
+            done
+        fi
+    done
+
+    echo -e "${GREEN}Alle *.example Dateien wurden erfolgreich verarbeitet.${RESET}"
     return 0
 }
 
-function do_configuration() {
-    clear
-    echo -e "${LIGHT_BLUE}=== OpenSimulator Konfiguration ===${RESET}"
-    echo -e "${YELLOW}Warnung: Diese Aktion wird Konfigurationsdateien ändern!${RESET}"
-    echo
+# Standalone ist die erste Funktion, die funktioniert.
+function standalone() {
+    echo -e "\e[33m[Standalone] Setup wird durchgeführt...\e[0m"
 
-    echo -e "${LIGHT_CYAN}Verfügbare Modi:${RESET}"
-    echo -e "1) Standalone (localhost)"
-    echo -e "2) Standalone mit Hypergrid (externe IP)"
-    echo -e "3) Grid (Netzwerk)"
-    echo -e "4) Grid mit Hypergrid (externe IP)"
-    echo -e "0) Abbrechen"
-    echo
+    # Prüfen ob SCRIPT_DIR gesetzt ist
+    if [ -z "${SCRIPT_DIR}" ]; then
+        echo -e "\e[31mFehler: SCRIPT_DIR ist nicht gesetzt!\e[0m"
+        return 1
+    fi
 
-    prompt "Auswahl [1-4, 0 zum Abbrechen]: "
-    case $REPLY in
-        1) config_type="Standalone" ;;
-        2) config_type="StandaloneHypergrid" ;;
-        3) config_type="Grid" ;;
-        4) config_type="GridHypergrid" ;;
-        0) return ;;
-        *) echo -e "${RED}Ungültige Auswahl!${RESET}"; return 1 ;;
+    local opensim_bin="${SCRIPT_DIR}/opensim/bin"
+    local renamed=0
+    local skipped=0
+
+    # Sicherstellen, dass das Verzeichnis existiert
+    if [ ! -d "${opensim_bin}" ]; then
+        echo -e "\e[31mFehler: Verzeichnis ${opensim_bin} nicht gefunden!\e[0m"
+        return 1
+    fi
+
+    # Verarbeite alle .example Dateien
+    while IFS= read -r -d '' file; do
+        target="${file%.example}"
+        
+        if [ -e "${target}" ]; then
+            echo -e "\e[33mÜbersprungen: ${target} existiert bereits\e[0m"
+            ((skipped++))
+        else
+            if mv "${file}" "${target}"; then
+                echo -e "\e[32mUmbenannt: ${file} → ${target}\e[0m"
+                ((renamed++))
+            else
+                echo -e "\e[31mFehler beim Umbenennen von ${file}\e[0m"
+                ((skipped++))
+            fi
+        fi
+    done < <(find "${opensim_bin}" -type f -name "*.example" -print0)
+
+    echo -e "\n\e[36mZusammenfassung:\e[0m"
+    echo -e "\e[32mUmbenannte Dateien: ${renamed}\e[0m"
+    echo -e "\e[33mÜbersprungene Dateien: ${skipped}\e[0m"
+    echo -e "\e[32mStandalone-Konfiguration abgeschlossen!\e[0m"
+}
+
+# Wichtig sind die Const!
+
+# Grid
+# [Const]
+
+# HyperGrid
+# [Const]
+
+# OpenSim
+# [Const]
+
+# GridCommon.ini
+# [Const]
+
+# StandaloneCommon.ini
+# [Const]
+
+# shellcheck disable=SC2016
+function standalonehypergrid() {
+    echo -e "\e[33m[Standalone Hypergrid] Setup wird durchgeführt...\e[0m"
+    
+    local config_file="opensim/bin/OpenSim.ini"
+    system_ip=$(hostname -I | awk '{print $1}') # Bei StandaloneHypergrid ist das die Externe IP.
+        
+    # [Const] Section
+    crudini --set "$config_file" "Const" "BaseHostname" "$system_ip"    
+    crudini --set "$config_file" "Const" "BaseURL" 'http://${Const|BaseHostname}'
+    crudini --set "$config_file" "Const" "PublicPort" "9010"
+    crudini --set "$config_file" "Const" "PrivURL" '${Const|BaseURL}'
+    crudini --set "$config_file" "Const" "PrivatePort" "8003"
+    
+    # [DatabaseService] Section
+    crudini --set "$config_file" "DatabaseService" "Include-Storage" '"config-include/storage/SQLiteStandalone.ini"'
+    # Kommentare für MySQL als Beispiel
+    crudini --set "$config_file" "DatabaseService" ";StorageProvider" '"OpenSim.Data.MySQL.dll"'
+    crudini --set "$config_file" "DatabaseService" ";ConnectionString" '"Data Source=localhost;Database=opensim;User ID=opensim;Password=***;Old Guids=true;SslMode=None;"'
+    
+    # [Hypergrid] Section
+    crudini --set "$config_file" "Hypergrid" "GatekeeperURI" '${Const|BaseURL}:${Const|PublicPort}'
+    crudini --set "$config_file" "Hypergrid" "HomeURI" '${Const|BaseURL}:${Const|PublicPort}'
+    
+    # [Network] Section
+    crudini --set "$config_file" "Network" "http_listener_port" "9000"
+    
+    # [Architecture] Section
+    crudini --set "$config_file" "Architecture" "Include-Architecture" '"config-include/StandaloneHypergrid.ini"'
+    
+    echo -e "\e[32mHypergrid-Konfiguration abgeschlossen!\e[0m"
+}
+
+function grid() {
+    system_ip=$(hostname -I | awk '{print $1}') # Bei einem Offline Grid ist das die Netzwerkadresse.
+    echo -e "\e[33m[Grid] Setup wird durchgeführt...\e[0m"
+    
+    # Robust.ini Konfiguration für jedes Simulator-Verzeichnis
+    for ((i=999; i>=1; i--)); do
+        sim_dir="sim$i"
+        robust_ini="${sim_dir}/bin/Robust.ini"
+        
+        if [ -d "$sim_dir" ]; then
+            echo -e "\e[32m✓ ${sim_dir} gefunden - konfiguriere Robust.ini\e[0m"
+            
+            # Erstelle Robust.ini falls nicht vorhanden
+            [ -f "$robust_ini" ] || touch "$robust_ini"
+            
+            # Grid-spezifische Konfiguration
+            crudini --set "$robust_ini" "GridService" "GridNickName" "\"MyGrid\""
+            crudini --set "$robust_ini" "GridService" "GridURL" "\"http://${system_ip}:8002/\""
+            crudini --set "$robust_ini" "GridService" "SendUserURL" "true"
+            
+            # Datenbank-Konfiguration
+            crudini --set "$robust_ini" "DatabaseService" "Include-Storage" "\"config-include/storage/SQLiteStandalone.ini\""
+            
+            # Network-Konfiguration
+            crudini --set "$robust_ini" "Network" "http_listener_port" "8002"
+            
+            # Services aktivieren
+            crudini --set "$robust_ini" "Startup" "GridService" "\"OpenSim.Server.Handlers.dll:GridService\""
+            crudini --set "$robust_ini" "Startup" "UserService" "\"OpenSim.Server.Handlers.dll:UserService\""
+            crudini --set "$robust_ini" "Startup" "AssetService" "\"OpenSim.Server.Handlers.dll:AssetService\""
+            
+            # RegionServer-Verweis
+            crudini --set "$robust_ini" "RegionInfo" "RegionServerURI" "\"http://${system_ip}:8003/\""
+            
+            sleep 0.5
+        fi
+    done
+    
+    echo -e "\e[32mGrid-Konfiguration abgeschlossen!\e[0m"
+}
+
+function gridhypergrid() {
+    #todo: Das ist komplett falsch. Es gibt nur eine einzustellende Robust.HG.ini diese ist im Verzeichnis: "robust/bin/Robust.HG.ini" Die Konfigurationen die in allen Verzeichnissen geändert werden müssen sind: Die OpenSim ini ist im Verzeichnis: "${sim_dir}//bin/OpenSim.ini" und die "${sim_dir}//bin/config-include/GridCommon.ini"
+
+    system_ip=$(hostname -I | awk '{print $1}') # Bei einem Hypergrid ist das die Externe IP.
+    echo -e "\e[33m[Grid mit Hypergrid] Setup wird durchgeführt...\e[0m"
+    
+    # Robust.HG.ini Konfiguration für jedes Simulator-Verzeichnis
+    for ((i=999; i>=1; i--)); do
+        sim_dir="sim$i"
+        robust_ini="${sim_dir}/bin/Robust.HG.ini"
+        
+        if [ -d "$sim_dir" ]; then
+            echo -e "\e[32m✓ ${sim_dir} gefunden - konfiguriere Robust.HG.ini\e[0m"
+            
+            # Erstelle Robust.HG.ini falls nicht vorhanden
+            [ -f "$robust_ini" ] || touch "$robust_ini"
+            
+            # Basis Grid-Konfiguration
+            crudini --set "$robust_ini" "GridService" "GridNickName" "\"MyHypergrid\""
+            crudini --set "$robust_ini" "GridService" "GridURL" "\"http://${system_ip}:8002/\""
+            crudini --set "$robust_ini" "GridService" "SendUserURL" "true"
+            
+            # Hypergrid-spezifische Einstellungen
+            crudini --set "$robust_ini" "Hypergrid" "GatekeeperURI" "\"http://${system_ip}:8002/\""
+            crudini --set "$robust_ini" "Hypergrid" "HomeURI" "\"http://${system_ip}:8002/\""
+            crudini --set "$robust_ini" "Hypergrid" "AllowLogin" "true"
+            
+            # Erweiterte Services für Hypergrid
+            crudini --set "$robust_ini" "Startup" "GridService" "\"OpenSim.Server.Handlers.dll:GridService\""
+            crudini --set "$robust_ini" "Startup" "UserService" "\"OpenSim.Server.Handlers.dll:UserService\""
+            crudini --set "$robust_ini" "Startup" "AssetService" "\"OpenSim.Server.Handlers.dll:AssetService\""
+            crudini --set "$robust_ini" "Startup" "InventoryService" "\"OpenSim.Server.Handlers.dll:InventoryService\""
+            
+            # Netzwerk-Konfiguration
+            crudini --set "$robust_ini" "Network" "http_listener_port" "8002"
+            
+            # RegionServer-Verweis
+            crudini --set "$robust_ini" "RegionInfo" "RegionServerURI" "\"http://${system_ip}:8003/\""
+            
+            sleep 0.5
+        fi
+    done
+    
+    echo -e "\e[32mHypergrid-Konfiguration abgeschlossen!\e[0m"
+}
+
+
+function config_menu() {
+    echo "=== OpenSimulator Setup Auswahl ==="
+    echo "1) Standalone"
+    echo "2) Standalone Hypergrid"
+    echo "3) Grid"
+    echo "4) Grid mit Hypergrid"
+    echo "q) Beenden"
+    echo -n "Bitte wählen: "
+    read -r choice
+    case "$choice" in
+        1) standalone ;;
+        2) standalonehypergrid ;;
+        3) grid ;;
+        4) gridhypergrid ;;
+        q|Q) echo "Auf Wiedersehen!"; exit ;;
+        *) echo "Ungültige Auswahl."; show_menu ;;
     esac
+}
 
-    case $config_type in
-        "Standalone"|"StandaloneHypergrid")
-            prepare_config_files "${SCRIPT_DIR}/opensim"
-            ;;
-        "Grid"|"GridHypergrid")
-            prepare_config_files "${SCRIPT_DIR}/robust"
-            configure_robust "$config_type"
-            for ((i=1; i<=999; i++)); do
-                sim_dir="${SCRIPT_DIR}/sim$i"
-                config_file="${sim_dir}/bin/config-include/GridCommon.ini"
-                
+function clean_comments_and_empty_lines() {
+    echo -e "\e[33mBereinige Kommentare und Leerzeilen in allen Konfigurationsdateien...\e[0m"
+    
+    # Durch alle simX-Verzeichnisse iterieren
+    for ((i=999; i>=1; i--)); do
+        sim_dir="sim$i"
+        
+        if [ -d "$sim_dir" ]; then
+            echo -e "\e[36mVerarbeite $sim_dir...\e[0m"
+            
+            # Liste aller relevanten Konfigurationsdateien
+            config_files=(
+                "${sim_dir}/bin/Robust.ini"
+                "${sim_dir}/bin/Robust.HG.ini"
+                "${sim_dir}/bin/OpenSim.ini"
+            )
+            
+            # Jede Konfigurationsdatei bearbeiten
+            for config_file in "${config_files[@]}"; do
                 if [[ -f "$config_file" ]]; then
-                    prepare_config_files "$sim_dir"
-                    configure_gridcommon "$config_type" "$sim_dir"
+                    echo -e "\e[34mBearbeite $config_file\e[0m"
+                    
+                    # Vorher-Nachher-Vergleich
+                    original_lines=$(wc -l < "$config_file")
+                    
+                    # 1. Behalte nur Zeilen mit = oder gültigen Sektionen
+                    # 2. Entferne führende/trailing Whitespace
+                    # 3. Lösche leere Zeilen
+                    perl -i.bak -ne '
+                        if (/^\s*\[.+\]\s*$/ || /=/) {
+                            s/^\s+//;   # Entferne führende Leerzeichen/Tabs
+                            s/\s+$//;   # Entferne trailing Leerzeichen
+                            print "$_\n";
+                        }
+                    ' "$config_file"
+                    
+                    # Nachher-Zeilenanzahl
+                    cleaned_lines=$(wc -l < "$config_file")
+                    
+                    # Veränderungen anzeigen
+                    removed=$((original_lines - cleaned_lines))
+                    
+                    if [[ $removed -gt 0 ]]; then
+                        echo -e "\e[32m✓ Entfernt $removed Zeilen aus $config_file\e[0m"
+                        echo -e "\e[37mVorher/Nachher Beispiel:\e[0m"
+                        diff --unchanged-line-format= --old-line-format='- %L' --new-line-format='+ %L' \
+                            "${config_file}.bak" "$config_file" | head -5
+                    else
+                        echo -e "\e[35mℹ Keine Änderungen in $config_file\e[0m"
+                    fi
                 fi
             done
-
-            ;;
-    esac
-
-    echo -e "${GREEN}Konfiguration abgeschlossen für ${config_type}-Modus${RESET}"
+        fi
+    done
+    
+    echo -e "\e[32mBereinigung abgeschlossen!\e[0m"
 }
 
-do_configuration
-}
-
-#──────────────────────────────────────────────────────────────────────────────────────────
-#* Automatischer Test
-#──────────────────────────────────────────────────────────────────────────────────────────
-
-function automatic () {
-    servercheck # Zuerst nachsehen ob der Server bereit für OpenSim ist.
-    createdirectory # Verzeichnisse erstellen.
-    opensimgitcopy # OpenSim aus dem Git herunterladen.
-
-    # Money und andere bestandteile herunterladen und in das opensim Verzeichnis kopieren.
-    moneygitcopy
-
-    opensimbuild # OpenSim kompilieren.
-    opensimcopy # OpenSim kopieren in alle Verzeichnisse also robust und sim1 bis sim999 halt soviele wie vorhanden.
-    # OpenSim konfigurieren.
-    # opensimstart # OpenSim starten.
-    # opensimstop # OpenSim stoppen.
-    # opensimrestart # OpenSim neu starten.
-    # check_screens # Laufende OpenSim Prozesse prüfen.
-
-    # dataclean # RobustServer und simX-Server von alten Dateien befreien (Neuinstallation erforderlich).
-    # pathclean # RobustServer und simX-Server von alten Verzeichnissen befreien (Neuinstallation erforderlich).
-    # cacheclean # RobustServer und simX-Server Cache bereinigen.
-    # logclean # RobustServer und simX-Server von alten Log´s befreien.
-    # mapclean # RobustServer und simX-Server von alten Maptile befreien.
-    # autoallclean # RobustServer und simX-Server von alten Dateien und Verzeichnissen befreien (Neuinstallation erforderlich).
+function cleandoublecomments() {
+    echo -e "\e[33mBereinige doppelt kommentierte Zeilen in allen Konfigurationsdateien...\e[0m"
+    
+    # Durch alle simX-Verzeichnisse iterieren
+    for ((i=999; i>=1; i--)); do
+        sim_dir="sim$i"
+        
+        if [ -d "$sim_dir" ]; then
+            echo -e "\e[36mVerarbeite $sim_dir...\e[0m"
+            
+            # Liste aller relevanten Konfigurationsdateien
+            config_files=(
+                "${sim_dir}/bin/Robust.ini"
+                "${sim_dir}/bin/Robust.HG.ini"
+                "${sim_dir}/bin/OpenSim.ini"
+            )
+            
+            # Jede Konfigurationsdatei bearbeiten
+            for config_file in "${config_files[@]}"; do
+                if [[ -f "$config_file" ]]; then
+                    echo -e "\e[34mBearbeite $config_file\e[0m"
+                    
+                    # Vorher-Nachher-Vergleich
+                    original_lines=$(wc -l < "$config_file")
+                    
+                    # Doppelt kommentierte Zeilen mit führenden Leerzeichen/Tabs entfernen
+                    perl -i.bak -ne 'print unless /^\s*;;|^\s*;#/' "$config_file"
+                    
+                    # Nachher-Zeilenanzahl
+                    cleaned_lines=$(wc -l < "$config_file")
+                    
+                    # Veränderungen anzeigen
+                    removed=$((original_lines - cleaned_lines))
+                    
+                    if [[ $removed -gt 0 ]]; then
+                        echo -e "\e[32m✓ Entfernt $removed Zeilen aus $config_file\e[0m"
+                        echo -e "\e[37mErste entfernte Zeile:\e[0m"
+                        diff "${config_file}.bak" "$config_file" | grep '^<' | head -1
+                    else
+                        echo -e "\e[35mℹ Keine doppelt kommentierten Zeilen in $config_file gefunden\e[0m"
+                        # Debug-Ausgabe
+                        echo -e "\e[37mBeispielzeilen:\e[0m"
+                        grep -m 2 '^\s*[;#]' "$config_file" || echo "Keine kommentierten Zeilen gefunden"
+                    fi
+                fi
+            done
+        fi
+    done
+    
+    echo -e "\e[32mBereinigung abgeschlossen!\e[0m"
 }
 
 #──────────────────────────────────────────────────────────────────────────────────────────
@@ -1258,15 +1445,24 @@ function help () {
     echo -e "\e[36mOpenSim Grid Starten Stoppen und Restarten:\e[0m"
     echo -e "\e[32mopensimstart\e[0m # OpenSim starten.\e[0m"
     echo -e "\e[32mopensimstop\e[0m # OpenSim stoppen.\e[0m"
-    echo -e "\e[32mopensimrestart\e[0m # OpenSim neu starten.\e[0m"
+    echo -e "\e[32mopensimrestart\e[0m # OpenSim neu starten.\e[0m"    
     echo -e "\e[32mcheck_screens\e[0m # Laufende OpenSim Prozesse prüfen und restarten.\e[0m"
     echo " "
+
+    # Das folgende ist implementiert aber ich bin am überlegen ob es wirklich gebraucht wird?
+    # echo -e "\e[36mOpenSim Standalone Starten Stoppen und Restarten:\e[0m"
+    # echo -e "\e[32mstandalonestart\e[0m # OpenSim starten.\e[0m"
+    # echo -e "\e[32mstandalonestop\e[0m # OpenSim stoppen.\e[0m"
+    # echo -e "\e[32mstandalonerestart\e[0m # OpenSim neu starten.\e[0m"
+    # echo " "
 
     echo -e "\e[36mEin OpenSim Grid erstellen oder aktualisieren:\e[0m"
     echo -e "\e[32mservercheck\e[0m # Zuerst nachsehen ob der Server bereit für OpenSim ist."
     echo -e "\e[32mcreatedirectory\e[0m # Verzeichnisse erstellen."
     echo -e "\e[32mmariasetup\e[0m # MariaDB Datenbanken erstellen."
     echo -e "\e[32msqlsetup\e[0m # SQL Datenbanken erstellen."
+    echo -e "\e[32msetcrontab\e[0m # set crontab automatisierungen."
+
     echo -e "\e[32mopensimgitcopy\e[0m # OpenSim aus dem Git herunterladen."
     echo -e "\e[32mmoneygitcopy\e[0m # MoneyServer aus dem Git herunterladen."
     echo -e "\e[32mopensimbuild\e[0m # OpenSim kompilieren."
@@ -1295,16 +1491,25 @@ case $KOMMANDO in
 	createdirectory) createdirectory ;;
     mariasetup) mariasetup ;;
     sqlsetup) sqlsetup ;;
+    setcrontab) setcrontab ;;
     opensimgitcopy) opensimgitcopy ;;
     moneygitcopy) moneygitcopy ;;
     opensimbuild) opensimbuild ;;
     opensimcopy) opensimcopy ;;
-    configure|configureopensim) configureopensim ;; # Die automatische konfiguration zu testzwecken.
+    config_menu|configure|configureopensim) config_menu ;; # Die automatische konfiguration zu testzwecken.
+    cleandoublecomments) cleandoublecomments ;;
+    configclean|clean_comments_and_empty_lines) clean_comments_and_empty_lines ;;
     regionsconfig) regionsconfig ;;
     generatename|generate_name) generate_name ;;
+
     start|opensimstart) opensimstart ;;
     stop|opensimstop) opensimstop ;;
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
+
+    standalonestart) standalonestart ;;
+    standalonestop) standalonestop ;;
+    standalonerestart) standalonerestart ;;
+
     reboot) reboot ;;
     check_screens) check_screens ;;
     dataclean) dataclean ;;
@@ -1315,6 +1520,7 @@ case $KOMMANDO in
     autoallclean) autoallclean ;;
     regionsclean) regionsclean ;;
     automatic) automatic ;; # Die automatische Installation zu testzwecken.
+    renamefiles) renamefiles ;; # Die automatische Installation zu testzwecken.
 	h|help|hilfe|*) help ;;
 esac
 
