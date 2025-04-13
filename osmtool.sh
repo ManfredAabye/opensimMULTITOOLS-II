@@ -5,7 +5,7 @@
 #──────────────────────────────────────────────────────────────────────────────────────────
 
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.37.69"
+VERSION="V25.4.38.75"
 echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 
@@ -1170,162 +1170,227 @@ function standalone() {
     echo -e "\e[32mStandalone-Konfiguration abgeschlossen!\e[0m"
 }
 
-# Wichtig sind die Const!
 
-# Grid
-# [Const]
 
-# HyperGrid
-# [Const]
+##### Neue konfiguration Anfang #####
 
-# OpenSim
-# [Const]
 
-# GridCommon.ini
-# [Const]
+# setrobusthg(){ echo "noch leer"; }
+# setopensim(){ echo "noch leer"; }
+# setgridcommon(){ echo "noch leer"; }
+# setflotsamcache(){ echo "noch leer"; }
+# setwelcome(){ echo "noch leer"; }
 
-# StandaloneCommon.ini
-# [Const]
 
-# shellcheck disable=SC2016
-function standalonehypergrid() {
-    echo -e "\e[33m[Standalone Hypergrid] Setup wird durchgeführt...\e[0m"
-    
-    local config_file="opensim/bin/OpenSim.ini"
-    system_ip=$(hostname -I | awk '{print $1}') # Bei StandaloneHypergrid ist das die Externe IP.
-        
-    # [Const] Section
-    crudini --set "$config_file" "Const" "BaseHostname" "$system_ip"    
-    crudini --set "$config_file" "Const" "BaseURL" 'http://${Const|BaseHostname}'
-    crudini --set "$config_file" "Const" "PublicPort" "9010"
-    crudini --set "$config_file" "Const" "PrivURL" '${Const|BaseURL}'
-    crudini --set "$config_file" "Const" "PrivatePort" "8003"
-    
-    # [DatabaseService] Section
-    crudini --set "$config_file" "DatabaseService" "Include-Storage" '"config-include/storage/SQLiteStandalone.ini"'
-    # Kommentare für MySQL als Beispiel
-    crudini --set "$config_file" "DatabaseService" ";StorageProvider" '"OpenSim.Data.MySQL.dll"'
-    crudini --set "$config_file" "DatabaseService" ";ConnectionString" '"Data Source=localhost;Database=opensim;User ID=opensim;Password=***;Old Guids=true;SslMode=None;"'
-    
-    # [Hypergrid] Section
-    crudini --set "$config_file" "Hypergrid" "GatekeeperURI" '${Const|BaseURL}:${Const|PublicPort}'
-    crudini --set "$config_file" "Hypergrid" "HomeURI" '${Const|BaseURL}:${Const|PublicPort}'
-    
-    # [Network] Section
-    crudini --set "$config_file" "Network" "http_listener_port" "9000"
-    
-    # [Architecture] Section
-    crudini --set "$config_file" "Architecture" "Include-Architecture" '"config-include/StandaloneHypergrid.ini"'
-    
-    echo -e "\e[32mHypergrid-Konfiguration abgeschlossen!\e[0m"
+# Helper to clean config files (remove leading spaces/tabs)
+clean_config() {
+    local file=$1
+    sed -i 's/^[ \t]*//' "$file"
 }
 
-function grid() {
-    system_ip=$(hostname -I | awk '{print $1}') # Bei einem Offline Grid ist das die Netzwerkadresse.
-    echo -e "\e[33m[Grid] Setup wird durchgeführt...\e[0m"
+# setrobusthg - Sets the Robust.HG.ini
+function setrobusthg() {
+    local robust_ini="${SCRIPT_DIR}/robust/bin/Robust.HG.ini"
+    local target_ini="${SCRIPT_DIR}/robust/bin/Robust.ini"
     
-    # Robust.ini Konfiguration für jedes Simulator-Verzeichnis
-    for ((i=999; i>=1; i--)); do
-        sim_dir="sim$i"
-        robust_ini="${sim_dir}/bin/Robust.ini"
-        
-        if [ -d "$sim_dir" ]; then
-            echo -e "\e[32m✓ ${sim_dir} gefunden - konfiguriere Robust.ini\e[0m"
-            
-            # Erstelle Robust.ini falls nicht vorhanden
-            [ -f "$robust_ini" ] || touch "$robust_ini"
-            
-            # Grid-spezifische Konfiguration
-            crudini --set "$robust_ini" "GridService" "GridNickName" "\"MyGrid\""
-            crudini --set "$robust_ini" "GridService" "GridURL" "\"http://${system_ip}:8002/\""
-            crudini --set "$robust_ini" "GridService" "SendUserURL" "true"
-            
-            # Datenbank-Konfiguration
-            crudini --set "$robust_ini" "DatabaseService" "Include-Storage" "\"config-include/storage/SQLiteStandalone.ini\""
-            
-            # Network-Konfiguration
-            crudini --set "$robust_ini" "Network" "http_listener_port" "8002"
-            
-            # Services aktivieren
-            crudini --set "$robust_ini" "Startup" "GridService" "\"OpenSim.Server.Handlers.dll:GridService\""
-            crudini --set "$robust_ini" "Startup" "UserService" "\"OpenSim.Server.Handlers.dll:UserService\""
-            crudini --set "$robust_ini" "Startup" "AssetService" "\"OpenSim.Server.Handlers.dll:AssetService\""
-            
-            # RegionServer-Verweis
-            crudini --set "$robust_ini" "RegionInfo" "RegionServerURI" "\"http://${system_ip}:8003/\""
-            
-            sleep 0.5
-        fi
+    # Rename file if needed
+    [ -f "$robust_ini" ] && mv "$robust_ini" "$target_ini"
+    
+    # Base configuration
+    crudini --set "$target_ini" Const BaseHostname "\"$system_ip\""
+    crudini --set "$target_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
+    crudini --set "$target_ini" Const PublicPort "\"8002\""
+    crudini --set "$target_ini" Const PrivatePort "\"8003\""
+
+    # ServiceList uncommenting
+    services=(
+        "OfflineIMServiceConnector"
+        "GroupsServiceConnector"
+        "BakedTextureService"
+        "UserProfilesServiceConnector"
+        "HGGroupsServiceConnector"
+    )
+    for service in "${services[@]}"; do
+        sed -i "/^; *$service/s/^;//" "$target_ini"
     done
-    
-    echo -e "\e[32mGrid-Konfiguration abgeschlossen!\e[0m"
+
+    # Hypergrid config
+    crudini --set "$target_ini" Hypergrid HomeURI "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+    crudini --set "$target_ini" Hypergrid GatekeeperURI "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+
+    # Access control
+    crudini --set "$target_ini" AccessControl DeniedClients "\"Imprudence|CopyBot|Twisted|Crawler|Cryolife|darkstorm|DarkStorm|Darkstorm|hydrastorm viewer|kinggoon copybot|goon squad copybot|copybot pro|darkstorm viewer|copybot club|darkstorm second life|copybot download|HydraStorm Copybot Viewer|Copybot|Firestorm Pro|DarkStorm v3|DarkStorm v2|ShoopedStorm|HydraStorm|hydrastorm|kinggoon|goon squad|goon|copybot|Shooped|ShoopedStorm|Triforce|Triforce Viewer|Firestorm Professional|ShoopedLife|Sombrero|Sombrero Firestorm|GoonSquad|Solar|SolarStorm\""
+
+    # Database configuration
+    crudini --set "$target_ini" DatabaseService ConnectionString "\"Data Source=localhost;Database=opensim;User ID=opensim;Password=$DB_PASSWORD;Old Guids=true;SslMode=None;\""
+
+    # Grid service
+    crudini --set "$target_ini" GridService MapTileDirectory "\"./maptiles\""
+    crudini --set "$target_ini" GridService Region_Welcome_Area "\"DefaultRegion, DefaultHGRegion\""
+
+    # Login service
+    crudini --set "$target_ini" LoginService DestinationGuide "\"\${Const|BaseURL}/guide.php\""
+    crudini --set "$target_ini" LoginService GridSearch "\"\${Const|BaseURL}/searchservice.php\""
+
+    # Map image service
+    crudini --set "$target_ini" MapImageService TilesStoragePath "\"maptiles\""
+    crudini --set "$target_ini" MapImageService GridService "\"OpenSim.Services.GridService.dll:GridService\""
+
+    # Grid info service
+    crudini --set "$target_ini" GridInfoService welcome "\${Const|BaseURL}/welcomesplashpage.php"
+    crudini --set "$target_ini" GridInfoService economy "\${Const|BaseURL}:8008/"
+    crudini --set "$target_ini" GridInfoService about "\${Const|BaseURL}/aboutinformation.php"
+    crudini --set "$target_ini" GridInfoService register "\${Const|BaseURL}/createavatar.php"
+    crudini --set "$target_ini" GridInfoService help "\${Const|BaseURL}/help.php"
+    crudini --set "$target_ini" GridInfoService password "\${Const|BaseURL}/passwordreset.php"
+    crudini --set "$target_ini" GridInfoService partner "\${Const|BaseURL}/partner.php"
+    crudini --set "$target_ini" GridInfoService GridStatus "\${Const|BaseURL}:\${Const|PublicPort}/gridstatus.php"
+    crudini --set "$target_ini" GridInfoService GridStatusRSS "\${Const|BaseURL}:\${Const|PublicPort}/gridstatusrss.php"
+
+    # User agent service
+    crudini --set "$target_ini" UserAgentService LevelOutsideContacts "0"
+    crudini --set "$target_ini" UserAgentService ShowUserDetailsInHGProfile "True"
+
+    clean_config "$target_ini"
+    echo "Robust.HG.ini configuration completed"
 }
 
-function gridhypergrid() {
-    #todo: Das ist komplett falsch. Es gibt nur eine einzustellende Robust.HG.ini diese ist im Verzeichnis: "robust/bin/Robust.HG.ini" Die Konfigurationen die in allen Verzeichnissen geändert werden müssen sind: Die OpenSim ini ist im Verzeichnis: "${sim_dir}//bin/OpenSim.ini" und die "${sim_dir}//bin/config-include/GridCommon.ini"
+# setopensim - Sets the OpenSim.ini file
+function setopensim() {
+    local opensim_ini="${SCRIPT_DIR}/simX/bin/OpenSim.ini"
+    
+    # Base configuration
+    crudini --set "$opensim_ini" Const BaseHostname "\"$system_ip\""
+    crudini --set "$opensim_ini" Const BaseURL "http://\${Const|BaseHostname}"
+    crudini --set "$opensim_ini" Const PublicPort "\"9000\""
+    crudini --set "$opensim_ini" Const PrivURL "\${Const|BaseURL}"
+    crudini --set "$opensim_ini" Const PrivatePort "\"8003\""
 
-    system_ip=$(hostname -I | awk '{print $1}') # Bei einem Hypergrid ist das die Externe IP.
-    echo -e "\e[33m[Grid mit Hypergrid] Setup wird durchgeführt...\e[0m"
+    # Startup config
+    crudini --set "$opensim_ini" Startup async_call_method "SmartThreadPool"
+    crudini --set "$opensim_ini" Startup MaxPoolThreads "300"
+    crudini --set "$opensim_ini" Startup MinPoolThreads "32"
+    crudini --set "$opensim_ini" Startup CacheSculptMaps "false"
+    crudini --set "$opensim_ini" Startup DefaultScriptEngine "\"YEngine\""
+
+    # Map config
+    crudini --set "$opensim_ini" Map MaptileStaticUUID "\"00000000-0000-0000-0000-000000000000\""
+
+    # Permissions
+    crudini --set "$opensim_ini" Permissions automatic_gods "false"
+    crudini --set "$opensim_ini" Permissions implicit_gods "false"
+    crudini --set "$opensim_ini" Permissions allow_grid_gods "true"
+
+    # Network
+    crudini --set "$opensim_ini" Network http_listener_port "9010"
+    crudini --set "$opensim_ini" Network shard "\"OpenSim\""
+    crudini --set "$opensim_ini" Network user_agent "\"OpenSim LSL (Mozilla Compatible)\""
+
+    # BulletSim
+    crudini --set "$opensim_ini" BulletSim AvatarToAvatarCollisionsByDefault "true"
+    crudini --set "$opensim_ini" BulletSim UseSeparatePhysicsThread "true"
+    crudini --set "$opensim_ini" BulletSim TerrainImplementation "0"
+
+    # Materials
+    crudini --set "$opensim_ini" Materials MaxMaterialsPerTransaction "250"
+
+    # User profiles
+    crudini --set "$opensim_ini" UserProfiles ProfileServiceURL "http://services.osgrid.org"
+
+    # Script engines
+    crudini --set "$opensim_ini" YEngine Enabled "true"
+    crudini --set "$opensim_ini" XEngine Enabled "false"
+
+    # OSSL
+    crudini --set "$opensim_ini" OSSL Include-osslDefaultEnable "\"config-include/osslDefaultEnable.ini\""
+
+    # NPC
+    crudini --set "$opensim_ini" NPC Enabled "true"
+
+    # Terrain
+    crudini --set "$opensim_ini" Terrain InitialTerrain "\"flat\""
+
+    # XBakes
+    crudini --set "$opensim_ini" XBakes URL "\${Const|PrivURL}:\${Const|PrivatePort}"
+
+    # Architecture
+    crudini --set "$opensim_ini" Architecture Include-Architecture "\"config-include/GridHypergrid.ini\""
+
+    clean_config "$opensim_ini"
+    echo "OpenSim.ini configuration completed"
+}
+
+# setgridcommon - Sets the GridCommon.ini
+function setgridcommon() {
+    local gridcommon_ini="${SCRIPT_DIR}/simX/bin/config-include/GridCommon.ini"
     
-    # Robust.HG.ini Konfiguration für jedes Simulator-Verzeichnis
-    for ((i=999; i>=1; i--)); do
-        sim_dir="sim$i"
-        robust_ini="${sim_dir}/bin/Robust.HG.ini"
-        
-        if [ -d "$sim_dir" ]; then
-            echo -e "\e[32m✓ ${sim_dir} gefunden - konfiguriere Robust.HG.ini\e[0m"
-            
-            # Erstelle Robust.HG.ini falls nicht vorhanden
-            [ -f "$robust_ini" ] || touch "$robust_ini"
-            
-            # Basis Grid-Konfiguration
-            crudini --set "$robust_ini" "GridService" "GridNickName" "\"MyHypergrid\""
-            crudini --set "$robust_ini" "GridService" "GridURL" "\"http://${system_ip}:8002/\""
-            crudini --set "$robust_ini" "GridService" "SendUserURL" "true"
-            
-            # Hypergrid-spezifische Einstellungen
-            crudini --set "$robust_ini" "Hypergrid" "GatekeeperURI" "\"http://${system_ip}:8002/\""
-            crudini --set "$robust_ini" "Hypergrid" "HomeURI" "\"http://${system_ip}:8002/\""
-            crudini --set "$robust_ini" "Hypergrid" "AllowLogin" "true"
-            
-            # Erweiterte Services für Hypergrid
-            crudini --set "$robust_ini" "Startup" "GridService" "\"OpenSim.Server.Handlers.dll:GridService\""
-            crudini --set "$robust_ini" "Startup" "UserService" "\"OpenSim.Server.Handlers.dll:UserService\""
-            crudini --set "$robust_ini" "Startup" "AssetService" "\"OpenSim.Server.Handlers.dll:AssetService\""
-            crudini --set "$robust_ini" "Startup" "InventoryService" "\"OpenSim.Server.Handlers.dll:InventoryService\""
-            
-            # Netzwerk-Konfiguration
-            crudini --set "$robust_ini" "Network" "http_listener_port" "8002"
-            
-            # RegionServer-Verweis
-            crudini --set "$robust_ini" "RegionInfo" "RegionServerURI" "\"http://${system_ip}:8003/\""
-            
-            sleep 0.5
-        fi
-    done
+    crudini --set "$gridcommon_ini" Const BaseHostname "\"$system_ip\""
+    crudini --set "$gridcommon_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
+    crudini --set "$gridcommon_ini" Const PublicPort "\"8002\""
+    crudini --set "$gridcommon_ini" Const PrivatePort "\"8003\""
+
+    clean_config "$gridcommon_ini"
+    echo "GridCommon.ini configuration completed"
+}
+
+# setflotsamcache - Sets the FlotsamCache.ini
+function setflotsamcache() {
+    local flotsam_ini="${SCRIPT_DIR}/simX/bin/FlotsamCache.ini"
     
-    echo -e "\e[32mHypergrid-Konfiguration abgeschlossen!\e[0m"
+    cat > "$flotsam_ini" << EOF
+[AssetCache]
+CacheDirectory = ./assetcache
+LogLevel = 0
+HitRateDisplay = 100
+MemoryCacheEnabled = false
+UpdateFileTimeOnCacheHit = false
+NegativeCacheEnabled = true
+NegativeCacheTimeout = 120
+NegativeCacheSliding = false
+FileCacheEnabled = true
+MemoryCacheTimeout = .016
+FileCacheTimeout = 48
+FileCleanupTimer = 1.0
+EOF
+
+    clean_config "$flotsam_ini"
+    echo "FlotsamCache.ini configuration completed"
+}
+
+# setwelcome - Sets the Welcome_Area.ini
+function setwelcome() {
+    local welcome_ini="${SCRIPT_DIR}/sim1/bin/Regions/Welcome_Area.ini"
+    region_uuid=$(uuidgen)
+    
+    cat > "$welcome_ini" << EOF
+[Welcome Area]
+RegionUUID = $region_uuid
+Location = 1000,1000
+SizeX = 256
+SizeY = 256
+SizeZ = 256
+InternalPort = 9010
+ExternalHostName = "$system_ip"
+MaxPrims = 15000
+MaxAgents = 40
+MaptileStaticUUID = $region_uuid
+InternalAddress = 0.0.0.0
+AllowAlternatePorts = False
+;NonPhysicalPrimMax = 512
+;PhysicalPrimMax = 128
+;MasterAvatarSandboxPassword = "$(openssl rand -base64 12)"
+;MasterAvatarLastName = Admin
+;MasterAvatarFirstName = System
+;RegionType = Estate
+EOF
+
+    clean_config "$welcome_ini"
+    echo "Welcome_Area.ini configuration completed"
 }
 
 
-function config_menu() {
-    echo "=== OpenSimulator Setup Auswahl ==="
-    echo "1) Standalone"
-    echo "2) Standalone Hypergrid"
-    echo "3) Grid"
-    echo "4) Grid mit Hypergrid"
-    echo "q) Beenden"
-    echo -n "Bitte wählen: "
-    read -r choice
-    case "$choice" in
-        1) standalone ;;
-        2) standalonehypergrid ;;
-        3) grid ;;
-        4) gridhypergrid ;;
-        q|Q) echo "Auf Wiedersehen!"; exit ;;
-        *) echo "Ungültige Auswahl."; show_menu ;;
-    esac
-}
+
+##### Neue konfiguration Ende #####
 
 function clean_comments_and_empty_lines() {
     echo -e "\e[33mBereinige Kommentare und Leerzeilen in allen Konfigurationsdateien...\e[0m"
@@ -1466,7 +1531,7 @@ function help () {
     echo -e "\e[32mopensimgitcopy\e[0m # OpenSim aus dem Git herunterladen."
     echo -e "\e[32mmoneygitcopy\e[0m # MoneyServer aus dem Git herunterladen."
     echo -e "\e[32mopensimbuild\e[0m # OpenSim kompilieren."
-    echo -e "\e[32mconfigureopensim\e[0m # Vorkonfigurieren des OpenSimulators.\e[0m"
+    #echo -e "\e[32mconfigureopensim\e[0m # Vorkonfigurieren des OpenSimulators.\e[0m"
     echo -e "\e[32mopensimcopy\e[0m # OpenSim kopieren (in alle Verzeichnisse)."
     echo -e "\e[35mopensimconfig # Eine funktionsfähige konfiguration fehlt noch.\e[0m"
     echo -e "\e[32mregionsconfig\e[0m # OpenSim Regionen konfigurieren."
@@ -1502,10 +1567,17 @@ case $KOMMANDO in
     regionsconfig) regionsconfig ;;
     generatename|generate_name) generate_name ;;
 
+    setrobusthg) setrobusthg ;; # Die automatische konfiguration zu testzwecken.
+    setopensim) setopensim ;; # Die automatische konfiguration zu testzwecken.
+    setgridcommon) setgridcommon ;; # Die automatische konfiguration zu testzwecken.
+    setflotsamcache) setflotsamcache ;; # Die automatische konfiguration zu testzwecken.
+    setwelcome) setwelcome ;; # Die automatische konfiguration zu testzwecken.
+
     start|opensimstart) opensimstart ;;
     stop|opensimstop) opensimstop ;;
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
-
+    
+    standalone) standalone ;;
     standalonestart) standalonestart ;;
     standalonestop) standalonestop ;;
     standalonerestart) standalonerestart ;;
@@ -1519,8 +1591,7 @@ case $KOMMANDO in
     mapclean) mapclean ;;
     autoallclean) autoallclean ;;
     regionsclean) regionsclean ;;
-    automatic) automatic ;; # Die automatische Installation zu testzwecken.
-    renamefiles) renamefiles ;; # Die automatische Installation zu testzwecken.
+    renamefiles) renamefiles ;;  # Die automatische konfiguration zu testzwecken.
 	h|help|hilfe|*) help ;;
 esac
 
