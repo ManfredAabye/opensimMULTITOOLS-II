@@ -58,6 +58,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | `opensimcopy` | Kopiert OpenSim in alle Zielverzeichnisse. |  
 | *(Geplant)* `opensimconfig` | Konfiguriert OpenSim-Einstellungen. |  
 | `regionconfig` | Konfiguriert Automatisch OpenSim Regionen in eine Fibonacci-Folge. |
+| `setcrontab` | Konfiguriert Automatisch crontab. |
 
 ---
 
