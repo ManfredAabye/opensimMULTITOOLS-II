@@ -10,7 +10,7 @@
 #──────────────────────────────────────────────────────────────────────────────────────────
 
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.41.91"
+VERSION="V25.4.41.93"
 echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 
@@ -46,8 +46,10 @@ function servercheck() {
     # Linux Mint (basierend auf Ubuntu 20.04 oder 22.04)
     # Pop!_OS (System76, basiert auf Ubuntu)
     # MX Linux (Debian-basiert, integriert Ubuntu-Funktionen)
-    # Mögliche kompatible Distributionen (mit Anpassungen):
+    # Arch Linux – Offiziell unterstützte Pakete über pacman
+    # Manjaro – Bietet .NET-Pakete direkt über die Arch-Repositorys
 
+    # Mögliche kompatible Distributionen (mit Anpassungen):
     # Kali Linux (basierend auf Debian 12, Anpassungen nötig für .NET-Pakete)
     # Zorin OS (Ubuntu-basiert, Unterstützung abhängig von Version)
     # elementary OS (Ubuntu-basiert, kann .NET aus Ubuntu-Quellen beziehen)
@@ -68,29 +70,30 @@ function servercheck() {
         fi
     elif [[ "$os_id" == "debian" && "$os_version" -ge "11" ]]; then
         required_dotnet="dotnet-sdk-8.0"
+    elif [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
+        required_dotnet="dotnet-sdk-8.0"  # Spezifiziert gezielt Version 8.0
     else
         echo "✘ Keine unterstützte Version für .NET gefunden!"
         return 1
     fi
 
-    # Prüfen, ob .NET bereits installiert ist
-    if ! dpkg -s "$required_dotnet" >/dev/null 2>&1; then
-        echo "Installiere $required_dotnet..."
-        
-        # Prüfen, ob die Microsoft-Paketquelle bereits existiert
-        if ! dpkg -l | grep -q "packages-microsoft-prod"; then
-            echo "Microsoft-Paketquelle hinzufügen..."
-            wget https://packages.microsoft.com/config/"$os_id"/"$os_version"/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
-            sudo dpkg -i packages-microsoft-prod.deb
-            rm packages-microsoft-prod.deb
-            sudo apt-get update
+    # Prüfen, ob die richtige .NET-Version bereits installiert ist
+    if [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
+        if ! pacman -Qi "$required_dotnet" >/dev/null 2>&1; then
+            echo "Installiere $required_dotnet..."
+            sudo pacman -S --noconfirm "$required_dotnet"
+            echo "✓ $required_dotnet wurde erfolgreich installiert."
+        else
+            echo "✘ $required_dotnet ist bereits installiert."
         fi
-        
-        # .NET installieren
-        sudo apt-get install -y "$required_dotnet"
-        echo "✓ $required_dotnet wurde erfolgreich installiert."
     else
-        echo "✘ $required_dotnet ist bereits installiert."
+        if ! dpkg -s "$required_dotnet" >/dev/null 2>&1; then
+            echo "Installiere $required_dotnet..."
+            sudo apt-get install -y "$required_dotnet"
+            echo "✓ $required_dotnet wurde erfolgreich installiert."
+        else
+            echo "✘ $required_dotnet ist bereits installiert."
+        fi
     fi
 
     # Fehlende Pakete prüfen und installieren
@@ -98,14 +101,22 @@ function servercheck() {
 
     echo "Überprüfe fehlende Pakete..."
     for package in "${required_packages[@]}"; do
-        if ! dpkg -s "$package" >/dev/null 2>&1; then
-            echo "✓ Installiere $package..."
-            sudo apt-get install -y "$package"
+        if [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
+            if ! pacman -Qi "$package" >/dev/null 2>&1; then
+                echo "✓ Installiere $package..."
+                sudo pacman -S --noconfirm "$package"
+            fi
+        else
+            if ! dpkg -s "$package" >/dev/null 2>&1; then
+                echo "✓ Installiere $package..."
+                sudo apt-get install -y "$package"
+            fi
         fi
     done
 
     echo "✓ Alle benötigten Pakete wurden installiert."
 }
+
 
 #──────────────────────────────────────────────────────────────────────────────────────────
 #* Start Stop Restart
