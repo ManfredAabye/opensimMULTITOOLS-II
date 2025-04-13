@@ -10,7 +10,7 @@
 #──────────────────────────────────────────────────────────────────────────────────────────
 
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.40.89"
+VERSION="V25.4.41.91"
 echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 
@@ -1464,11 +1464,48 @@ EOF
     echo "Welcome_Area.ini configuration completed"
 }
 
+function setosslenable() {
+    local base_dir="${SCRIPT_DIR}/"
+
+    for i in {1..999}; do
+        local sim_dir="${base_dir}sim$i/bin/config-include"
+        local osslenable_ini="$sim_dir/osslEnable.ini"
+        local backup_ini="$sim_dir/osslEnable.ini.bak"
+
+        # Prüfen, ob das Sim-Verzeichnis existiert
+        if [ -d "$sim_dir" ]; then
+            echo "Erstelle osslEnable.ini für $sim_dir"
+
+            # Falls die Datei existiert, sichere sie zuerst
+            if [ -f "$osslenable_ini" ]; then
+                echo "Sichere bestehende Datei: $osslenable_ini -> $backup_ini"
+                mv "$osslenable_ini" "$backup_ini"
+            fi
+
+            # Ersetze den kompletten Inhalt mit der neuen Konfiguration
+            cat > "$osslenable_ini" << EOF
+[OSSL]
+AllowOSFunctions = true
+AllowMODFunctions = true
+AllowLightShareFunctions = true
+PermissionErrorToOwner = false
+OSFunctionThreatLevel = High
+osslParcelO = "PARCEL_OWNER,"
+osslParcelOG = "PARCEL_GROUP_MEMBER,PARCEL_OWNER,"
+osslNPC = \${OSSL|osslParcelOG}ESTATE_MANAGER,ESTATE_OWNER
+EOF
+
+            echo "Konfiguration von osslEnable.ini für $sim_dir abgeschlossen."
+        fi
+    done
+}
+
 function configall() {
     setrobusthg
     setopensim
     setgridcommon
     setflotsamcache
+    setosslenable
     setwelcome
 }
 
@@ -1682,6 +1719,7 @@ case $KOMMANDO in
     setopensim) setopensim ;; # Die automatische konfiguration zu testzwecken.
     setgridcommon) setgridcommon ;; # Die automatische konfiguration zu testzwecken.
     setflotsamcache) setflotsamcache ;; # Die automatische konfiguration zu testzwecken.
+    setosslenable) setosslenable ;; # Die automatische konfiguration zu testzwecken.
     setwelcome) setwelcome ;; # Die automatische konfiguration zu testzwecken.
     configall) configall ;; # Die automatische konfiguration zu testzwecken.
 
