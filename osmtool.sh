@@ -1,11 +1,16 @@
 #!/bin/bash
 
 #──────────────────────────────────────────────────────────────────────────────────────────
+#* Sprache und Texte einstellen
+#──────────────────────────────────────────────────────────────────────────────────────────
+
+
+#──────────────────────────────────────────────────────────────────────────────────────────
 #* Informationen
 #──────────────────────────────────────────────────────────────────────────────────────────
 
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.38.75"
+VERSION="V25.4.40.89"
 echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 
@@ -27,6 +32,7 @@ echo " "
 
 KOMMANDO=$1 # Eingabeauswertung fuer Funktionen.
 MONEYCOPY="yes" # MoneyServer Installieren.
+system_ip=$(hostname -I | awk '{print $1}')
 
 #──────────────────────────────────────────────────────────────────────────────────────────
 #* Abhängigkeiten installieren
@@ -258,13 +264,10 @@ function check_screens() {
 }
 
 function reboot() {
-    echo "Server wird jetzt heruntergefahren und neu gestartet!"
-    
+    echo "Server wird jetzt heruntergefahren und neu gestartet!"    
     # Stoppen des ganzen OpenSim Grids.
     opensimstop
-
     sleep 30
-
     # Starte den Server neu.
     shutdown -r now
 }
@@ -1069,15 +1072,6 @@ function regionsclean() {
     fi
 }
 
-#──────────────────────────────────────────────────────────────────────────────────────────
-#* Funktionen zur Konfiguration von OpenSimulator
-#──────────────────────────────────────────────────────────────────────────────────────────
-
-
-#────────────────────────────────────────────────────────────────────────────
-# Konfigurationsfunktionen für INI-Dateien mit crudini
-#────────────────────────────────────────────────────────────────────────────
-
 function renamefiles() {
     timestamp=$(date +"%Y%m%d_%H%M%S")
 
@@ -1170,39 +1164,42 @@ function standalone() {
     echo -e "\e[32mStandalone-Konfiguration abgeschlossen!\e[0m"
 }
 
-
-
-##### Neue konfiguration Anfang #####
-
-
-# setrobusthg(){ echo "noch leer"; }
-# setopensim(){ echo "noch leer"; }
-# setgridcommon(){ echo "noch leer"; }
-# setflotsamcache(){ echo "noch leer"; }
-# setwelcome(){ echo "noch leer"; }
-
-
 # Helper to clean config files (remove leading spaces/tabs)
 clean_config() {
     local file=$1
     sed -i 's/^[ \t]*//' "$file"
 }
 
-# setrobusthg - Sets the Robust.HG.ini
 function setrobusthg() {
-    local robust_ini="${SCRIPT_DIR}/robust/bin/Robust.HG.ini"
+    local robust_ini="${SCRIPT_DIR}/robust/bin/Robust.HG.ini.example"
     local target_ini="${SCRIPT_DIR}/robust/bin/Robust.ini"
-    
-    # Rename file if needed
-    [ -f "$robust_ini" ] && mv "$robust_ini" "$target_ini"
-    
-    # Base configuration
+    local backup_file="${SCRIPT_DIR}/robust/bin/Robust.ini.bak"
+
+    # Prüfe, ob Robust.ini existiert und erstelle ein Backup
+    if [ -f "$target_ini" ]; then
+        echo "Sichere bestehende Datei: $target_ini -> $backup_file"
+        mv "$target_ini" "$backup_file"
+    fi
+
+    # Kopiere Robust.HG.ini nach Robust.ini
+    if [ -f "$robust_ini" ]; then
+        cp "$robust_ini" "$target_ini"
+        echo "$robust_ini wurde nach $target_ini kopiert."
+    else
+        echo "Warnung: $robust_ini nicht gefunden!"
+        return 1
+    fi
+
+    # Bereinige die Datei, damit crudini korrekt arbeitet
+    clean_config "$target_ini"
+
+    # Basis-Konfiguration
     crudini --set "$target_ini" Const BaseHostname "\"$system_ip\""
     crudini --set "$target_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
     crudini --set "$target_ini" Const PublicPort "\"8002\""
     crudini --set "$target_ini" Const PrivatePort "\"8003\""
 
-    # ServiceList uncommenting
+    # Dienste aktivieren (ServiceList)
     services=(
         "OfflineIMServiceConnector"
         "GroupsServiceConnector"
@@ -1214,29 +1211,29 @@ function setrobusthg() {
         sed -i "/^; *$service/s/^;//" "$target_ini"
     done
 
-    # Hypergrid config
+    # Hypergrid Konfiguration
     crudini --set "$target_ini" Hypergrid HomeURI "\"\${Const|BaseURL}:\${Const|PublicPort}\""
     crudini --set "$target_ini" Hypergrid GatekeeperURI "\"\${Const|BaseURL}:\${Const|PublicPort}\""
 
-    # Access control
+    # Access Control - Verbotene Clients
     crudini --set "$target_ini" AccessControl DeniedClients "\"Imprudence|CopyBot|Twisted|Crawler|Cryolife|darkstorm|DarkStorm|Darkstorm|hydrastorm viewer|kinggoon copybot|goon squad copybot|copybot pro|darkstorm viewer|copybot club|darkstorm second life|copybot download|HydraStorm Copybot Viewer|Copybot|Firestorm Pro|DarkStorm v3|DarkStorm v2|ShoopedStorm|HydraStorm|hydrastorm|kinggoon|goon squad|goon|copybot|Shooped|ShoopedStorm|Triforce|Triforce Viewer|Firestorm Professional|ShoopedLife|Sombrero|Sombrero Firestorm|GoonSquad|Solar|SolarStorm\""
 
-    # Database configuration
+    # Datenbank-Konfiguration
     crudini --set "$target_ini" DatabaseService ConnectionString "\"Data Source=localhost;Database=opensim;User ID=opensim;Password=$DB_PASSWORD;Old Guids=true;SslMode=None;\""
 
-    # Grid service
+    # Grid-Dienste
     crudini --set "$target_ini" GridService MapTileDirectory "\"./maptiles\""
     crudini --set "$target_ini" GridService Region_Welcome_Area "\"DefaultRegion, DefaultHGRegion\""
 
-    # Login service
+    # Login-Service
     crudini --set "$target_ini" LoginService DestinationGuide "\"\${Const|BaseURL}/guide.php\""
     crudini --set "$target_ini" LoginService GridSearch "\"\${Const|BaseURL}/searchservice.php\""
 
-    # Map image service
+    # Map-Bild-Service
     crudini --set "$target_ini" MapImageService TilesStoragePath "\"maptiles\""
     crudini --set "$target_ini" MapImageService GridService "\"OpenSim.Services.GridService.dll:GridService\""
 
-    # Grid info service
+    # Grid-Info-Service
     crudini --set "$target_ini" GridInfoService welcome "\${Const|BaseURL}/welcomesplashpage.php"
     crudini --set "$target_ini" GridInfoService economy "\${Const|BaseURL}:8008/"
     crudini --set "$target_ini" GridInfoService about "\${Const|BaseURL}/aboutinformation.php"
@@ -1247,97 +1244,172 @@ function setrobusthg() {
     crudini --set "$target_ini" GridInfoService GridStatus "\${Const|BaseURL}:\${Const|PublicPort}/gridstatus.php"
     crudini --set "$target_ini" GridInfoService GridStatusRSS "\${Const|BaseURL}:\${Const|PublicPort}/gridstatusrss.php"
 
-    # User agent service
+    # User-Agent-Service
     crudini --set "$target_ini" UserAgentService LevelOutsideContacts "0"
     crudini --set "$target_ini" UserAgentService ShowUserDetailsInHGProfile "True"
 
+    # Bereinige die Datei (entferne führende Leerzeichen)
     clean_config "$target_ini"
-    echo "Robust.HG.ini configuration completed"
+    
+    echo "Konfiguration von Robust.ini erfolgreich abgeschlossen."
 }
 
-# setopensim - Sets the OpenSim.ini file
 function setopensim() {
-    local opensim_ini="${SCRIPT_DIR}/simX/bin/OpenSim.ini"
+    local base_dir="${SCRIPT_DIR}/"
     
-    # Base configuration
-    crudini --set "$opensim_ini" Const BaseHostname "\"$system_ip\""
-    crudini --set "$opensim_ini" Const BaseURL "http://\${Const|BaseHostname}"
-    crudini --set "$opensim_ini" Const PublicPort "\"9000\""
-    crudini --set "$opensim_ini" Const PrivURL "\${Const|BaseURL}"
-    crudini --set "$opensim_ini" Const PrivatePort "\"8003\""
+    # Durchsuche alle vorhandenen simX-Ordner (sim1 bis sim999)
+    for i in {1..999}; do
+        local sim_dir="${base_dir}sim$i/bin"
+        local opensim_example="$sim_dir/OpenSim.ini.example"
+        local opensim_ini="$sim_dir/OpenSim.ini"
+        local backup_ini="$sim_dir/OpenSim.ini.bak"
 
-    # Startup config
-    crudini --set "$opensim_ini" Startup async_call_method "SmartThreadPool"
-    crudini --set "$opensim_ini" Startup MaxPoolThreads "300"
-    crudini --set "$opensim_ini" Startup MinPoolThreads "32"
-    crudini --set "$opensim_ini" Startup CacheSculptMaps "false"
-    crudini --set "$opensim_ini" Startup DefaultScriptEngine "\"YEngine\""
+        # Prüfen, ob das Verzeichnis existiert
+        if [ -d "$sim_dir" ]; then
+            echo "Konfiguriere OpenSim.ini für $sim_dir"
 
-    # Map config
-    crudini --set "$opensim_ini" Map MaptileStaticUUID "\"00000000-0000-0000-0000-000000000000\""
+            # Falls OpenSim.ini existiert, sichere sie zuerst
+            if [ -f "$opensim_ini" ]; then
+                echo "Sichere bestehende Datei: $opensim_ini -> $backup_ini"
+                mv "$opensim_ini" "$backup_ini"
+            fi
 
-    # Permissions
-    crudini --set "$opensim_ini" Permissions automatic_gods "false"
-    crudini --set "$opensim_ini" Permissions implicit_gods "false"
-    crudini --set "$opensim_ini" Permissions allow_grid_gods "true"
+            # Kopiere OpenSim.ini.example nach OpenSim.ini
+            if [ -f "$opensim_example" ]; then
+                cp "$opensim_example" "$opensim_ini"
+                echo "$opensim_example wurde nach $opensim_ini kopiert."
+            else
+                echo "Warnung: $opensim_example nicht gefunden! Überspringe sim$i."
+                continue
+            fi
 
-    # Network
-    crudini --set "$opensim_ini" Network http_listener_port "9010"
-    crudini --set "$opensim_ini" Network shard "\"OpenSim\""
-    crudini --set "$opensim_ini" Network user_agent "\"OpenSim LSL (Mozilla Compatible)\""
+            # Bereinige die Datei, damit crudini korrekt arbeitet
+            clean_config "$opensim_ini"
 
-    # BulletSim
-    crudini --set "$opensim_ini" BulletSim AvatarToAvatarCollisionsByDefault "true"
-    crudini --set "$opensim_ini" BulletSim UseSeparatePhysicsThread "true"
-    crudini --set "$opensim_ini" BulletSim TerrainImplementation "0"
+            # Konfiguration mit crudini setzen
+            crudini --set "$opensim_ini" Const BaseHostname "\"$system_ip\""
+            crudini --set "$opensim_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
+            crudini --set "$opensim_ini" Const PublicPort "\"9000\""
+            crudini --set "$opensim_ini" Const PrivURL "\"\${Const|BaseURL}\""
+            crudini --set "$opensim_ini" Const PrivatePort "\"8003\""
 
-    # Materials
-    crudini --set "$opensim_ini" Materials MaxMaterialsPerTransaction "250"
+            # Startup-Einstellungen
+            crudini --set "$opensim_ini" Startup async_call_method "SmartThreadPool"
+            crudini --set "$opensim_ini" Startup MaxPoolThreads "300"
+            crudini --set "$opensim_ini" Startup MinPoolThreads "32"
+            crudini --set "$opensim_ini" Startup CacheSculptMaps "false"
+            crudini --set "$opensim_ini" Startup DefaultScriptEngine "\"YEngine\""
 
-    # User profiles
-    crudini --set "$opensim_ini" UserProfiles ProfileServiceURL "http://services.osgrid.org"
+            # Map-Konfiguration
+            crudini --set "$opensim_ini" Map MaptileStaticUUID "\"00000000-0000-0000-0000-000000000000\""
 
-    # Script engines
-    crudini --set "$opensim_ini" YEngine Enabled "true"
-    crudini --set "$opensim_ini" XEngine Enabled "false"
+            # Berechtigungen
+            crudini --set "$opensim_ini" Permissions automatic_gods "false"
+            crudini --set "$opensim_ini" Permissions implicit_gods "false"
+            crudini --set "$opensim_ini" Permissions allow_grid_gods "true"
 
-    # OSSL
-    crudini --set "$opensim_ini" OSSL Include-osslDefaultEnable "\"config-include/osslDefaultEnable.ini\""
+            # Netzwerk-Konfiguration
+            crudini --set "$opensim_ini" Network http_listener_port "9010"
+            crudini --set "$opensim_ini" Network shard "\"OpenSim\""
+            crudini --set "$opensim_ini" Network user_agent "\"OpenSim LSL (Mozilla Compatible)\""
 
-    # NPC
-    crudini --set "$opensim_ini" NPC Enabled "true"
+            # BulletSim-Einstellungen
+            crudini --set "$opensim_ini" BulletSim AvatarToAvatarCollisionsByDefault "true"
+            crudini --set "$opensim_ini" BulletSim UseSeparatePhysicsThread "true"
+            crudini --set "$opensim_ini" BulletSim TerrainImplementation "0"
 
-    # Terrain
-    crudini --set "$opensim_ini" Terrain InitialTerrain "\"flat\""
+            # Materialeinstellungen
+            crudini --set "$opensim_ini" Materials MaxMaterialsPerTransaction "250"
 
-    # XBakes
-    crudini --set "$opensim_ini" XBakes URL "\${Const|PrivURL}:\${Const|PrivatePort}"
+            # Benutzerprofile
+            crudini --set "$opensim_ini" UserProfiles ProfileServiceURL "\"http://services.osgrid.org\""
 
-    # Architecture
-    crudini --set "$opensim_ini" Architecture Include-Architecture "\"config-include/GridHypergrid.ini\""
+            # Skript-Engines
+            crudini --set "$opensim_ini" YEngine Enabled "true"
+            crudini --set "$opensim_ini" XEngine Enabled "false"
 
-    clean_config "$opensim_ini"
-    echo "OpenSim.ini configuration completed"
+            # OSSL-Einstellungen
+            crudini --set "$opensim_ini" OSSL Include-osslDefaultEnable "\"config-include/osslDefaultEnable.ini\""
+
+            # NPC-Einstellungen
+            crudini --set "$opensim_ini" NPC Enabled "true"
+
+            # Terrain-Konfiguration
+            crudini --set "$opensim_ini" Terrain InitialTerrain "\"flat\""
+
+            # XBakes-Konfiguration
+            crudini --set "$opensim_ini" XBakes URL "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+            # Architektur
+            crudini --set "$opensim_ini" Architecture Include-Architecture "\"config-include/GridHypergrid.ini\""
+
+            echo "Konfiguration von OpenSim.ini erfolgreich abgeschlossen."
+        fi
+    done
 }
 
-# setgridcommon - Sets the GridCommon.ini
 function setgridcommon() {
-    local gridcommon_ini="${SCRIPT_DIR}/simX/bin/config-include/GridCommon.ini"
-    
-    crudini --set "$gridcommon_ini" Const BaseHostname "\"$system_ip\""
-    crudini --set "$gridcommon_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
-    crudini --set "$gridcommon_ini" Const PublicPort "\"8002\""
-    crudini --set "$gridcommon_ini" Const PrivatePort "\"8003\""
+    local base_dir="${SCRIPT_DIR}/"
 
-    clean_config "$gridcommon_ini"
-    echo "GridCommon.ini configuration completed"
+    for i in {1..999}; do
+        local sim_dir="${base_dir}sim$i/bin/config-include"
+        local gridcommon_example="$sim_dir/GridCommon.ini.example"
+        local gridcommon_ini="$sim_dir/GridCommon.ini"
+        local backup_ini="$sim_dir/GridCommon.ini.bak"
+
+        if [ -d "$sim_dir" ]; then
+            echo "Konfiguriere GridCommon.ini für $sim_dir"
+
+            if [ -f "$gridcommon_ini" ]; then
+                echo "Sichere bestehende Datei: $gridcommon_ini -> $backup_ini"
+                mv "$gridcommon_ini" "$backup_ini"
+            fi
+
+            if [ -f "$gridcommon_example" ]; then
+                cp "$gridcommon_example" "$gridcommon_ini"
+                echo "$gridcommon_example wurde nach $gridcommon_ini kopiert."
+            else
+                echo "Warnung: $gridcommon_example nicht gefunden! Überspringe sim$i."
+                continue
+            fi
+
+            clean_config "$gridcommon_ini"
+
+            # Ersetze die erste Zeile mit [Const], falls sie existiert
+            sed -i 's/^; This is the main configuration file for an instance of OpenSim running in grid mode$/[Const]/' "$gridcommon_ini"
+
+            # Konfiguration setzen
+            crudini --set "$gridcommon_ini" Const BaseHostname "\"$system_ip\""
+            crudini --set "$gridcommon_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
+            crudini --set "$gridcommon_ini" Const PublicPort "\"8002\""
+            crudini --set "$gridcommon_ini" Const PrivatePort "\"8003\""
+
+            echo "Konfiguration von GridCommon.ini für $sim_dir erfolgreich abgeschlossen."
+        fi
+    done
 }
 
-# setflotsamcache - Sets the FlotsamCache.ini
 function setflotsamcache() {
-    local flotsam_ini="${SCRIPT_DIR}/simX/bin/FlotsamCache.ini"
-    
-    cat > "$flotsam_ini" << EOF
+    local base_dir="${SCRIPT_DIR}/"
+
+    # Durchsuche alle existierenden simX-Ordner (sim1 bis sim999)
+    for i in {1..999}; do
+        local sim_dir="${base_dir}sim$i/bin/config-include"
+        local flotsam_ini="$sim_dir/FlotsamCache.ini"
+        local backup_ini="$sim_dir/FlotsamCache.ini.bak"
+
+        # Prüfe, ob das Sim-Verzeichnis existiert
+        if [ -d "$sim_dir" ]; then
+            echo "Erstelle FlotsamCache.ini für $sim_dir"
+
+            # Falls die Datei existiert, sichere sie zuerst
+            if [ -f "$flotsam_ini" ]; then
+                echo "Sichere bestehende Datei: $flotsam_ini -> $backup_ini"
+                mv "$flotsam_ini" "$backup_ini"
+            fi
+
+            # Ersetze den kompletten Inhalt mit der neuen Konfiguration
+            cat > "$flotsam_ini" << EOF
 [AssetCache]
 CacheDirectory = ./assetcache
 LogLevel = 0
@@ -1353,8 +1425,12 @@ FileCacheTimeout = 48
 FileCleanupTimer = 1.0
 EOF
 
-    clean_config "$flotsam_ini"
-    echo "FlotsamCache.ini configuration completed"
+            # Bereinige die Datei
+            clean_config "$flotsam_ini"
+
+            echo "Konfiguration von FlotsamCache.ini für $sim_dir abgeschlossen."
+        fi
+    done
 }
 
 # setwelcome - Sets the Welcome_Area.ini
@@ -1388,9 +1464,13 @@ EOF
     echo "Welcome_Area.ini configuration completed"
 }
 
-
-
-##### Neue konfiguration Ende #####
+function configall() {
+    setrobusthg
+    setopensim
+    setgridcommon
+    setflotsamcache
+    setwelcome
+}
 
 function clean_comments_and_empty_lines() {
     echo -e "\e[33mBereinige Kommentare und Leerzeilen in allen Konfigurationsdateien...\e[0m"
@@ -1502,6 +1582,36 @@ function cleandoublecomments() {
     echo -e "\e[32mBereinigung abgeschlossen!\e[0m"
 }
 
+function cleanall() {
+    echo "Möchtest du OpenSim komplett mit Konfigurationen entfernen? (ja/nein)"
+    read -r answer
+
+    if [ "$answer" = "ja" ]; then
+        echo "Lösche OpenSim vollständig..."
+        
+        # robust/bin Verzeichnis leeren, falls vorhanden
+        if [ -d "robust/bin" ]; then
+            rm -rf robust/bin/*
+        fi
+
+        # Überprüfen, welche simX/bin Verzeichnisse existieren und leeren
+        for i in {1..999}; do
+            dir="sim$i/bin"
+            if [ -d "$dir" ]; then
+                rm -rf "${dir:?}/"*
+            fi
+        done
+
+        echo "Alle bin-Verzeichnisse wurden geleert."
+
+    elif [ "$answer" = "nein" ]; then
+        echo "OpenSim bleibt erhalten."
+
+    else
+        echo "Ungültige Eingabe. Bitte 'ja' oder 'nein' eingeben."
+    fi
+}
+
 #──────────────────────────────────────────────────────────────────────────────────────────
 #* Hilfefunktionen
 #──────────────────────────────────────────────────────────────────────────────────────────
@@ -1531,7 +1641,7 @@ function help () {
     echo -e "\e[32mopensimgitcopy\e[0m # OpenSim aus dem Git herunterladen."
     echo -e "\e[32mmoneygitcopy\e[0m # MoneyServer aus dem Git herunterladen."
     echo -e "\e[32mopensimbuild\e[0m # OpenSim kompilieren."
-    #echo -e "\e[32mconfigureopensim\e[0m # Vorkonfigurieren des OpenSimulators.\e[0m"
+    echo -e "\e[32mconfigall\e[0m # Vorkonfigurieren des OpenSimulators Gid Test.\e[0m"  # Die automatische konfiguration zu testzwecken.
     echo -e "\e[32mopensimcopy\e[0m # OpenSim kopieren (in alle Verzeichnisse)."
     echo -e "\e[35mopensimconfig # Eine funktionsfähige konfiguration fehlt noch.\e[0m"
     echo -e "\e[32mregionsconfig\e[0m # OpenSim Regionen konfigurieren."
@@ -1567,16 +1677,18 @@ case $KOMMANDO in
     regionsconfig) regionsconfig ;;
     generatename|generate_name) generate_name ;;
 
+    cleanconfig) clean_config "$2" ;;
     setrobusthg) setrobusthg ;; # Die automatische konfiguration zu testzwecken.
     setopensim) setopensim ;; # Die automatische konfiguration zu testzwecken.
     setgridcommon) setgridcommon ;; # Die automatische konfiguration zu testzwecken.
     setflotsamcache) setflotsamcache ;; # Die automatische konfiguration zu testzwecken.
     setwelcome) setwelcome ;; # Die automatische konfiguration zu testzwecken.
+    configall) configall ;; # Die automatische konfiguration zu testzwecken.
 
     start|opensimstart) opensimstart ;;
     stop|opensimstop) opensimstop ;;
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
-    
+
     standalone) standalone ;;
     standalonestart) standalonestart ;;
     standalonestop) standalonestop ;;
@@ -1591,6 +1703,7 @@ case $KOMMANDO in
     mapclean) mapclean ;;
     autoallclean) autoallclean ;;
     regionsclean) regionsclean ;;
+    cleanall) cleanall ;;
     renamefiles) renamefiles ;;  # Die automatische konfiguration zu testzwecken.
 	h|help|hilfe|*) help ;;
 esac
