@@ -6,7 +6,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.42.104"
+VERSION="V25.4.42.105"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1752,81 +1752,105 @@ function cleanall() {
 #!  2. Komplettlauf   : bash osmtool.sh autosetinstall (fragt Bestätigung ab)
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
+# ---
+
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [1] NEUSTART-FUNKTIONEN                                        │
+#! └─────────────────────────────────────────────────────────────────┘
+
+# Standalone-Service-Neustart (ohne Logbereinigung)
 function standalonerestart() {
-    standalonestart
-    sleep 30
     standalonestop
+    sleep 30  # Wartezeit für sauberen Shutdown
+    standalonestart
 }
 
-# OpenSim neu starten
+# Kompletter OpenSim-Neustart mit Logrotation
 function opensimrestart() {
     opensimstop
-    sleep 30  # Kurze Pause, um sicherzustellen, dass alles gestoppt wurde
-    logclean
-    sleep 15  # Kurze Pause, um sicherzustellen, dass alles gelöscht wurde
+    sleep 30  # Wartezeit für Dienst-Stopp
+    logclean   # Logbereinigung
+    sleep 15  # Wartezeit vor Neustart
     opensimstart
-    echo "Welche sim Regionen sind gestartet?:"
-    screen -ls
+    echo -e "\033[36mAktive Screen-Sessions:\033[0m"
+    screen -ls || echo "Keine Screen-Sessions gefunden"
 }
 
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [2] KONFIGURATIONS-PAKETE                                      │
+#! └─────────────────────────────────────────────────────────────────┘
+
+# Basis-Konfiguration für alle Dienste
 function configall() {
-    setrobusthg
-    setopensim
-    setgridcommon
-    setflotsamcache
-    setosslenable
-    setwelcome
+    setrobusthg      # Hypergrid-Konfig
+    setopensim       # Regionsserver
+    setgridcommon    # Grid-weite Einstellungen
+    setflotsamcache  # Cache-System
+    setosslenable    # OSSL-Funktionen
+    setwelcome       # Startregion
+    echo -e "\033[32mAlle Konfigurationen wurden angewendet.\033[0m"
 }
 
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [3] INSTALLATIONSROUTINEN                                      │
+#! └─────────────────────────────────────────────────────────────────┘
+
+# Vollautomatische Installation
 function autosetinstall() {
-    # Komplette Server Installation
-    echo -e "\033[1;33mWARNUNG: Dies wird den gesamten OpenSimulator-Server installieren und konfigurieren.\033[0m"
-    echo "Möchten Sie fortfahren? [j/N] " 
-    read -r antwort
-
-    # Fallback für Leerzeichen/Leerstring (Standard: Nein)
-    if [[ "${antwort,,}" != "j" ]]; then
-        echo -e "\033[31mAbbruch: Installation wurde nicht bestätigt.\033[0m"
+    # Sicherheitsabfrage
+    echo -e "\033[1;33m⚠ WARNUNG: Komplette Serverinstallation!\033[0m"
+    read -rp "Fortfahren? (j/N): " antwort
+    
+    [[ "${antwort,,}" != "j" ]] && {
+        echo -e "\033[31m✖ Abbruch durch Benutzer\033[0m"
         return 1
-    fi
+    }
 
-    echo -e "\033[32mStarte Installation...\033[0m"
-    servercheck
+    # Installationsphasen
+    echo -e "\033[1;34m\n[Phase 1] Systemchecks\033[0m"
+    servercheck || return $?
 
-    ## Bestandteile des OpenSimulators herunterladen.
-    opensimgit
-    moneygit
+    echo -e "\033[1;34m\n[Phase 2] Quellcode\033[0m"
+    opensimgit && moneygit || return $?
 
-    ## Das eigentliche Bauen des OpenSimulators.
-    opensimbuild
+    echo -e "\033[1;34m\n[Phase 3] Build-Prozess\033[0m"
+    opensimbuild || return $?
 
-    ## Verzeichnisse füllen.
+    echo -e "\033[1;34m\n[Phase 4] Deployment\033[0m"
     createdirectory
     sqlsetup
     opensimcopy
 
-    ## Konfigurieren der Voreinstellungen
+    echo -e "\033[1;34m\n[Phase 5] Konfiguration\033[0m"
     regionsconfig
     setwelcome
+    configall  # Nutzt die oben definierte Gruppenfunktion
 
-    setrobusthg
-    setopensim # todo: Jede Sim benötigt ihren eigenen Port.
-    setgridcommon # todo: Jede Sim benötigt eine eigene Datenbank.
-    setflotsamcache
-    setosslenable # todo: Grundeinstellungen fehlen.
-
-    ## Automatischer Betrieb des OpenSimulators.
+    echo -e "\033[1;34m\n[Phase 6] Automatisierung\033[0m"
     setcrontab
 
-    echo -e "\033[1;32mFertig! Der Server startet spätestens nach 30 Minuten vollautomatisch.\033[0m"
+    echo -e "\033[1;32m\n✔ Installation abgeschlossen! Auto-Start in 30 Min.\033[0m"
 }
 
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [4] SYSTEMOPERATIONEN                                          │
+#! └─────────────────────────────────────────────────────────────────┘
+
+# Server-Reboot mit Vorbereitung
 function reboot() {
-    echo "Server wird jetzt heruntergefahren und neu gestartet!"    
-    # Stoppen des ganzen OpenSim Grids.
+    echo -e "\033[1;33m⚠ Server-Neustart wird eingeleitet...\033[0m"
+    
+    # Graceful Shutdown
     opensimstop
     sleep 30
-    # Starte den Server neu.
+    
+    # Bestätigungscheck funktioniert nicht bei cronjobs
+    # read -rp "Sicher, dass der Server jetzt neustarten soll? (j/N): " antwort
+    # [[ "${antwort,,}" == "j" ]] || {
+    #     echo -e "\033[32m✔ Abbruch durch Benutzer\033[0m"
+    #     return 0
+    # }
+    
     shutdown -r now
 }
 
