@@ -1,42 +1,35 @@
 #!/bin/bash
 
-#──────────────────────────────────────────────────────────────────────────────────────────
-#* Sprache und Texte einstellen
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#* Informationen Kopfzeile
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
-
-#──────────────────────────────────────────────────────────────────────────────────────────
-#* Informationen
-#──────────────────────────────────────────────────────────────────────────────────────────
-
-SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.41.93"
-echo "$SCRIPTNAME $VERSION"
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
-
+SCRIPTNAME="opensimMULTITOOL II"
+VERSION="V25.4.42.104"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
 echo -e "\e[33mZum Abbrechen bitte STRG+C oder CTRL+C drücken.\e[0m"
 echo " "
 
-#──────────────────────────────────────────────────────────────────────────────────────────
-#* Variablen
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#* Variablen setzen
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 # Hauptpfad des Skripts automatisch setzen
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 cd "$SCRIPT_DIR" || exit 1
 echo "Arbeitsverzeichnis ist: $SCRIPT_DIR"
-echo " "
+system_ip=$(hostname -I | awk '{print $1}')
+echo "Ihre IP Adresse: $system_ip"; echo " "
 
 KOMMANDO=$1 # Eingabeauswertung fuer Funktionen.
-MONEYCOPY="yes" # MoneyServer Installieren.
-system_ip=$(hostname -I | awk '{print $1}')
+#MONEYCOPY="yes" # MoneyServer Installieren.
 
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 #* Abhängigkeiten installieren
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 # Fehlende Abhängigkeiten installieren
 function servercheck() {
@@ -117,10 +110,9 @@ function servercheck() {
     echo "✓ Alle benötigten Pakete wurden installiert."
 }
 
-
-#──────────────────────────────────────────────────────────────────────────────────────────
-#* Start Stop Restart
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#* Start Stop Standalone
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 function standalonestart() {
     cd opensim/bin || exit 1
@@ -131,11 +123,9 @@ function standalonestop() {
     screen -S opensim -p 0 -X stuff "shutdown^M"
 }
 
-function standalonerestart() {
-    standalonestart
-    sleep 30
-    standalonestop
-}
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#* Start Stop Grid
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 # OpenSim starten (robust → money → sim1 bis sim999)
 function opensimstart() {
@@ -209,15 +199,7 @@ function opensimstop() {
     echo -e "\e[0m"
 }
 
-# OpenSim neu starten
-function opensimrestart() {
-    opensimstop
-    sleep 30  # Kurze Pause, um sicherzustellen, dass alles gestoppt wurde
-    opensimstart
-    echo "Welche sim Regionen sind gestartet?:"
-    screen -ls
-}
-
+# check_screens ist eine Grid Funktion und funktioniert nicht im Standalone.
 function check_screens() {
     # echo "Überprüfung der laufenden OpenSim-Prozesse..."
 
@@ -274,27 +256,17 @@ function check_screens() {
     done
 }
 
-function reboot() {
-    echo "Server wird jetzt heruntergefahren und neu gestartet!"    
-    # Stoppen des ganzen OpenSim Grids.
-    opensimstop
-    sleep 30
-    # Starte den Server neu.
-    shutdown -r now
-}
-
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 #* Erstellen eines OpenSimulators
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
-function opensimgitcopy() {
-    echo "Möchten Sie den OpenSimulator vom GitHub verwenden? ([ja]/nein)"
+function opensimgit() {
+    echo "Möchten Sie den OpenSimulator vom GitHub verwenden oder aktualisieren? ([upgrade]/new)"
     read -r user_choice
+    user_choice=${user_choice:-upgrade}
 
-    user_choice=${user_choice:-ja}
-
-    if [[ "$user_choice" == "ja" ]]; then
-        # Falls eine alte Version existiert, diese entfernen
+    if [[ "$user_choice" == "new" ]]; then
+        # Falls eine alte Version existiert, wird sie gelöscht
         if [[ -d "opensim" ]]; then
             echo "Vorhandene OpenSimulator-Version wird gelöscht..."
             rm -rf opensim
@@ -305,52 +277,84 @@ function opensimgitcopy() {
         git clone git://opensimulator.org/git/opensim opensim
         echo "✓ OpenSimulator wurde erfolgreich heruntergeladen."
 
-        # .NET-Version auswählen
-        echo "Möchten Sie diese Version mit .NET 6 oder .NET 8 betreiben? ([8]/6)"
-        read -r dotnet_version
-
-        dotnet_version=${dotnet_version:-8}
-
-        if [[ "$dotnet_version" == "6" ]]; then
-            echo "Wechsle zu .NET 6-Version..."
-            cd opensim || { echo "Fehler: Verzeichnis 'opensim' nicht gefunden."; return 1; }
-            git checkout dotnet6
-            echo "✓ OpenSimulator wurde für .NET 6 umgebaut."
+    elif [[ "$user_choice" == "upgrade" ]]; then
+        if [[ -d "opensim/.git" ]]; then
+            echo "✓ Repository gefunden. Aktualisiere mit 'git pull'..."
+            cd opensim || { echo "✘ Fehler: Kann nicht ins Verzeichnis wechseln!"; return 1; }
+            git pull origin master && echo "✅ OpenSimulator erfolgreich aktualisiert!"
+            cd ..
         else
-            echo "✓ Standardmäßig wird .NET 8 verwendet."
+            echo "⚠ OpenSimulator-Verzeichnis nicht gefunden. Klone Repository neu..."
+            git clone git://opensimulator.org/git/opensim opensim && echo "✅ OpenSimulator erfolgreich heruntergeladen!"
         fi
     else
-        echo "✘ Abbruch: OpenSimulator wird nicht von GitHub geholt."
+        echo "✘ Abbruch: Keine Aktion durchgeführt."
+        return 1
+    fi
+
+    # .NET-Version auswählen
+    echo "Möchten Sie diese Version mit .NET 6 oder .NET 8 betreiben? ([8]/6)"
+    read -r dotnet_version
+    dotnet_version=${dotnet_version:-8}
+
+    if [[ "$dotnet_version" == "6" ]]; then
+        echo "Wechsle zu .NET 6-Version..."
+        cd opensim || { echo "Fehler: Verzeichnis 'opensim' nicht gefunden."; return 1; }
+        git checkout dotnet6
+        echo "✓ OpenSimulator wurde für .NET 6 umgebaut."
+    else
+        echo "✓ Standardmäßig wird .NET 8 verwendet."
     fi
 }
 
-function moneygitcopy() {
-    # Falls MONEYCOPY nicht gesetzt oder "no" ist, nichts tun
-    if [[ -z "$MONEYCOPY" || "$MONEYCOPY" == "no" ]]; then
-        return
-    fi
+function moneygit() {
+    echo "Möchten Sie den MoneyServer vom GitHub verwenden oder aktualisieren? ([upgrade]/new)"
+    read -r user_choice
+    user_choice=${user_choice:-upgrade}
 
-    if [[ "$MONEYCOPY" == "yes" ]]; then
-        echo "MONEYSERVER: MoneyServer wird vom GIT geholt"
-        git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver
-
-        # Prüfen, ob das Verzeichnis existiert, bevor es kopiert wird
-        if [[ -d "opensimcurrencyserver/addon-modules" ]]; then
-            cp -r opensimcurrencyserver/addon-modules opensim/
-            echo "✓ MONEYSERVER: addon-modules wurde nach opensim kopiert"
-        else
-            echo "✘ MONEYSERVER: addon-modules existiert nicht"
+    if [[ "$user_choice" == "new" ]]; then
+        if [[ -d "opensimcurrencyserver" ]]; then
+            echo "Vorhandene MoneyServer-Version wird gelöscht..."
+            rm -rf opensimcurrencyserver
+            echo "✓ Alte MoneyServer-Version wurde erfolgreich entfernt."
         fi
-
-        if [[ -d "opensimcurrencyserver/bin" ]]; then
-            cp -r opensimcurrencyserver/bin opensim/
-            echo "✓ MONEYSERVER: bin wurde nach opensim kopiert"
+        echo "MONEYSERVER: MoneyServer wird vom GIT geholt..."
+        git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver
+        echo "✓ MoneyServer wurde erfolgreich heruntergeladen."
+    elif [[ "$user_choice" == "upgrade" ]]; then
+        if [[ -d "opensimcurrencyserver/.git" ]]; then
+            echo "✓ Repository gefunden. Aktualisiere mit 'git pull'..."
+            cd opensimcurrencyserver || { echo "✘ Fehler: Kann nicht ins Verzeichnis wechseln!"; return 1; }
+            
+            # Automatische Branch-Erkennung
+            branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+            git pull origin "$branch_name" && echo "✅ MoneyServer erfolgreich aktualisiert!"
+            
+            cd ..
         else
-            echo "✘ MONEYSERVER: bin existiert nicht"
+            echo "⚠ MoneyServer-Verzeichnis nicht gefunden. Klone Repository neu..."
+            git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver && echo "✅ MoneyServer erfolgreich heruntergeladen!"
         fi
     else
-        echo "✘ MONEYSERVER: MoneyServer nicht vorhanden"
+        echo "✘ Abbruch: Keine Aktion durchgeführt."
+        return 1
     fi
+
+    # Prüfen, ob das Verzeichnis existiert, bevor es kopiert wird
+    if [[ -d "opensimcurrencyserver/addon-modules" ]]; then
+        cp -r opensimcurrencyserver/addon-modules opensim/
+        echo "✓ MONEYSERVER: addon-modules wurde nach opensim kopiert"
+    else
+        echo "✘ MONEYSERVER: addon-modules existiert nicht"
+    fi
+
+    if [[ -d "opensimcurrencyserver/bin" ]]; then
+        cp -r opensimcurrencyserver/bin opensim/
+        echo "✓ MONEYSERVER: bin wurde nach opensim kopiert"
+    else
+        echo "✘ MONEYSERVER: bin existiert nicht"
+    fi
+
     return 0
 }
 
@@ -377,9 +381,9 @@ function opensimbuild() {
     fi
 }
 
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 #* Erstellen eines OpenSimulators Grids
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 function createdirectory () {
     echo "Möchten Sie einen Gridserver oder einen Regionsserver erstellen? ([grid]/region)"
@@ -685,16 +689,52 @@ EOF
     fi
 }
 
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 #* Upgrade des OpenSimulators Grids
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 # Upgrade ist eigentlich nur ein entpacken eines OpenSimulator und umbenennen des Ordners in opensim.
 # Dann das stoppen des Grids, neues OpenSim kopieren und alles neu starten.
 
-#──────────────────────────────────────────────────────────────────────────────────────────
+function opensimupgrade() {
+    echo -e "\n\033[33mDer OpenSimulator muss zuerst im Verzeichnis 'opensim' vorliegen!\033[0m"
+    echo "Möchten Sie den OpenSimulator aktualisieren? ([no]/yes)"
+    read -r user_choice
+    user_choice=${user_choice:-no}
+
+    # Prüfe, ob das Verzeichnis vorhanden ist
+    if [[ ! -d "opensim" ]]; then
+        echo -e "\033[31m❗Fehler: Das Verzeichnis 'opensim' existiert nicht\033[0m"
+        return 1
+    fi
+
+    # Prüfe, ob im Verzeichnis 'opensim/bin' die Dateien OpenSim.dll und Robust.dll vorhanden sind
+    if [[ ! -f "opensim/bin/OpenSim.dll" || ! -f "opensim/bin/Robust.dll" ]]; then
+        echo -e "\033[36m❗Fehler: Benötigte Dateien (OpenSim.dll und/oder Robust.dll) fehlen im Verzeichnis 'opensim/bin'\033[0m"
+        echo -e "\n\033[33m❓Haben Sie vergessen den OpenSimulator zuerst zu Kompilieren\033[0m"
+        return 1
+    fi
+
+    if [[ "$user_choice" == "yes" ]]; then
+        echo "OpenSimulator wird gestoppt..."
+        opensimstop
+        sleep 30
+
+        echo "OpenSimulator wird kopiert..."
+        opensimcopy
+
+        echo "OpenSimulator wird gestartet..."
+        opensimstart
+
+        echo "✔ Upgrade abgeschlossen."
+    else
+        echo "Upgrade vom Benutzer abgebrochen."
+    fi
+}
+
+#?──────────────────────────────────────────────────────────────────────────────────────────
 #* Bereinigen des OpenSimulators Grids
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 function dataclean() {
     echo -e "\033[32m"
@@ -894,9 +934,9 @@ WARNUNG
     esac
 }
 
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 #* Konfigurationen
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 # Funktion zur Generierung von UUIDs
 function generate_uuid() {
@@ -1298,9 +1338,12 @@ function setopensim() {
             clean_config "$opensim_ini"
 
             # Konfiguration mit crudini setzen
+
+            #Const-Konfiguration
             crudini --set "$opensim_ini" Const BaseHostname "\"$system_ip\""
             crudini --set "$opensim_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
-            crudini --set "$opensim_ini" Const PublicPort "\"9000\""
+            #crudini --set "$opensim_ini" Const PublicPort "\"9000\""
+            crudini --set "$opensim_ini" Const PublicPort "\"8002\""
             crudini --set "$opensim_ini" Const PrivURL "\"\${Const|BaseURL}\""
             crudini --set "$opensim_ini" Const PrivatePort "\"8003\""
 
@@ -1377,24 +1420,26 @@ function setgridcommon() {
             fi
 
             if [ -f "$gridcommon_example" ]; then
-                cp "$gridcommon_example" "$gridcommon_ini"
-                echo "$gridcommon_example wurde nach $gridcommon_ini kopiert."
+                # 1. Erstelle neue GridCommon.ini mit Const-Bereich
+                echo "[Const]" > "$gridcommon_ini"
+                crudini --set "$gridcommon_ini" Const BaseHostname "\"$system_ip\""
+                crudini --set "$gridcommon_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
+                crudini --set "$gridcommon_ini" Const PublicPort "\"8002\""
+                crudini --set "$gridcommon_ini" Const PrivatePort "\"8003\""
+                
+                # 2. Füge eine Leerzeile ein für bessere Lesbarkeit
+                echo "" >> "$gridcommon_ini"
+                
+                # 3. Füge den kompletten Inhalt der Beispiel-Datei hinzu
+                cat "$gridcommon_example" >> "$gridcommon_ini"
+                
+                echo "GridCommon.ini wurde erstellt mit Const-Bereich und Inhalt von $gridcommon_example."
             else
                 echo "Warnung: $gridcommon_example nicht gefunden! Überspringe sim$i."
                 continue
             fi
 
             clean_config "$gridcommon_ini"
-
-            # Ersetze die erste Zeile mit [Const], falls sie existiert
-            sed -i 's/^; This is the main configuration file for an instance of OpenSim running in grid mode$/[Const]/' "$gridcommon_ini"
-
-            # Konfiguration setzen
-            crudini --set "$gridcommon_ini" Const BaseHostname "\"$system_ip\""
-            crudini --set "$gridcommon_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
-            crudini --set "$gridcommon_ini" Const PublicPort "\"8002\""
-            crudini --set "$gridcommon_ini" Const PrivatePort "\"8003\""
-
             echo "Konfiguration von GridCommon.ini für $sim_dir erfolgreich abgeschlossen."
         fi
     done
@@ -1452,7 +1497,7 @@ function setwelcome() {
     cat > "$welcome_ini" << EOF
 [Welcome Area]
 RegionUUID = $region_uuid
-Location = 1000,1000
+Location = 3000,3000
 SizeX = 256
 SizeY = 256
 SizeZ = 256
@@ -1511,15 +1556,6 @@ EOF
     done
 }
 
-function configall() {
-    setrobusthg
-    setopensim
-    setgridcommon
-    setflotsamcache
-    setosslenable
-    setwelcome
-}
-
 function clean_comments_and_empty_lines() {
     echo -e "\e[33mBereinige Kommentare und Leerzeilen in allen Konfigurationsdateien...\e[0m"
     
@@ -1532,9 +1568,13 @@ function clean_comments_and_empty_lines() {
             
             # Liste aller relevanten Konfigurationsdateien
             config_files=(
-                "${sim_dir}/bin/Robust.ini"
-                "${sim_dir}/bin/Robust.HG.ini"
-                "${sim_dir}/bin/OpenSim.ini"
+                "${sim_dir}/bin/Robust.ini.example"
+                "${sim_dir}/bin/Robust.HG.ini.example"
+                "${sim_dir}/bin/OpenSim.ini.example"
+                "${sim_dir}/bin/config-include/FlotsamCache.ini.example"
+                "${sim_dir}/bin/config-include/GridCommon.ini.example"
+                "${sim_dir}/bin/config-include/osslEnable.ini.example"
+                "${sim_dir}/bin/config-include/StandaloneCommon.ini.example"
             )
             
             # Jede Konfigurationsdatei bearbeiten
@@ -1660,9 +1700,139 @@ function cleanall() {
     fi
 }
 
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#*          ZUSAMMENFASSUNG DER FUNKTIONEN NACH PAKETGRUPPEN          
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#!  Jede Gruppe kapselt logisch zusammenhängende Aufgaben.
+#!  Aufrufreihenfolge ist teilweise kritisch (z.B. muss 'opensimbuild' vor 'opensimcopy').
+#?──────────────────────────────────────────────────────────────────────────────────────────
+
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [1] SYSTEMVORBEREITUNG                                          │
+#! └─────────────────────────────────────────────────────────────────┘
+#   ├── servercheck     : Prüft Systemvoraussetzungen (RAM, CPU, Distro)
+#   ├── createdirectory : Legt Basisverzeichnisstruktur an
+#   └── sqlsetup        : Konfiguriert Datenbank (MySQL/PostgreSQL)
+
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [2] QUELLCODE-MANAGEMENT                                        │
+#! └─────────────────────────────────────────────────────────────────┘
+#   ├── opensimgit      : Klont OpenSimulator-Quellcode (Git)
+#   └── moneygit        : Klont Währungssystem-Plugin (falls benötigt)
+
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [3] BUILD-PROZESS                                               │
+#! └─────────────────────────────────────────────────────────────────┘
+#   └── opensimbuild    : Kompiliert OpenSimulator (Mono/XBuild)
+
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [4] KONFIGURATION                                               │
+#! └─────────────────────────────────────────────────────────────────┘
+#   ├── regionsconfig   : Erstellt Basis-Regionenkonfiguration
+#   ├── setwelcome      : Setzt Willkommensnachricht
+#   ├── setrobusthg     : Konfiguriert Robust-Service für HG
+#   ├── setopensim      : Server-Port-Konfiguration (TODO: pro Sim)
+#   ├── setgridcommon   : Grid-Kernparameter (TODO: DB-Separierung)
+#   ├── setflotsamcache : Cache-Einstellungen
+#   └── setosslenable   : Aktiviert OSSL (TODO: Grundeinstellungen)
+
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [5] DEPLOYMENT                                                  │
+#! └─────────────────────────────────────────────────────────────────┘
+#   └── opensimcopy     : Kopiert Binaries an Zielorte
+
+#! ┌─────────────────────────────────────────────────────────────────┐
+#! │ [6] AUTOMATISIERUNG                                             │
+#! └─────────────────────────────────────────────────────────────────┘
+#   └── setcrontab      : Richtet Auto-Start ein (Cronjob)
+
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#*  NUTZUNGSHINWEISE:
+#!  1. Einzelaufruf   : bash osmtool.sh –funktion [FUNKTIONSNAME]
+#!  2. Komplettlauf   : bash osmtool.sh autosetinstall (fragt Bestätigung ab)
+#?──────────────────────────────────────────────────────────────────────────────────────────
+
+function standalonerestart() {
+    standalonestart
+    sleep 30
+    standalonestop
+}
+
+# OpenSim neu starten
+function opensimrestart() {
+    opensimstop
+    sleep 30  # Kurze Pause, um sicherzustellen, dass alles gestoppt wurde
+    logclean
+    sleep 15  # Kurze Pause, um sicherzustellen, dass alles gelöscht wurde
+    opensimstart
+    echo "Welche sim Regionen sind gestartet?:"
+    screen -ls
+}
+
+function configall() {
+    setrobusthg
+    setopensim
+    setgridcommon
+    setflotsamcache
+    setosslenable
+    setwelcome
+}
+
+function autosetinstall() {
+    # Komplette Server Installation
+    echo -e "\033[1;33mWARNUNG: Dies wird den gesamten OpenSimulator-Server installieren und konfigurieren.\033[0m"
+    echo "Möchten Sie fortfahren? [j/N] " 
+    read -r antwort
+
+    # Fallback für Leerzeichen/Leerstring (Standard: Nein)
+    if [[ "${antwort,,}" != "j" ]]; then
+        echo -e "\033[31mAbbruch: Installation wurde nicht bestätigt.\033[0m"
+        return 1
+    fi
+
+    echo -e "\033[32mStarte Installation...\033[0m"
+    servercheck
+
+    ## Bestandteile des OpenSimulators herunterladen.
+    opensimgit
+    moneygit
+
+    ## Das eigentliche Bauen des OpenSimulators.
+    opensimbuild
+
+    ## Verzeichnisse füllen.
+    createdirectory
+    sqlsetup
+    opensimcopy
+
+    ## Konfigurieren der Voreinstellungen
+    regionsconfig
+    setwelcome
+
+    setrobusthg
+    setopensim # todo: Jede Sim benötigt ihren eigenen Port.
+    setgridcommon # todo: Jede Sim benötigt eine eigene Datenbank.
+    setflotsamcache
+    setosslenable # todo: Grundeinstellungen fehlen.
+
+    ## Automatischer Betrieb des OpenSimulators.
+    setcrontab
+
+    echo -e "\033[1;32mFertig! Der Server startet spätestens nach 30 Minuten vollautomatisch.\033[0m"
+}
+
+function reboot() {
+    echo "Server wird jetzt heruntergefahren und neu gestartet!"    
+    # Stoppen des ganzen OpenSim Grids.
+    opensimstop
+    sleep 30
+    # Starte den Server neu.
+    shutdown -r now
+}
+
+#?──────────────────────────────────────────────────────────────────────────────────────────
 #* Hilfefunktionen
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 function help () {
     echo -e "\e[36mOpenSim Grid Starten Stoppen und Restarten:\e[0m"
@@ -1706,19 +1876,99 @@ function help () {
     echo " "
 }
 
-#──────────────────────────────────────────────────────────────────────────────────────────
+
+function colortest(){
+echo -e "\033[32m Symbole für Statusanzeigen\033[0m"
+echo -e "Pfeile: → ← ↑ ↓ ➔ ➜ ➤ ➣ ➢ ➠"
+echo -e "Kreise: ○ ● ⭘ ◯ ◎ ⚪ ⚫"
+echo -e "Quadrate: ■ □ ▪ ▫ ⬛ ⬜"
+echo -e "Sterne: ★ ☆ ✦ ✧ ✪ ✩ ✫ ✯ ✰"
+echo -e "Haken & Kreuze: ✓ ✕ ✘ ❌ ✅ ❎"
+echo -e "Uhren & Zeit: ⏳ ⌛ ⏰ 🕒 🕔 🕗"
+echo -e "Zahlen in Kreisen: ➀ ➁ ➂ ➃ ➄ ➅ ➆ ➇ ➈ ➉"
+echo -e "Punkte & Marker: • ◦ ∙ ☐ ☒"
+echo -e "Wetter/Status (optional): ⚡ ☔"
+echo -e "Fortschritt (Balken-Stil): ▄ █"
+echo -e "Linien/Trenner: ─ ━ │ ┃ ┄ ┅ ┆ ┇ ┈ ┉ ┊ ┋"
+echo " "
+echo -e "✓ \033[32mErfolgreich abgeschlossen!\033[0m"
+echo -e "✘ \033[31mFehler aufgetreten.\033[0m"
+echo -e "⏳ \033[33mBitte warten...\033[0m"
+
+echo " "
+echo -e "\033[1m Textfarben \033[0m"
+echo -e "\033[30m Schwarz\033[0m"
+echo -e "\033[31m Rot\033[0m"
+echo -e "\033[32m Grün\033[0m"
+echo -e "\033[33m Gelb\033[0m"
+echo -e "\033[34m Blau\033[0m"
+echo -e "\033[35m Magenta\033[0m"
+echo -e "\033[36m Cyan\033[0m"
+echo -e "\033[37m Weiß\033[0m"
+echo " "
+echo -e "\033[1m Hintergrundfarben \033[0m"
+echo -e "\033[40m Schwarzer Hintergrund\033[0m"
+echo -e "\033[41m Roter Hintergrund\033[0m"
+echo -e "\033[42m Grüner Hintergrund\033[0m"
+echo -e "\033[43m Gelber Hintergrund\033[0m"
+echo -e "\033[44m Blauer Hintergrund\033[0m"
+echo -e "\033[45m Magenta Hintergrund\033[0m"
+echo -e "\033[46m Cyan Hintergrund\033[0m"
+echo -e "\033[47m Weißer Hintergrund\033[0m"
+echo " "
+echo -e "\033[1m Formatierungen \033[0m"
+echo -e "\033[1m Fett (bold)\033[0m"
+echo -e "\033[2m Schwach (dim)\033[0m"
+echo -e "\033[3m Kursiv (italic, nicht überall unterstützt)\033[0m"
+echo -e "\033[4m Unterstrichen (underline)\033[0m"
+echo -e "\033[7m Negativ (invert colors)\033[0m"
+echo -e "\033[0m Zurücksetzen (reset)"
+echo " "
+echo -e "\033[1m Textfarben \033[0m"
+echo -e "\033[30m Schwarz\033[0m        \033[90m Hellgrau (Bright-Schwarz)\033[0m"
+echo -e "\033[31m Rot\033[0m           \033[91m Hellrot (Bright-Rot)\033[0m"
+echo -e "\033[32m Grün\033[0m         \033[92m Hellgrün (Bright-Grün)\033[0m"
+echo -e "\033[33m Gelb\033[0m         \033[93m Hellgelb (Bright-Gelb)\033[0m"
+echo -e "\033[34m Blau\033[0m         \033[94m Hellblau (Bright-Blau)\033[0m"
+echo -e "\033[35m Magenta\033[0m      \033[95m Hellmagenta (Bright-Magenta)\033[0m"
+echo -e "\033[36m Cyan\033[0m         \033[96m Hellcyan (Bright-Cyan)\033[0m"
+echo -e "\033[37m Weiß\033[0m         \033[97m Hellweiß (Bright-Weiß)\033[0m"
+echo " "
+echo -e "\n\033[1m Hintergrundfarben \033[0m"
+echo -e "\033[40m Schwarzer Hintergrund\033[0m      \033[100m Heller schwarzer Hintergrund\033[0m"
+echo -e "\033[41m Roter Hintergrund\033[0m         \033[101m Heller roter Hintergrund\033[0m"
+echo -e "\033[42m Grüner Hintergrund\033[0m       \033[102m Heller grüner Hintergrund\033[0m"
+echo -e "\033[43m Gelber Hintergrund\033[0m       \033[103m Heller gelber Hintergrund\033[0m"
+echo -e "\033[44m Blauer Hintergrund\033[0m       \033[104m Heller blauer Hintergrund\033[0m"
+echo -e "\033[45m Magenta Hintergrund\033[0m     \033[105m Heller magenta Hintergrund\033[0m"
+echo -e "\033[46m Cyan Hintergrund\033[0m         \033[106m Heller cyan Hintergrund\033[0m"
+echo -e "\033[47m Weißer Hintergrund\033[0m       \033[107m Heller weißer Hintergrund\033[0m"
+echo " "
+echo -e "\n\033[1m Kombinationen \033[0m"
+echo -e "\033[1;91;44m HELLROTER TEXT AUF BLAUEM HINTERGRUND \033[0m"
+echo -e "\033[4;93;105m UNTERSTRICHEN + HELLGELB AUF HELLMAGENTA \033[0m"
+echo " "
+}
+
+
+#?──────────────────────────────────────────────────────────────────────────────────────────
 #* Eingabeauswertung
-#──────────────────────────────────────────────────────────────────────────────────────────
+#?──────────────────────────────────────────────────────────────────────────────────────────
 case $KOMMANDO in
     servercheck) servercheck ;;
 	createdirectory) createdirectory ;;
     mariasetup) mariasetup ;;
     sqlsetup) sqlsetup ;;
     setcrontab) setcrontab ;;
-    opensimgitcopy) opensimgitcopy ;;
-    moneygitcopy) moneygitcopy ;;
+    
+    opensimgitcopy|opensimgit) opensimgit ;;
+    moneygitcopy|moneygit) moneygit ;;
+
     opensimbuild) opensimbuild ;;
     opensimcopy) opensimcopy ;;
+
+    opensimupgrade) opensimupgrade ;;
+
     config_menu|configure|configureopensim) config_menu ;; # Die automatische konfiguration zu testzwecken.
     cleandoublecomments) cleandoublecomments ;;
     configclean|clean_comments_and_empty_lines) clean_comments_and_empty_lines ;;
@@ -1732,7 +1982,9 @@ case $KOMMANDO in
     setflotsamcache) setflotsamcache ;; # Die automatische konfiguration zu testzwecken.
     setosslenable) setosslenable ;; # Die automatische konfiguration zu testzwecken.
     setwelcome) setwelcome ;; # Die automatische konfiguration zu testzwecken.
+
     configall) configall ;; # Die automatische konfiguration zu testzwecken.
+    autosetinstall) autosetinstall ;;
 
     start|opensimstart) opensimstart ;;
     stop|opensimstop) opensimstop ;;
@@ -1754,6 +2006,7 @@ case $KOMMANDO in
     regionsclean) regionsclean ;;
     cleanall) cleanall ;;
     renamefiles) renamefiles ;;  # Die automatische konfiguration zu testzwecken.
+    colortest) colortest ;;
 	h|help|hilfe|*) help ;;
 esac
 
