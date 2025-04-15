@@ -153,6 +153,6 @@ Diese Befehle sind für Test-, Konfigurations- und Wartungszwecke gedacht:
 
 ## **📜 Lizenz & Nutzung**  
 - **Skriptname**: `osmtool.sh`  
-- **Version**: *V25.4.45.121*  
+- **Version**: *V25.4.46.123*  
 - **Autor**: *Manfred Aabye*  
 - **Lizenz**: *MIT*  
