@@ -34,6 +34,11 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | `opensimrestart` | Startet OpenSim neu. |  
 | `check_screens` | Überprüft laufende OpenSim-Prozesse und startet sie bei Bedarf neu. |  
 
+*(Optional implementiert, aber nicht aktiv genutzt:)*  
+| `standalonestart` | Startet OpenSim im Standalone-Modus. |  
+| `standalonestop` | Stoppt OpenSim im Standalone-Modus. |  
+| `standalonerestart` | Startet OpenSim Standalone neu. |  
+
 ---
 
 ## **🛠️ OpenSim-Grid erstellen oder aktualisieren**  
@@ -42,23 +47,27 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 |--------|-------------|  
 | `servercheck` | Prüft, ob der Server für OpenSim bereit ist. |  
 | `createdirectory` | Erstellt die benötigten Verzeichnisse. |  
-| `mariasetup` | Erstellt und Richtet die MariaDB-Datenbanken ein. |  
-| `sqlsetup` | Erstellt und Richtet die SQL-Datenbanken ein. |
+| `mariasetup` | Erstellt und richtet die MariaDB-Datenbanken ein. |  
+| `sqlsetup` | Erstellt und richtet die SQL-Datenbanken ein. |  
+| `setcrontab` | Konfiguriert crontab Automatisierungen. |  
 
 ### **Schritt 2: OpenSim herunterladen & kompilieren**  
 | Befehl | Beschreibung |  
 |--------|-------------|  
 | `opensimgitcopy` | Lädt OpenSim aus dem Git-Repository herunter. |  
 | `moneygitcopy` | Lädt den MoneyServer aus dem Git-Repository herunter. |  
+| `ruthrothgit` | Ruth/Roth IAR-Dateien aus Git herunterladen. ⚡ *Vorsicht* |  
+| `avatarassetsgit` | Ruth/Roth Assets aus Git herunterladen. ⚡ *Vorsicht* |  
+| `osslscriptsgit` | OSSL-Skripte aus Git herunterladen. ⚡ *Vorsicht* |  
 | `opensimbuild` | Kompiliert OpenSim. |  
 
 ### **Schritt 3: Konfiguration & Deployment** *(In Arbeit)*  
 | Befehl | Beschreibung |  
 |--------|-------------|  
+| `configall` | Vorkonfiguriert ein komplettes Test-Grid automatisch. ⚡ *Vorsicht* |  
 | `opensimcopy` | Kopiert OpenSim in alle Zielverzeichnisse. |  
 | *(Geplant)* `opensimconfig` | Konfiguriert OpenSim-Einstellungen. |  
-| `regionconfig` | Konfiguriert Automatisch OpenSim Regionen in eine Fibonacci-Folge. |
-| `setcrontab` | Konfiguriert Automatisch crontab. |
+| `regionsconfig` | Konfiguriert automatisch OpenSim-Regionen. |  
 
 ---
 
@@ -67,28 +76,29 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 | Befehl | Beschreibung |  
 |--------|-------------|  
-| `dataclean` | Entfernt alle Dateien (Neuinstallation erforderlich). |  
-| `pathclean` | Löscht alle Verzeichnisse (Neuinstallation erforderlich). |  
-| `cacheclean` | Bereinigt den Cache. |  
-| `logclean` | Entfernt alle Log-Dateien. |  
-| `mapclean` | Löscht alle Maptiles (Kartendaten). |  
-| `autoallclean` | **Führt alle Cleaner aus** (sehr gefährlich, Neuinstallation nötig!). |  
-
-Diese Cleaner entfernen nur überflüssige Daten, während Backups und Konfigurationen erhalten bleiben.
+| `dataclean` | Entfernt alle alten Dateien von Robust & Sim. ⚡ |  
+| `pathclean` | Entfernt alle alten Verzeichnisse von Robust & Sim. ⚡ |  
+| `cacheclean` | Bereinigt den Cache von Robust & Sim. |  
+| `logclean` | Löscht alte Log-Dateien. |  
+| `mapclean` | Löscht alte Maptile-Karten. |  
+| `autoallclean` | Führt alle Cleaner aus. ⚡ *Neuinstallation erforderlich!* |  
+| `regionsclean` | Entfernt alle konfigurierten Regionen aus allen Simulatoren. |  
 
 ➜ **Das Grid läuft sofort nach einem Upgrade mit:**  
-- Behaltenen Regionen
-- Gleichen Benutzerkonten
-- Intakten Einstellungen
+- Behaltenen Regionen  
+- Gleichen Benutzerkonten  
+- Intakten Einstellungen  
 
-⚠ **Warnung:** Dies ist eine gefährliche Aktion, bitte prüfen und vergleichen sie die alten Konfigurationen mit den neuen example Konfigurationen.
+⚠ **Warnung:** Dies ist eine gefährliche Aktion, bitte prüfen und vergleichen Sie die alten Konfigurationen mit den neuen Example-Konfigurationen.  
+
 ---
 
 ## **⚠️ Wichtige Hinweise**  
 - **`autoallclean` ist irreversibel!** → OpenSim muss danach neu installiert werden.  
-- **Backups erstellen**, bevor Bereinigungsbefehle ausgeführt werden.
-- Auch wenn keine Konfigurationsdateien gelöscht werden würde ich empfehlen das sie eine Manuelle Sicherung vornehmen.
-- Einige Funktionen sind noch in Arbeit (`opensimconfig`, `regionconfig`).  
+- **Backups erstellen**, bevor Bereinigungsbefehle ausgeführt werden.  
+- Auch wenn keine Konfigurationsdateien gelöscht werden, empfehle ich eine manuelle Sicherung.  
+- Einige Funktionen sind noch in Arbeit (`opensimconfig`, `regionsconfig`).  
+
 ---
 
 ## **🔄 OpenSimulator auto- start stop restart Beispiel**
@@ -116,14 +126,15 @@ Diese Cleaner entfernen nur überflüssige Daten, während Backups und Konfigura
 */30 * * * * bash /opt/osmtool.sh check_screens
 ```
 ### Save crontabs
-     ctrl O
-     Enter
+     ctrl O  
+     Enter  
 ### Exit editor
-     ctrl X
+     ctrl X  
+
 ---
 
 ## **📜 Lizenz & Nutzung**  
 - **Skriptname**: `osmtool.sh`  
-- **Version**: *V25.4.35.62*  
+- **Version**: *V25.4.45.121*  
 - **Autor**: *Manfred Aabye*  
 - **Lizenz**: *MIT*  
