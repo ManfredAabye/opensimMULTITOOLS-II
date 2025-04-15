@@ -6,7 +6,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.46.123"
+VERSION="V25.4.48.126"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -558,6 +558,26 @@ function pbrtexturesgit() {
         return 1
     fi
 
+    return 0
+}
+
+function versionrevision() {
+    file="opensim/OpenSim/Framework/VersionInfo.cs"
+
+    if [[ ! -f "$file" ]]; then
+        echo "✘ Datei nicht gefunden: $file"
+        return 1
+    fi
+
+    echo "✓ Bearbeite Datei: $file"
+
+    # Ändere Flavour.Dev zu Flavour.Extended
+    sed -i 's/public const Flavour VERSION_FLAVOUR = Flavour\.Dev;/public const Flavour VERSION_FLAVOUR = Flavour.Extended;/' "$file"
+
+    # Entferne "Nessie" aus dem Versions-String
+    sed -i 's/OpenSim {versionNumber} Nessie {flavour}/OpenSim {versionNumber} {flavour}/' "$file"
+
+    echo "✓ Änderungen wurden erfolgreich vorgenommen."
     return 0
 }
 
@@ -1983,7 +2003,7 @@ function opensimrestart() {
 #! │ [2] KONFIGURATIONS-PAKETE                                      │
 #! └─────────────────────────────────────────────────────────────────┘
 
-# Basis-Konfiguration für alle Dienste
+# Basis-Konfiguration für alle Dienste ⚡ Vorsicht
 function configall() {
     setrobusthg      # Hypergrid-Konfig
     setopensim       # Regionsserver
@@ -1998,7 +2018,7 @@ function configall() {
 #! │ [3] INSTALLATIONSROUTINEN                                      │
 #! └─────────────────────────────────────────────────────────────────┘
 
-# Vollautomatische Installation
+# Vollautomatische Installation ⚡ Vorsicht
 function autosetinstall() {
     # Sicherheitsabfrage
     echo -e "\033[1;33m⚠ WARNUNG: Komplette Serverinstallation!\033[0m"
@@ -2055,6 +2075,18 @@ function reboot() {
     # }
     
     shutdown -r now
+}
+# OpenSim komplett herunterladen ⚡ Vorsicht
+function downloadallgit() {
+    opensimgit
+    moneygit
+    #ruthrothgit
+    avatarassetsgit
+    osslscriptsgit
+    pbrtexturesgit
+
+    versionrevision
+    opensimbuild
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -2204,6 +2236,8 @@ case $KOMMANDO in
     avatarassetsgit) avatarassetsgit ;;
     osslscriptsgit) osslscriptsgit ;;
     pbrtexturesgit) pbrtexturesgit ;;
+    downloadallgit) downloadallgit ;;
+    versionrevision) versionrevision ;;
 
     opensimbuild) opensimbuild ;;
     opensimcopy) opensimcopy ;;
