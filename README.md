@@ -34,7 +34,8 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | `opensimrestart` | Startet OpenSim neu. |  
 | `check_screens` | Überprüft laufende OpenSim-Prozesse und startet sie bei Bedarf neu. |  
 
-*(Optional implementiert, aber nicht aktiv genutzt:)*  
+*(Optional implementiert, aber nicht aktiv genutzt:)*
+
 | `standalonestart` | Startet OpenSim im Standalone-Modus. |  
 | `standalonestop` | Stoppt OpenSim im Standalone-Modus. |  
 | `standalonerestart` | Startet OpenSim Standalone neu. |  
@@ -76,8 +77,8 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 | Befehl | Beschreibung |  
 |--------|-------------|  
-| `dataclean` | Entfernt alle alten Dateien von Robust & Sim. ⚡ |  
-| `pathclean` | Entfernt alle alten Verzeichnisse von Robust & Sim. ⚡ |  
+| `dataclean` | Entfernt alle alten Dateien von Robust & Sim. ⚡ *Neuinstallation erforderlich!* |  
+| `pathclean` | Entfernt alle alten Verzeichnisse von Robust & Sim. ⚡ *Neuinstallation erforderlich!* |  
 | `cacheclean` | Bereinigt den Cache von Robust & Sim. |  
 | `logclean` | Löscht alte Log-Dateien. |  
 | `mapclean` | Löscht alte Maptile-Karten. |  
