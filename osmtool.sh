@@ -6,7 +6,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.42.105"
+VERSION="V25.4.45.121"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -20,9 +20,9 @@ echo " "
 # Hauptpfad des Skripts automatisch setzen
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 cd "$SCRIPT_DIR" || exit 1
-echo "Arbeitsverzeichnis ist: $SCRIPT_DIR"
+echo "Das Arbeitsverzeichnis ist: $SCRIPT_DIR"
 system_ip=$(hostname -I | awk '{print $1}')
-echo "Ihre IP Adresse: $system_ip"; echo " "
+echo "Ihre IP Adresse ist: $system_ip"; echo " "
 
 KOMMANDO=$1 # Eingabeauswertung fuer Funktionen.
 #MONEYCOPY="yes" # MoneyServer Installieren.
@@ -353,6 +353,169 @@ function moneygit() {
         echo "✓ MONEYSERVER: bin wurde nach opensim kopiert"
     else
         echo "✘ MONEYSERVER: bin existiert nicht"
+    fi
+
+    return 0
+}
+
+function ruthrothgit() {
+    echo "Möchten Sie die Ruth2 und Roth2 Avatare neu klonen oder aktualisieren? ([upgrade]/new)"
+    read -r user_choice
+    user_choice=${user_choice:-upgrade}
+
+    declare -A repos=(
+        ["Ruth2"]="https://github.com/ManfredAabye/Ruth2.git"
+        ["Roth2"]="https://github.com/ManfredAabye/Roth2.git"
+    )
+
+    for avatar in "${!repos[@]}"; do
+        repo_url="${repos[$avatar]}"
+        target_dir="$avatar"
+
+        echo "➤ Bearbeite $avatar..."
+
+        if [[ "$user_choice" == "new" ]]; then
+            if [[ -d "$target_dir" ]]; then
+                echo "  ➜ Alte Version von $avatar wird gelöscht..."
+                rm -rf "$target_dir"
+            fi
+            echo "  ➜ Klone $avatar von GitHub..."
+            git clone "$repo_url" "$target_dir" && echo "  ✅ $avatar wurde neu heruntergeladen."
+        elif [[ "$user_choice" == "upgrade" ]]; then
+            if [[ -d "$target_dir/.git" ]]; then
+                echo "  ➜ Aktualisiere $avatar mit git pull..."
+                cd "$target_dir" || { echo "✘ Fehler beim Wechsel in $target_dir"; continue; }
+                branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+                git pull origin "$branch_name" && echo "  ✅ $avatar wurde aktualisiert."
+                cd ..
+            else
+                echo "  ⚠ Verzeichnis $target_dir existiert nicht oder ist kein Git-Repo. Klone neu..."
+                git clone "$repo_url" "$target_dir" && echo "  ✅ $avatar wurde neu heruntergeladen."
+            fi
+        else
+            echo "✘ Ungültige Eingabe. Abbruch."
+            return 1
+        fi
+
+        # IAR-Dateien kopieren
+        echo "  ➜ Kopiere IAR-Dateien nach opensim/bin/Library..."
+
+        if [[ "$avatar" == "Ruth2" ]]; then
+            cp "$target_dir/Artifacts/IAR/Ruth2-v3.iar" opensim/bin/Library/ 2>/dev/null && echo "    ✓ Ruth2-v3.iar kopiert"
+            cp "$target_dir/Artifacts/IAR/Ruth2-v4.iar" opensim/bin/Library/ 2>/dev/null && echo "    ✓ Ruth2-v4.iar kopiert"
+        elif [[ "$avatar" == "Roth2" ]]; then
+            cp "$target_dir/Artifacts/IAR/Roth2-v1.iar" opensim/bin/Library/ 2>/dev/null && echo "    ✓ Roth2-v1.iar kopiert"
+            cp "$target_dir/Artifacts/IAR/Roth2-v2.iar" opensim/bin/Library/ 2>/dev/null && echo "    ✓ Roth2-v2.iar kopiert"
+        fi
+    done
+
+    echo "✅ Alle Avatar-IAR-Dateien wurden verarbeitet."
+    return 0
+}
+
+function avatarassetsgit() {
+    local base_dir
+    base_dir=$(pwd)
+
+    # Repos als normaler String-Array (keine assoziativen Arrays!)
+    local repo_data
+    repo_data=(
+        "https://github.com/ManfredAabye/Ruth2.git|Ruth2|Ruth2-v3.iar Ruth2-v4.iar"
+        "https://github.com/ManfredAabye/Roth2.git|Roth2|Roth2-v1.iar Roth2-v2.iar"
+    )
+
+    for entry in "${repo_data[@]}"; do
+        IFS='|' read -r repo_url repo_dir iar_files <<< "$entry"
+
+        echo "📦 Klone Repository: $repo_url"
+        if [[ -d "$repo_dir" ]]; then
+            echo "🔁 Repository $repo_dir existiert bereits. Aktualisiere mit 'git pull'..."
+            cd "$repo_dir" || { echo "✘ Fehler beim Wechsel in $repo_dir"; continue; }
+            git pull
+            cd "$base_dir" || exit
+        else
+            git clone "$repo_url" "$repo_dir" || { echo "✘ Fehler beim Klonen von $repo_url"; continue; }
+        fi
+
+        for iar in $iar_files; do
+            local iar_path="$repo_dir/Artifacts/IAR/$iar"
+            if [[ ! -f "$iar_path" ]]; then
+                echo "⚠ IAR-Datei $iar_path nicht gefunden. Überspringe..."
+                continue
+            fi
+
+            echo "🧩 Verarbeite $iar"
+            mkdir -p temp_iar_extract
+            tar -xzf "$iar_path" -C temp_iar_extract
+
+            if [[ -d temp_iar_extract/assets ]]; then
+                mkdir -p "opensim/bin/assets/${iar%.iar}"
+                cp -r temp_iar_extract/assets/* "opensim/bin/assets/${iar%.iar}/"
+                echo "✓ Assets kopiert nach opensim/bin/assets/${iar%.iar}"
+            fi
+
+            if [[ -d temp_iar_extract/inventory ]]; then
+                mkdir -p "opensim/bin/inventory/${iar%.iar}"
+                cp -r temp_iar_extract/inventory/* "opensim/bin/inventory/${iar%.iar}/"
+                echo "✓ Inventory kopiert nach opensim/bin/inventory/${iar%.iar}"
+            fi
+
+            rm -rf temp_iar_extract
+        done
+    done
+
+    echo "✅ Roth2 + Ruth2 Avatare wurden erfolgreich integriert."
+}
+
+function osslscriptsgit() {
+    echo "Möchten Sie die OpenSim OSSL Beispiel-Skripte vom GitHub verwenden oder aktualisieren? ([upgrade]/new)"
+    read -r user_choice
+    user_choice=${user_choice:-upgrade}
+
+    repo_name="opensim-ossl-example-scripts"
+    repo_url="https://github.com/ManfredAabye/opensim-ossl-example-scripts.git"
+
+    if [[ "$user_choice" == "new" ]]; then
+        if [[ -d "$repo_name" ]]; then
+            echo "Vorhandene Version wird gelöscht..."
+            rm -rf "$repo_name"
+            echo "✓ Alte Version wurde erfolgreich entfernt."
+        fi
+        echo "Beispiel-Skripte werden vom GitHub heruntergeladen..."
+        git clone "$repo_url" "$repo_name" && echo "✓ Repository wurde erfolgreich heruntergeladen."
+    elif [[ "$user_choice" == "upgrade" ]]; then
+        if [[ -d "$repo_name/.git" ]]; then
+            echo "✓ Repository gefunden. Aktualisiere mit 'git pull'..."
+            cd "$repo_name" || { echo "✘ Fehler beim Wechsel ins Verzeichnis!"; return 1; }
+            branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+            git pull origin "$branch_name" && echo "✅ Repository erfolgreich aktualisiert."
+            cd ..
+        else
+            echo "⚠ Verzeichnis nicht gefunden oder kein Git-Repo. Klone Repository neu..."
+            git clone "$repo_url" "$repo_name" && echo "✅ Repository wurde erfolgreich heruntergeladen."
+        fi
+    else
+        echo "✘ Abbruch: Keine Aktion durchgeführt."
+        return 1
+    fi
+
+    # Zielverzeichnisse erstellen falls nicht vorhanden
+    mkdir -p opensim/bin/assets/
+    mkdir -p opensim/bin/inventory/
+
+    # Kopieren der Verzeichnisse
+    if [[ -d "$repo_name/ScriptsAssetSet" ]]; then
+        cp -r "$repo_name/ScriptsAssetSet" opensim/bin/assets/
+        echo "✓ ScriptsAssetSet wurde nach opensim/bin/assets kopiert."
+    else
+        echo "✘ ScriptsAssetSet Verzeichnis nicht gefunden!"
+    fi
+
+    if [[ -d "$repo_name/inventory/ScriptsLibrary" ]]; then
+        cp -r "$repo_name/inventory/ScriptsLibrary" opensim/bin/inventory/
+        echo "✓ ScriptsLibrary wurde nach opensim/bin/inventory kopiert."
+    else
+        echo "✘ ScriptsLibrary Verzeichnis nicht gefunden!"
     fi
 
     return 0
@@ -1879,23 +2042,30 @@ function help () {
     echo -e "\e[32mmariasetup\e[0m # MariaDB Datenbanken erstellen."
     echo -e "\e[32msqlsetup\e[0m # SQL Datenbanken erstellen."
     echo -e "\e[32msetcrontab\e[0m # set crontab automatisierungen."
+    echo " "
 
+    echo -e "\e[36mGit Downloads:\e[0m"
     echo -e "\e[32mopensimgitcopy\e[0m # OpenSim aus dem Git herunterladen."
     echo -e "\e[32mmoneygitcopy\e[0m # MoneyServer aus dem Git herunterladen."
+    echo -e "\e[32mruthrothgit\e[0m # ruth roth aus dem Git herunterladen als IAR. ⚡ \033[31mVorsicht\033[0m"
+    echo -e "\e[32mavatarassetsgit\e[0m # ruth roth aus dem Git herunterladen als Assets. ⚡ \033[31mVorsicht\033[0m"
+    echo -e "\e[32mosslscriptsgit\e[0m # Skripte aus dem Git herunterladen.⚡ \033[31mVorsicht\033[0m"
+    echo " "
+
     echo -e "\e[32mopensimbuild\e[0m # OpenSim kompilieren."
-    echo -e "\e[32mconfigall\e[0m # Vorkonfigurieren des OpenSimulators Gid Test.\e[0m"  # Die automatische konfiguration zu testzwecken.
+    echo -e "\e[32mconfigall\e[0m # Vorkonfigurieren des OpenSimulators Gid Test.\e[0m⚡ \033[31mVorsicht\033[0m"  # Die automatische konfiguration zu testzwecken.
     echo -e "\e[32mopensimcopy\e[0m # OpenSim kopieren (in alle Verzeichnisse)."
     echo -e "\e[35mopensimconfig # Eine funktionsfähige konfiguration fehlt noch.\e[0m"
     echo -e "\e[32mregionsconfig\e[0m # OpenSim Regionen konfigurieren."
     echo " "    
 
     echo -e "\e[36mOpenSim Grid Bereinigen von alten Dateien, Verzeichnissen und Cache:\e[0m"
-    echo -e "\e[32mdataclean\e[0m # Robust und simX von alten Dateien befreien (Neuinstallation erforderlich).\e[0m"
-    echo -e "\e[32mpathclean\e[0m # Robust und simX von alten Verzeichnissen befreien (Neuinstallation erforderlich).\e[0m"
-    echo -e "\e[32mcacheclean\e[0m # Robust und simX Cache bereinigen.\e[0m"
-    echo -e "\e[32mlogclean\e[0m # Robust und simX von alten Logs befreien.\e[0m"
-    echo -e "\e[32mmapclean\e[0m # Robust und simX von alten Maptile Karten befreien.\e[0m"
-    echo -e "\e[32mautoallclean\e[0m # Robust und simX von alten Dateien und Verzeichnissen befreien (Neuinstallation erforderlich).\e[0m"
+    echo -e "\e[32mdataclean\e[0m # Robust und sim von alten Dateien befreien \033[31m( ⚡ Neuinstallation erforderlich).\e[0m"
+    echo -e "\e[32mpathclean\e[0m # Robust und sim von alten Verzeichnissen befreien \033[31m( ⚡ Neuinstallation erforderlich).\e[0m"
+    echo -e "\e[32mcacheclean\e[0m # Robust und sim Cache bereinigen.\e[0m"
+    echo -e "\e[32mlogclean\e[0m # Robust und sim von alten Logs befreien.\e[0m"
+    echo -e "\e[32mmapclean\e[0m # Robust und sim von alten Maptile Karten befreien.\e[0m"
+    echo -e "\e[32mautoallclean\e[0m # Robust und sim von alten Dateien und Verzeichnissen befreien \033[31m( ⚡ Neuinstallation erforderlich).\e[0m"
     echo -e "\e[32mregionsclean\e[0m # Löscht alle konfigurierten Regionen aus allen Simulatoren.\e[0m"    
     echo " "
 }
@@ -1918,6 +2088,8 @@ echo " "
 echo -e "✓ \033[32mErfolgreich abgeschlossen!\033[0m"
 echo -e "✘ \033[31mFehler aufgetreten.\033[0m"
 echo -e "⏳ \033[33mBitte warten...\033[0m"
+echo -e "⚡ \033[31mVorsicht\033[0m"
+echo -e "\033[31m( ⚡ Neuinstallation erforderlich).\e[0m"
 
 echo " "
 echo -e "\033[1m Textfarben \033[0m"
@@ -1987,6 +2159,9 @@ case $KOMMANDO in
     
     opensimgitcopy|opensimgit) opensimgit ;;
     moneygitcopy|moneygit) moneygit ;;
+    ruthrothgit) ruthrothgit ;;
+    avatarassetsgit) avatarassetsgit ;;
+    osslscriptsgit) osslscriptsgit ;;
 
     opensimbuild) opensimbuild ;;
     opensimcopy) opensimcopy ;;
