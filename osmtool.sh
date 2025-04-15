@@ -6,7 +6,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.45.121"
+VERSION="V25.4.46.123"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -516,6 +516,46 @@ function osslscriptsgit() {
         echo "✓ ScriptsLibrary wurde nach opensim/bin/inventory kopiert."
     else
         echo "✘ ScriptsLibrary Verzeichnis nicht gefunden!"
+    fi
+
+    return 0
+}
+
+function pbrtexturesgit() {
+    textures_zip_url="https://github.com/ManfredAabye/OpenSim_PBR_Textures/releases/download/PBR/OpenSim_PBR_Textures.zip"
+    zip_file="OpenSim_PBR_Textures.zip"
+    unpacked_dir="OpenSim_PBR_Textures"
+    target_dir="opensim"
+
+    # ZIP herunterladen, wenn nicht vorhanden
+    if [[ ! -f "$zip_file" ]]; then
+        echo "Lade OpenSim PBR Texturen herunter..."
+        if ! wget -q --show-progress -O "$zip_file" "$textures_zip_url"; then
+            echo "✘ Fehler beim Herunterladen der Texturen!"
+            return 1
+        fi
+        echo "✓ Download abgeschlossen: $zip_file"
+    else
+        echo "✓ ZIP-Datei bereits vorhanden: $zip_file"
+    fi
+
+    # Entpacken, wenn Verzeichnis noch nicht existiert
+    if [[ ! -d "$unpacked_dir" ]]; then
+        echo "Entpacke Texturen nach $unpacked_dir ..."
+        unzip -q "$zip_file" -d .
+        echo "✓ Entpackt."
+    else
+        echo "✓ Verzeichnis $unpacked_dir existiert bereits – überspringe Entpacken."
+    fi
+
+    # Kopieren nach opensim/bin
+    if [[ -d "$unpacked_dir/bin" ]]; then
+        echo "Kopiere Texturen nach $target_dir ..."
+        cp -r "$unpacked_dir/bin" "$target_dir"
+        echo "✓ Texturen erfolgreich installiert in $target_dir"
+    else
+        echo "✘ Verzeichnis $unpacked_dir/bin nicht gefunden!"
+        return 1
     fi
 
     return 0
@@ -2050,6 +2090,7 @@ function help () {
     echo -e "\e[32mruthrothgit\e[0m # ruth roth aus dem Git herunterladen als IAR. ⚡ \033[31mVorsicht\033[0m"
     echo -e "\e[32mavatarassetsgit\e[0m # ruth roth aus dem Git herunterladen als Assets. ⚡ \033[31mVorsicht\033[0m"
     echo -e "\e[32mosslscriptsgit\e[0m # Skripte aus dem Git herunterladen.⚡ \033[31mVorsicht\033[0m"
+    echo -e "\e[32mpbrtexturesgit\e[0m # PBR Texturen aus dem Git herunterladen.⚡ \033[31mVorsicht\033[0m"
     echo " "
 
     echo -e "\e[32mopensimbuild\e[0m # OpenSim kompilieren."
@@ -2162,6 +2203,7 @@ case $KOMMANDO in
     ruthrothgit) ruthrothgit ;;
     avatarassetsgit) avatarassetsgit ;;
     osslscriptsgit) osslscriptsgit ;;
+    pbrtexturesgit) pbrtexturesgit ;;
 
     opensimbuild) opensimbuild ;;
     opensimcopy) opensimcopy ;;
