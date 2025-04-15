@@ -61,6 +61,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | `ruthrothgit` | Ruth/Roth IAR-Dateien aus Git herunterladen. ⚡ *Vorsicht* |  
 | `avatarassetsgit` | Ruth/Roth Assets aus Git herunterladen. ⚡ *Vorsicht* |  
 | `osslscriptsgit` | OSSL-Skripte aus Git herunterladen. ⚡ *Vorsicht* |  
+| `pbrtexturesgit` | PBR Texturen aus dem Git herunterladen. ⚡ *Vorsicht* |
 | `opensimbuild` | Kompiliert OpenSim. |  
 
 ### **Schritt 3: Konfiguration & Deployment** *(In Arbeit)*  
