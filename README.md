@@ -84,7 +84,22 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | `logclean` | Löscht alte Log-Dateien. |  
 | `mapclean` | Löscht alte Maptile-Karten. |  
 | `autoallclean` | Führt alle Cleaner aus. ⚡ *Neuinstallation erforderlich!* |  
-| `regionsclean` | Entfernt alle konfigurierten Regionen aus allen Simulatoren. |  
+| `regionsclean` | Entfernt alle konfigurierten Regionen aus allen Simulatoren. | 
+
+---
+
+## 🧪 Erweiterte Tools & Entwicklerfunktionen (optional)
+Diese Befehle sind für Test-, Konfigurations- und Wartungszwecke gedacht:
+
+| Befehl | Beschreibung |
+|--------|-------------|
+| `setrobusthg`, `setopensim`, ... | Automatische Konfiguration für verschiedene Ini-Dateien |
+| `renamefiles` | Bennent bestimmte Konfigurationsdateien um |
+| `cleanconfig` | Löscht oder bereinigt Konfig-Dateien (optional: mit Parameter) |
+| `colortest` | Testet die Farbausgabe im Terminal |
+| `generate_name` | Erzeugt automatisch Namen für Regionen oder Avatare |
+
+---
 
 ➜ **Das Grid läuft sofort nach einem Upgrade mit:**  
 - Behaltenen Regionen  
