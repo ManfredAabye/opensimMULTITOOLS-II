@@ -34,8 +34,9 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | `opensimrestart` | Startet OpenSim neu. |  
 | `check_screens` | Überprüft laufende OpenSim-Prozesse und startet sie bei Bedarf neu. |  
 
-*(Optional implementiert, aber nicht aktiv genutzt:)*
-
+## **🔄 (Optional implementiert, aber nicht aktiv genutzt:)** 
+| Befehl | Beschreibung |  
+|--------|-------------|  
 | `standalonestart` | Startet OpenSim im Standalone-Modus. |  
 | `standalonestop` | Stoppt OpenSim im Standalone-Modus. |  
 | `standalonerestart` | Startet OpenSim Standalone neu. |  
