@@ -3,10 +3,11 @@
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Informationen Kopfzeile
 #?──────────────────────────────────────────────────────────────────────────────────────────
+# https://github.com/ManfredAabye/opensimMULTITOOLS-II/blob/main/osmtool.sh
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.48.127"
+VERSION="V25.4.48.128"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -17,15 +18,34 @@ echo " "
 #* Variablen setzen
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
+#* FARBDEFINITIONEN
+COLOR_OK='\e[32m'          # Grün (Haken)
+COLOR_BAD='\e[31m'         # Rot (Kreuz)
+COLOR_HEADING='\e[97m'     # Weiß (Überschriften)
+COLOR_START='\e[92m'       # Hellgrün (Startaktionen)
+COLOR_STOP='\e[91m'        # Hellrot (Stopaktionen)
+COLOR_SERVER='\e[36m'      # Cyan (Server/Verzeichnisse/IPs)
+COLOR_DIR='\e[90m'         # Grau (Pfade)
+COLOR_LABEL='\e[97m'       # Weiß (Beschriftungen)
+COLOR_WARNING='\e[33m'     # Gelb (Warnungen)
+COLOR_RESET='\e[0m'        # Farbreset
+COLOR_LABEL='\e[97m'       # Weiß für Beschriftungen
+COLOR_VALUE='\e[36m'       # Cyan für Werte
+COLOR_ACTION='\e[92m'         # Hellgrün für Aktionen
+
+function blankline() {
+    echo " "
+}
+
 # Hauptpfad des Skripts automatisch setzen
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 cd "$SCRIPT_DIR" || exit 1
-echo "Das Arbeitsverzeichnis ist: $SCRIPT_DIR"
 system_ip=$(hostname -I | awk '{print $1}')
-echo "Ihre IP Adresse ist: $system_ip"; echo " "
+echo -e "${COLOR_LABEL}Das Arbeitsverzeichnis ist:${COLOR_RESET} ${COLOR_VALUE}$SCRIPT_DIR${COLOR_RESET}"
+echo -e "${COLOR_LABEL}Ihre IP Adresse ist:${COLOR_RESET} ${COLOR_VALUE}$system_ip${COLOR_RESET}"
+blankline
 
 KOMMANDO=$1 # Eingabeauswertung fuer Funktionen.
-#MONEYCOPY="yes" # MoneyServer Installieren.
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Abhängigkeiten installieren
@@ -108,6 +128,7 @@ function servercheck() {
     done
 
     echo "✓ Alle benötigten Pakete wurden installiert."
+    blankline
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -117,86 +138,91 @@ function servercheck() {
 function standalonestart() {
     cd opensim/bin || exit 1
     screen -fa -S opensim -d -U -m dotnet OpenSim.dll
+    blankline
 }
 
 function standalonestop() {
     screen -S opensim -p 0 -X stuff "shutdown^M"
+    blankline
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Start Stop Grid
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-# OpenSim starten (robust → money → sim1 bis sim999)
+#* OpenSim starten (robust → money → sim1 bis sim999)
 function opensimstart() {
-    echo -e "\e[32m"
-    # Prüfen, ob das Verzeichnis "robust/bin" existiert und Robust.dll vorhanden ist
+    echo -e "${COLOR_HEADING}⏳ ${COLOR_START}Starte das Grid!${COLOR_RESET}"
+
+    # RobustServer starten
     if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
-        echo "✓ Starte RobustServer aus robust/bin..."
+        echo -e "${COLOR_OK}✓ ${COLOR_START}Starte ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
         cd robust/bin || exit 1
         screen -fa -S robustserver -d -U -m dotnet Robust.dll
-        cd - >/dev/null 2>&1 || exit 1 # Zurück zum ursprünglichen Verzeichnis
+        cd - >/dev/null 2>&1 || exit 1
         sleep 30
     else
-        echo "✘ Robust.dll wurde nicht gefunden. Überspringe RobustServer."
+        echo -e "${COLOR_BAD}✘ ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Robust.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
     fi
 
-    # Prüfen, ob MoneyServer.dll vorhanden ist
+    # MoneyServer starten
     if [[ -f "robust/bin/MoneyServer.dll" ]]; then
-        echo "✓ Starte MoneyServer aus robust/bin..."
+        echo -e "${COLOR_OK}✓ ${COLOR_START}Starte ${COLOR_SERVER}MoneyServer${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
         cd robust/bin || exit 1
         screen -fa -S moneyserver -d -U -m dotnet MoneyServer.dll
-        cd - >/dev/null 2>&1 || exit 1 # Zurück zum ursprünglichen Verzeichnis
+        cd - >/dev/null 2>&1 || exit 1
         sleep 30
     else
-        echo "✘ MoneyServer.dll wurde nicht gefunden. Überspringe MoneyServer."
+        echo -e "${COLOR_BAD}✘ ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}MoneyServer.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
     fi
 
-    # Alle simX-Server starten (sim1 bis sim999)
+    # Sim-Regionen starten
+    
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
-            echo "✓ Starte sim$i aus $sim_dir..."
+            echo -e "${COLOR_OK}✓ ${COLOR_START}Starte ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             cd "$sim_dir" || continue
             screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll
-            cd - >/dev/null 2>&1 || continue # Zurück zum ursprünglichen Verzeichnis
+            cd - >/dev/null 2>&1 || continue
             sleep 20
         fi
     done
-    echo -e "\e[0m"
+    blankline
 }
 
-# OpenSim stoppen (sim999 bis sim1 → money → robust)
-function opensimstop() {        
-    echo "⏳ Stoppe alle sim Regionen!"
-    echo -e "\e[35m"
+#* OpenSim stoppen (sim999 bis sim1 → money → robust)
+function opensimstop() {
+    echo -e "${COLOR_HEADING}⏳ ${COLOR_STOP}Stoppe das Grid!${COLOR_RESET}"
+
+    # Sim-Regionen stoppen
     for ((i=999; i>=1; i--)); do
         sim_dir="sim$i"
         if screen -list | grep -q "$sim_dir"; then
             screen -S "sim$i" -p 0 -X stuff "shutdown^M"
-            echo "✓ sim$i wird heruntergefahren..."
+            echo -e "${COLOR_OK}✓ ${COLOR_STOP}Stoppe ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
             sleep 15
         fi
     done
 
-    # Prüfen, ob MoneyServer läuft, bevor er gestoppt wird
+    # MoneyServer stoppen
     if screen -list | grep -q "moneyserver"; then
-        echo "✓ Stoppe MoneyServer..."
+        echo -e "${COLOR_OK}✓ ${COLOR_STOP}Stoppe ${COLOR_SERVER}MoneyServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
         screen -S moneyserver -p 0 -X stuff "shutdown^M"
         sleep 30
     else
-        echo "✘ MoneyServer läuft nicht. Überspringe Stoppvorgang."
+        echo -e "${COLOR_BAD}✘ ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
     fi
 
-    # Prüfen, ob RobustServer läuft, bevor er gestoppt wird
+    # RobustServer stoppen
     if screen -list | grep -q "robust"; then
-        echo "✓ Stoppe RobustServer..."
+        echo -e "${COLOR_OK}✓ ${COLOR_STOP}Stoppe ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
         screen -S robustserver -p 0 -X stuff "shutdown^M"
         sleep 30
     else
-        echo "✘ RobustServer läuft nicht. Überspringe Stoppvorgang."
+        echo -e "${COLOR_BAD}✘ ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
     fi
-    echo -e "\e[0m"
+    blankline
 }
 
 # check_screens ist eine Grid Funktion und funktioniert nicht im Standalone.
@@ -254,6 +280,7 @@ function check_screens() {
             fi
         fi
     done
+    blankline
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -305,6 +332,7 @@ function opensimgit() {
     else
         echo "✓ Standardmäßig wird .NET 8 verwendet."
     fi
+    blankline
 }
 
 function moneygit() {
@@ -354,7 +382,7 @@ function moneygit() {
     else
         echo "✘ MONEYSERVER: bin existiert nicht"
     fi
-
+    blankline
     return 0
 }
 
@@ -410,6 +438,7 @@ function ruthrothgit() {
     done
 
     echo "✅ Alle Avatar-IAR-Dateien wurden verarbeitet."
+    blankline
     return 0
 }
 
@@ -465,6 +494,7 @@ function avatarassetsgit() {
     done
 
     echo "✅ Roth2 + Ruth2 Avatare wurden erfolgreich integriert."
+    blankline
 }
 
 function osslscriptsgit() {
@@ -517,7 +547,7 @@ function osslscriptsgit() {
     else
         echo "✘ ScriptsLibrary Verzeichnis nicht gefunden!"
     fi
-
+    blankline
     return 0
 }
 
@@ -557,7 +587,7 @@ function pbrtexturesgit() {
         echo "✘ Verzeichnis $unpacked_dir/bin nicht gefunden!"
         return 1
     fi
-
+    blankline
     return 0
 }
 
@@ -578,6 +608,7 @@ function versionrevision() {
     sed -i 's/OpenSim {versionNumber} Nessie {flavour}/OpenSim {versionNumber} {flavour}/' "$file"
 
     echo "✓ Änderungen wurden erfolgreich vorgenommen."
+    blankline
     return 0
 }
 
@@ -602,6 +633,7 @@ function opensimbuild() {
     else
         echo "✘ Abbruch: OpenSimulator wird nicht erstellt."
     fi
+    blankline
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -645,6 +677,7 @@ function createdirectory () {
     else
         echo "✘ Ungültige Anzahl an Regionsserver. Bitte geben Sie eine gültige Zahl zwischen 1 und 999 ein."
     fi
+    blankline
 }
 
 function opensimcopy () {
@@ -678,6 +711,7 @@ function opensimcopy () {
     done
 
     echo -e "\e[0m"
+    blankline
 }
 
 function mariasetup() {
@@ -742,6 +776,7 @@ function mariasetup() {
     sudo mysql -e "SHOW DATABASES LIKE 'robust';"
     sudo mysql -e "SHOW DATABASES LIKE 'sim%';"
     echo -e "\033[0m"
+    blankline
 }
 
 function sqlsetup() {
@@ -853,6 +888,7 @@ function sqlsetup() {
     
     echo -e "\n\033[33mPasswörter wurden in $SCRIPT_DIR/mariadb_passwords.txt gespeichert\033[0m"
     echo -e "\033[0m"
+    blankline
 }
 
 setcrontab() {
@@ -910,6 +946,7 @@ EOF
         echo >&2 "FEHLER: Installation fehlgeschlagen. Prüfe $temp_cron manuell."
         return 1
     fi
+
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -953,6 +990,7 @@ function opensimupgrade() {
     else
         echo "Upgrade vom Benutzer abgebrochen."
     fi
+    blankline
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -960,12 +998,11 @@ function opensimupgrade() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 function dataclean() {
-    echo -e "\033[32m"
-    #file_types=("*.log" "*.dll" "*.exe" "*.so" "*.xml" "*.dylib" "*.example" "*.sample" "*.txt" "*.config" "*.py" "*.old" "*.pdb")
+    echo -e "${COLOR_HEADING}🧹 Datenbereinigung wird durchgeführt...${COLOR_RESET}"
 
     # RobustServer bereinigen
     if [[ -d "robust/bin" ]]; then
-        echo "✓ Lösche Dateien im RobustServer..."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche Dateien im RobustServer...${COLOR_RESET}"
         find "robust/bin" -maxdepth 1 -type f \( -name "*.log" -o -name "*.dll" -o -name "*.exe" -o -name "*.so" -o -name "*.xml" -o -name "*.dylib" -o -name "*.example" -o -name "*.sample" -o -name "*.txt" -o -name "*.config" -o -name "*.py" -o -name "*.old" -o -name "*.pdb" \) -delete
     fi
 
@@ -973,28 +1010,30 @@ function dataclean() {
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" ]]; then
-            echo "✓ Lösche Dateien in $sim_dir..."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche Dateien in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             find "$sim_dir" -maxdepth 1 -type f \( -name "*.log" -o -name "*.dll" -o -name "*.exe" -o -name "*.so" -o -name "*.xml" -o -name "*.dylib" -o -name "*.example" -o -name "*.sample" -o -name "*.txt" -o -name "*.config" -o -name "*.py" -o -name "*.old" -o -name "*.pdb" \) -delete
         fi
     done
-    echo -e "\033[0m"
+    echo -e "${COLOR_HEADING}✅ Datenbereinigung abgeschlossen${COLOR_RESET}"
+    blankline
 }
 
 function pathclean() {
-    echo -e "\033[32m"
     directories=("assetcache" "maptiles" "MeshCache" "j2kDecodeCache" "ScriptEngines" "bakes" "addon-modules")
     wildcard_dirs=("addin-db-*")  # Separate Liste für Wildcard-Verzeichnisse
 
+    echo -e "${COLOR_HEADING}🗂️ Verzeichnisbereinigung wird durchgeführt...${COLOR_RESET}"
+
     # RobustServer bereinigen
     if [[ -d "robust/bin" ]]; then
-        echo "✓ Lösche komplette Verzeichnisse im RobustServer..."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche komplette Verzeichnisse im RobustServer...${COLOR_RESET}"
         
         # Normale Verzeichnisse
         for dir in "${directories[@]}"; do
             target="robust/bin/$dir"
             if [[ -d "$target" ]]; then
                 rm -rf "$target"
-                echo "  Verzeichnis gelöscht: $target"
+                echo -e "  ${COLOR_ACTION}Verzeichnis gelöscht: ${COLOR_DIR}$target${COLOR_RESET}"
             fi
         done
         
@@ -1003,7 +1042,7 @@ function pathclean() {
             for target in robust/bin/$pattern; do
                 if [[ -d "$target" ]]; then
                     rm -rf "$target"
-                    echo "  Verzeichnis gelöscht: $target"
+                    echo -e "  ${COLOR_WARNING}Verzeichnis gelöscht: ${COLOR_DIR}$target${COLOR_RESET}"
                 fi
             done
         done
@@ -1013,14 +1052,14 @@ function pathclean() {
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" ]]; then
-            echo "✓ Lösche komplette Verzeichnisse in $sim_dir..."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche komplette Verzeichnisse in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             
             # Normale Verzeichnisse
             for dir in "${directories[@]}"; do
                 target="$sim_dir/$dir"
                 if [[ -d "$target" ]]; then
                     rm -rf "$target"
-                    echo "  Verzeichnis gelöscht: $target"
+                    echo -e "  ${COLOR_ACTION}Verzeichnis gelöscht: ${COLOR_DIR}$target${COLOR_RESET}"
                 fi
             done
             
@@ -1029,27 +1068,29 @@ function pathclean() {
                 for target in $sim_dir/$pattern; do
                     if [[ -d "$target" ]]; then
                         rm -rf "$target"
-                        echo "  Verzeichnis gelöscht: $target"
+                        echo -e "  ${COLOR_WARNING}Verzeichnis gelöscht: ${COLOR_DIR}$target${COLOR_RESET}"
                     fi
                 done
             done
         fi
     done
-    echo -e "\033[0m"
+    echo -e "${COLOR_HEADING}✅ Verzeichnisbereinigung abgeschlossen${COLOR_RESET}"
+    blankline
 }
 
 function cacheclean() {
-    echo -e "\033[32m"
     cache_dirs=("assetcache" "maptiles" "MeshCache" "j2kDecodeCache" "ScriptEngines")
+
+    echo -e "${COLOR_HEADING}♻️ Cache-Bereinigung wird durchgeführt...${COLOR_RESET}"
 
     # RobustServer bereinigen
     if [[ -d "robust/bin" ]]; then
-        echo "✓ Leere Cache-Verzeichnisse im RobustServer..."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Leere Cache-Verzeichnisse im RobustServer...${COLOR_RESET}"
         for dir in "${cache_dirs[@]}"; do
             target="robust/bin/$dir"
             if [[ -d "$target" ]]; then
                 find "$target" -mindepth 1 -delete
-                echo "  Inhalt geleert: $target"
+                echo -e "  ${COLOR_ACTION}Inhalt geleert: ${COLOR_DIR}$target${COLOR_RESET}"
             fi
         done
     fi
@@ -1058,26 +1099,26 @@ function cacheclean() {
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" ]]; then
-            echo "✓ Leere Cache-Verzeichnisse in $sim_dir..."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Leere Cache-Verzeichnisse in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             for dir in "${cache_dirs[@]}"; do
                 target="$sim_dir/$dir"
                 if [[ -d "$target" ]]; then
                     find "$target" -mindepth 1 -delete
-                    echo "  Inhalt geleert: $target"
+                    echo -e "  ${COLOR_ACTION}Inhalt geleert: ${COLOR_DIR}$target${COLOR_RESET}"
                 fi
             done
         fi
     done
-    echo -e "\033[0m"
+    echo -e "${COLOR_HEADING}✅ Cache-Bereinigung abgeschlossen${COLOR_RESET}"
+    blankline
 }
 
-
 function logclean() {
-    echo -e "\033[32m"
-    
+    echo -e "${COLOR_HEADING}📋 Log-Bereinigung wird durchgeführt...${COLOR_RESET}"
+
     # RobustServer bereinigen
     if [[ -d "robust/bin" ]]; then
-        echo "✓ Lösche Log-Dateien im RobustServer..."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche Log-Dateien in ${COLOR_DIR}robust/bin...${COLOR_RESET}"
         rm -f robust/bin/*.log
     fi
 
@@ -1085,21 +1126,22 @@ function logclean() {
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" ]]; then
-            echo "✓ Lösche Log-Dateien in $sim_dir..."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche Log-Dateien in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             rm -f "$sim_dir"/*.log
         fi
     done
     
-    echo -e "\033[0m"
+    echo -e "${COLOR_HEADING}Log-Bereinigung abgeschlossen${COLOR_RESET}"
+    blankline
 }
 
 function mapclean() {
-    echo -e "\033[32m"
-    
+    echo -e "${COLOR_HEADING}🗺️ Map-Tile-Bereinigung wird durchgeführt...${COLOR_RESET}"
+
     # Sicherheitscheck für robust/bin/maptiles
     if [[ -d "robust/bin/maptiles" ]]; then
         rm -rf -- "robust/bin/maptiles/"*
-        echo "✓ robust/bin/maptiles geleert"
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}robust/bin/maptiles geleert${COLOR_RESET}"
     fi
 
     # Sicherheitscheck für alle simX/bin/maptiles
@@ -1108,11 +1150,12 @@ function mapclean() {
         if [[ -d "$sim_dir" ]]; then
             # shellcheck disable=SC2115
             rm -rf -- "${sim_dir}/"*
-            echo "✓ ${sim_dir} geleert"
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}${COLOR_DIR}$sim_dir${COLOR_RESET} ${COLOR_ACTION}geleert${COLOR_RESET}"
         fi
     done
 
-    echo -e "mapclean abgeschlossen.\033[0m"
+    echo -e "${COLOR_HEADING}✅ Map-Tile-Bereinigung abgeschlossen${COLOR_RESET}"
+    blankline
 }
 
 function autoallclean() {
@@ -1155,6 +1198,7 @@ WARNUNG
             return 1
             ;;
     esac
+    blankline
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -1311,6 +1355,7 @@ function regionsconfig() {
 
     echo "--------------------------"
     echo -e "\e[32mRegionserstellung abgeschlossen!\e[0m"
+    blankline
     return 0
 }
 
@@ -1344,6 +1389,7 @@ function regionsclean() {
     else
         echo "Abbruch: Keine Dateien wurden gelöscht."
     fi
+    blankline
 }
 
 function renamefiles() {
@@ -1391,6 +1437,7 @@ function renamefiles() {
     done
 
     echo -e "${GREEN}Alle *.example Dateien wurden erfolgreich verarbeitet.${RESET}"
+    blankline
     return 0
 }
 
@@ -1436,6 +1483,7 @@ function standalone() {
     echo -e "\e[32mUmbenannte Dateien: ${renamed}\e[0m"
     echo -e "\e[33mÜbersprungene Dateien: ${skipped}\e[0m"
     echo -e "\e[32mStandalone-Konfiguration abgeschlossen!\e[0m"
+    blankline
 }
 
 # Helper to clean config files (remove leading spaces/tabs)
@@ -1526,6 +1574,7 @@ function setrobusthg() {
     clean_config "$target_ini"
     
     echo "Konfiguration von Robust.ini erfolgreich abgeschlossen."
+    blankline
 }
 
 function setopensim() {
@@ -1623,6 +1672,7 @@ function setopensim() {
             echo "Konfiguration von OpenSim.ini erfolgreich abgeschlossen."
         fi
     done
+    blankline
 }
 
 function setgridcommon() {
@@ -1666,6 +1716,7 @@ function setgridcommon() {
             echo "Konfiguration von GridCommon.ini für $sim_dir erfolgreich abgeschlossen."
         fi
     done
+    blankline
 }
 
 function setflotsamcache() {
@@ -1710,6 +1761,7 @@ EOF
             echo "Konfiguration von FlotsamCache.ini für $sim_dir abgeschlossen."
         fi
     done
+    blankline
 }
 
 # setwelcome - Sets the Welcome_Area.ini
@@ -1741,6 +1793,7 @@ EOF
 
     clean_config "$welcome_ini"
     echo "Welcome_Area.ini configuration completed"
+    blankline
 }
 
 function setosslenable() {
@@ -1777,6 +1830,7 @@ EOF
             echo "Konfiguration von osslEnable.ini für $sim_dir abgeschlossen."
         fi
     done
+    blankline
 }
 
 function clean_comments_and_empty_lines() {
@@ -1839,6 +1893,7 @@ function clean_comments_and_empty_lines() {
     done
     
     echo -e "\e[32mBereinigung abgeschlossen!\e[0m"
+    blankline
 }
 
 function cleandoublecomments() {
@@ -1891,6 +1946,7 @@ function cleandoublecomments() {
     done
     
     echo -e "\e[32mBereinigung abgeschlossen!\e[0m"
+    blankline
 }
 
 function cleanall() {
@@ -1921,6 +1977,7 @@ function cleanall() {
     else
         echo "Ungültige Eingabe. Bitte 'ja' oder 'nein' eingeben."
     fi
+    blankline
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
