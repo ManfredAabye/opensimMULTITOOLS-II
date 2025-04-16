@@ -6,7 +6,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.48.126"
+VERSION="V25.4.48.127"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -167,9 +167,9 @@ function opensimstart() {
 }
 
 # OpenSim stoppen (sim999 bis sim1 → money → robust)
-function opensimstop() {
-    echo -e "\e[35m"    
-    echo "✓ Stoppe alle sim Regionen..."
+function opensimstop() {        
+    echo "⏳ Stoppe alle sim Regionen!"
+    echo -e "\e[35m"
     for ((i=999; i>=1; i--)); do
         sim_dir="sim$i"
         if screen -list | grep -q "$sim_dir"; then
@@ -2081,7 +2081,7 @@ function downloadallgit() {
     opensimgit
     moneygit
     #ruthrothgit
-    avatarassetsgit
+    #avatarassetsgit
     osslscriptsgit
     pbrtexturesgit
 
