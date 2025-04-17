@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.48.128"
+VERSION="V25.4.48.141"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -31,7 +31,7 @@ COLOR_WARNING='\e[33m'     # Gelb (Warnungen)
 COLOR_RESET='\e[0m'        # Farbreset
 COLOR_LABEL='\e[97m'       # Weiß für Beschriftungen
 COLOR_VALUE='\e[36m'       # Cyan für Werte
-COLOR_ACTION='\e[92m'         # Hellgrün für Aktionen
+COLOR_ACTION='\e[92m'      # Hellgrün für Aktionen
 
 function blankline() {
     echo " "
@@ -68,11 +68,13 @@ function servercheck() {
     # elementary OS (Ubuntu-basiert, kann .NET aus Ubuntu-Quellen beziehen)
     # Raspberry Pi OS (Debian-basiert, erfordert manuelle Installation für .NET)
 
+    echo -e "${COLOR_HEADING}🔍 Server-Kompatibilitätscheck wird durchgeführt...${COLOR_RESET}"
+
     # Ermitteln der Distribution und Version
     os_id=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
     os_version=$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
 
-    echo "Server läuft mit $os_id $os_version"
+    echo -e "${COLOR_LABEL}Server läuft mit:${COLOR_RESET} ${COLOR_SERVER}$os_id $os_version${COLOR_RESET}"
 
     # Prüfen, welche .NET-Version installiert werden muss
     if [[ "$os_id" == "ubuntu" || "$os_id" == "linuxmint" || "$os_id" == "pop_os" ]]; then
@@ -84,50 +86,52 @@ function servercheck() {
     elif [[ "$os_id" == "debian" && "$os_version" -ge "11" ]]; then
         required_dotnet="dotnet-sdk-8.0"
     elif [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
-        required_dotnet="dotnet-sdk-8.0"  # Spezifiziert gezielt Version 8.0
+        required_dotnet="dotnet-sdk-8.0"
     else
-        echo "✘ Keine unterstützte Version für .NET gefunden!"
+        echo -e "${COLOR_BAD}✘ ${COLOR_WARNING}Keine unterstützte Version für .NET gefunden!${COLOR_RESET}"
         return 1
     fi
 
-    # Prüfen, ob die richtige .NET-Version bereits installiert ist
+    # .NET-Installationsstatus prüfen
+    echo -e "${COLOR_HEADING}🔄 .NET Runtime-Überprüfung:${COLOR_RESET}"
+    
     if [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
         if ! pacman -Qi "$required_dotnet" >/dev/null 2>&1; then
-            echo "Installiere $required_dotnet..."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Installiere ${COLOR_SERVER}$required_dotnet${COLOR_RESET}..."
             sudo pacman -S --noconfirm "$required_dotnet"
-            echo "✓ $required_dotnet wurde erfolgreich installiert."
+            echo -e "${COLOR_OK}✓ ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}wurde erfolgreich installiert.${COLOR_RESET}"
         else
-            echo "✘ $required_dotnet ist bereits installiert."
+            echo -e "${COLOR_OK}✓ ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}ist bereits installiert.${COLOR_RESET}"
         fi
     else
         if ! dpkg -s "$required_dotnet" >/dev/null 2>&1; then
-            echo "Installiere $required_dotnet..."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Installiere ${COLOR_SERVER}$required_dotnet${COLOR_RESET}..."
             sudo apt-get install -y "$required_dotnet"
-            echo "✓ $required_dotnet wurde erfolgreich installiert."
+            echo -e "${COLOR_OK}✓ ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}wurde erfolgreich installiert.${COLOR_RESET}"
         else
-            echo "✘ $required_dotnet ist bereits installiert."
+            echo -e "${COLOR_OK}✓ ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}ist bereits installiert.${COLOR_RESET}"
         fi
     fi
 
     # Fehlende Pakete prüfen und installieren
     required_packages=("libc6" "libgcc-s1" "libgssapi-krb5-2" "libicu70" "liblttng-ust1" "libssl3" "libstdc++6" "libunwind8" "zlib1g" "libgdiplus" "zip" "screen")
 
-    echo "Überprüfe fehlende Pakete..."
+    echo -e "${COLOR_HEADING}📦 Überprüfe fehlende Pakete...${COLOR_RESET}"
     for package in "${required_packages[@]}"; do
         if [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
             if ! pacman -Qi "$package" >/dev/null 2>&1; then
-                echo "✓ Installiere $package..."
+                echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Installiere ${COLOR_SERVER}$package${COLOR_RESET}..."
                 sudo pacman -S --noconfirm "$package"
             fi
         else
             if ! dpkg -s "$package" >/dev/null 2>&1; then
-                echo "✓ Installiere $package..."
+                echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Installiere ${COLOR_SERVER}$package${COLOR_RESET}..."
                 sudo apt-get install -y "$package"
             fi
         fi
     done
 
-    echo "✓ Alle benötigten Pakete wurden installiert."
+    echo -e "${COLOR_OK}✓ ${COLOR_HEADING}Alle benötigten Pakete wurden installiert.${COLOR_RESET}"
     blankline
 }
 
@@ -288,108 +292,191 @@ function check_screens() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 function opensimgit() {
-    echo "Möchten Sie den OpenSimulator vom GitHub verwenden oder aktualisieren? ([upgrade]/new)"
+    echo -e "${COLOR_HEADING}🔄 OpenSimulator GitHub-Verwaltung${COLOR_RESET}"
+    
+    echo -e "${COLOR_LABEL}Möchten Sie den OpenSimulator vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
     read -r user_choice
     user_choice=${user_choice:-upgrade}
 
     if [[ "$user_choice" == "new" ]]; then
         # Falls eine alte Version existiert, wird sie gelöscht
         if [[ -d "opensim" ]]; then
-            echo "Vorhandene OpenSimulator-Version wird gelöscht..."
+            echo -e "${COLOR_ACTION}Vorhandene OpenSimulator-Version wird gelöscht...${COLOR_RESET}"
             rm -rf opensim
-            echo "✓ Alte OpenSimulator-Version wurde erfolgreich entfernt."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Alte OpenSimulator-Version wurde erfolgreich entfernt.${COLOR_RESET}"
         fi
 
-        echo "OpenSimulator wird von GitHub geholt..."
+        echo -e "${COLOR_ACTION}OpenSimulator wird von GitHub geholt...${COLOR_RESET}"
         git clone git://opensimulator.org/git/opensim opensim
-        echo "✓ OpenSimulator wurde erfolgreich heruntergeladen."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}OpenSimulator wurde erfolgreich heruntergeladen.${COLOR_RESET}"
 
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "opensim/.git" ]]; then
-            echo "✓ Repository gefunden. Aktualisiere mit 'git pull'..."
-            cd opensim || { echo "✘ Fehler: Kann nicht ins Verzeichnis wechseln!"; return 1; }
-            git pull origin master && echo "✅ OpenSimulator erfolgreich aktualisiert!"
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
+            cd opensim || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
+            git pull origin master && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich aktualisiert!${COLOR_RESET}"
             cd ..
         else
-            echo "⚠ OpenSimulator-Verzeichnis nicht gefunden. Klone Repository neu..."
-            git clone git://opensimulator.org/git/opensim opensim && echo "✅ OpenSimulator erfolgreich heruntergeladen!"
+            echo -e "${COLOR_WARNING}⚠ ${COLOR_ACTION}OpenSimulator-Verzeichnis nicht gefunden. Klone Repository neu...${COLOR_RESET}"
+            git clone git://opensimulator.org/git/opensim opensim && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich heruntergeladen!${COLOR_RESET}"
         fi
     else
-        echo "✘ Abbruch: Keine Aktion durchgeführt."
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
         return 1
     fi
 
     # .NET-Version auswählen
-    echo "Möchten Sie diese Version mit .NET 6 oder .NET 8 betreiben? ([8]/6)"
+    echo -e "${COLOR_LABEL}Möchten Sie diese Version mit .NET 6 oder .NET 8 betreiben? (${COLOR_OK}[8]${COLOR_LABEL}/6)${COLOR_RESET}"
     read -r dotnet_version
     dotnet_version=${dotnet_version:-8}
 
     if [[ "$dotnet_version" == "6" ]]; then
-        echo "Wechsle zu .NET 6-Version..."
-        cd opensim || { echo "Fehler: Verzeichnis 'opensim' nicht gefunden."; return 1; }
+        echo -e "${COLOR_ACTION}Wechsle zu .NET 6-Version...${COLOR_RESET}"
+        cd opensim || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Verzeichnis 'opensim' nicht gefunden.${COLOR_RESET}"; return 1; }
         git checkout dotnet6
-        echo "✓ OpenSimulator wurde für .NET 6 umgebaut."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}OpenSimulator wurde für .NET 6 umgebaut.${COLOR_RESET}"
     else
-        echo "✓ Standardmäßig wird .NET 8 verwendet."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Standardmäßig wird .NET 8 verwendet.${COLOR_RESET}"
     fi
     blankline
 }
 
 function moneygit() {
-    echo "Möchten Sie den MoneyServer vom GitHub verwenden oder aktualisieren? ([upgrade]/new)"
+    echo -e "${COLOR_HEADING}💰 MoneyServer GitHub-Verwaltung${COLOR_RESET}"
+    
+    echo -e "${COLOR_LABEL}Möchten Sie den MoneyServer vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
     read -r user_choice
     user_choice=${user_choice:-upgrade}
 
     if [[ "$user_choice" == "new" ]]; then
         if [[ -d "opensimcurrencyserver" ]]; then
-            echo "Vorhandene MoneyServer-Version wird gelöscht..."
+            echo -e "${COLOR_ACTION}Vorhandene MoneyServer-Version wird gelöscht...${COLOR_RESET}"
             rm -rf opensimcurrencyserver
-            echo "✓ Alte MoneyServer-Version wurde erfolgreich entfernt."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Alte MoneyServer-Version wurde erfolgreich entfernt.${COLOR_RESET}"
         fi
-        echo "MONEYSERVER: MoneyServer wird vom GIT geholt..."
+        echo -e "${COLOR_ACTION}MONEYSERVER: MoneyServer wird vom GIT geholt...${COLOR_RESET}"
         git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver
-        echo "✓ MoneyServer wurde erfolgreich heruntergeladen."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}MoneyServer wurde erfolgreich heruntergeladen.${COLOR_RESET}"
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "opensimcurrencyserver/.git" ]]; then
-            echo "✓ Repository gefunden. Aktualisiere mit 'git pull'..."
-            cd opensimcurrencyserver || { echo "✘ Fehler: Kann nicht ins Verzeichnis wechseln!"; return 1; }
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
+            cd opensimcurrencyserver || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
             
             # Automatische Branch-Erkennung
             branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-            git pull origin "$branch_name" && echo "✅ MoneyServer erfolgreich aktualisiert!"
+            git pull origin "$branch_name" && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer erfolgreich aktualisiert!${COLOR_RESET}"
             
             cd ..
         else
-            echo "⚠ MoneyServer-Verzeichnis nicht gefunden. Klone Repository neu..."
-            git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver && echo "✅ MoneyServer erfolgreich heruntergeladen!"
+            echo -e "${COLOR_WARNING}⚠ ${COLOR_ACTION}MoneyServer-Verzeichnis nicht gefunden. Klone Repository neu...${COLOR_RESET}"
+            git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer erfolgreich heruntergeladen!${COLOR_RESET}"
         fi
     else
-        echo "✘ Abbruch: Keine Aktion durchgeführt."
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
         return 1
     fi
 
     # Prüfen, ob das Verzeichnis existiert, bevor es kopiert wird
     if [[ -d "opensimcurrencyserver/addon-modules" ]]; then
         cp -r opensimcurrencyserver/addon-modules opensim/
-        echo "✓ MONEYSERVER: addon-modules wurde nach opensim kopiert"
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}MONEYSERVER: addon-modules wurde nach opensim kopiert${COLOR_RESET}"
     else
-        echo "✘ MONEYSERVER: addon-modules existiert nicht"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}MONEYSERVER: addon-modules existiert nicht${COLOR_RESET}"
     fi
 
     if [[ -d "opensimcurrencyserver/bin" ]]; then
         cp -r opensimcurrencyserver/bin opensim/
-        echo "✓ MONEYSERVER: bin wurde nach opensim kopiert"
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}MONEYSERVER: bin wurde nach opensim kopiert${COLOR_RESET}"
     else
-        echo "✘ MONEYSERVER: bin existiert nicht"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}MONEYSERVER: bin existiert nicht${COLOR_RESET}"
     fi
+    
     blankline
     return 0
 }
 
+# Versuch um die Avatar-Assets von Ruth und Roth herunterzuladen zu Bearbeiten.
+
+
+# function ruthrothgit() {
+#     echo -e "${COLOR_HEADING}👥 Ruth & Roth Avatar-Assets Download${COLOR_RESET}"
+    
+#     echo -e "${COLOR_LABEL}Möchten Sie die Ruth2 und Roth2 Avatare neu klonen oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
+#     read -r user_choice
+#     user_choice=${user_choice:-upgrade}
+
+#     declare -A repos=(
+#         ["Ruth2"]="https://github.com/ManfredAabye/Ruth2.git"
+#         ["Roth2"]="https://github.com/ManfredAabye/Roth2.git"
+#     )
+
+#     base_dir="ruthroth"
+#     mkdir -p "$base_dir"
+
+#     for avatar in "${!repos[@]}"; do
+#         repo_url="${repos[$avatar]}"
+#         target_dir="$avatar"
+
+#         echo -e "${COLOR_ACTION}➤ Bearbeite ${COLOR_SERVER}$avatar${COLOR_ACTION}...${COLOR_RESET}"
+
+#         if [[ "$user_choice" == "new" ]]; then
+#             [[ -d "$target_dir" ]] && echo -e "  ${COLOR_ACTION}➜ Lösche alte Version von ${COLOR_SERVER}$avatar${COLOR_ACTION}...${COLOR_RESET}" && rm -rf "$target_dir"
+#             echo -e "  ${COLOR_ACTION}➜ Klone ${COLOR_SERVER}$avatar${COLOR_ACTION} von GitHub...${COLOR_RESET}"
+#             git clone "$repo_url" "$target_dir" && echo -e "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}wurde neu heruntergeladen.${COLOR_RESET}"
+#         elif [[ "$user_choice" == "upgrade" ]]; then
+#             if [[ -d "$target_dir/.git" ]]; then
+#                 echo -e "  ${COLOR_ACTION}➜ Aktualisiere ${COLOR_SERVER}$avatar${COLOR_ACTION} mit git pull...${COLOR_RESET}"
+#                 cd "$target_dir" || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler beim Wechsel in ${COLOR_DIR}$target_dir${COLOR_RESET}"; continue; }
+#                 branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+#                 git pull origin "$branch_name" && echo -e "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}wurde aktualisiert.${COLOR_RESET}"
+#                 cd ..
+#             else
+#                 echo -e "  ${COLOR_WARNING}⚠ ${COLOR_ACTION}Verzeichnis ${COLOR_DIR}$target_dir${COLOR_ACTION} existiert nicht oder ist kein Git-Repo. Klone neu...${COLOR_RESET}"
+#                 git clone "$repo_url" "$target_dir" && echo -e "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}wurde neu heruntergeladen.${COLOR_RESET}"
+#             fi
+#         else
+#             echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Ungültige Eingabe. Abbruch.${COLOR_RESET}"
+#             return 1
+#         fi
+
+#         # Nur die IAR-Dateien entpacken
+#         echo -e "  ${COLOR_ACTION}➜ Entpacke benötigte IAR-Dateien in ${COLOR_DIR}$base_dir${COLOR_ACTION}...${COLOR_RESET}"
+#         mkdir -p "$base_dir/extracted"
+#         for iar_file in "${avatar}-v1.iar" "${avatar}-v2.iar" "${avatar}-v3.iar" "${avatar}-v4.iar"; do
+#             iar_path="$target_dir/Artifacts/IAR/$iar_file"
+#             if [[ -f "$iar_path" ]]; then
+#                 tar -xzf "$iar_path" -C "$base_dir/extracted" && echo -e "    ${COLOR_OK}✓ ${COLOR_DIR}${iar_file}${COLOR_RESET} ${COLOR_ACTION}entpackt.${COLOR_RESET}"
+#             else
+#                 echo -e "    ${COLOR_WARNING}⚠ IAR-Datei ${COLOR_DIR}${iar_file}${COLOR_WARNING} nicht gefunden. Überspringe...${COLOR_RESET}"
+#             fi
+#         done
+#     done
+
+#     echo -e "${COLOR_OK}✅ ${COLOR_ACTION}Alle benötigten Avatar-IAR-Dateien wurden entpackt und bereitgestellt.${COLOR_RESET}"
+
+#     # Automatische Integration in OpenSim
+#     echo -e "${COLOR_ACTION}Führe updatelibrary.py für alle Assets aus...${COLOR_RESET}"
+#     python3 updatelibrary.py -n "Roth2-v1" -s "Roth2-v1" -a Roth2-v1 -i Roth2-v1
+#     python3 updatelibrary.py -n "Roth2-v2" -s "Roth2-v2" -a Roth2-v2 -i Roth2-v2
+#     python3 updatelibrary.py -n "Ruth2-v3" -s "Ruth2-v3" -a Ruth2-v3 -i Ruth2-v3
+#     python3 updatelibrary.py -n "Ruth2-v4" -s "Ruth2-v4" -a Ruth2-v4 -i Ruth2-v4
+
+#     # Verzeichnisse für Libraries erstellen
+#     echo -e "${COLOR_ACTION}Erstelle Inventar-Verzeichnisse...${COLOR_RESET}"
+#     mkdir -p opensim/bin/inventory/Roth2-v1Library
+#     mkdir -p opensim/bin/inventory/Roth2-v2Library
+#     mkdir -p opensim/bin/inventory/Ruth2-v3Library
+#     mkdir -p opensim/bin/inventory/Ruth2-v4Library
+
+#     echo -e "${COLOR_OK}✅ ${COLOR_ACTION}Verzeichnisse für Inventar-Libraries wurden erstellt.${COLOR_RESET}"
+# }
+
 function ruthrothgit() {
-    echo "Möchten Sie die Ruth2 und Roth2 Avatare neu klonen oder aktualisieren? ([upgrade]/new)"
-    read -r user_choice
-    user_choice=${user_choice:-upgrade}
+    # Schritt 1 das bereitstellen der Pakete zur weiteren bearbeitung.
+    echo -e "${COLOR_HEADING}👥 Ruth & Roth Avatar-Assets Vorbereitung${COLOR_RESET}"
+
+    base_dir="ruthroth"
+    mkdir -p "$base_dir"
 
     declare -A repos=(
         ["Ruth2"]="https://github.com/ManfredAabye/Ruth2.git"
@@ -400,105 +487,57 @@ function ruthrothgit() {
         repo_url="${repos[$avatar]}"
         target_dir="$avatar"
 
-        echo "➤ Bearbeite $avatar..."
-
-        if [[ "$user_choice" == "new" ]]; then
-            if [[ -d "$target_dir" ]]; then
-                echo "  ➜ Alte Version von $avatar wird gelöscht..."
-                rm -rf "$target_dir"
-            fi
-            echo "  ➜ Klone $avatar von GitHub..."
-            git clone "$repo_url" "$target_dir" && echo "  ✅ $avatar wurde neu heruntergeladen."
-        elif [[ "$user_choice" == "upgrade" ]]; then
-            if [[ -d "$target_dir/.git" ]]; then
-                echo "  ➜ Aktualisiere $avatar mit git pull..."
-                cd "$target_dir" || { echo "✘ Fehler beim Wechsel in $target_dir"; continue; }
-                branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-                git pull origin "$branch_name" && echo "  ✅ $avatar wurde aktualisiert."
-                cd ..
-            else
-                echo "  ⚠ Verzeichnis $target_dir existiert nicht oder ist kein Git-Repo. Klone neu..."
-                git clone "$repo_url" "$target_dir" && echo "  ✅ $avatar wurde neu heruntergeladen."
-            fi
+        if [[ ! -d "$target_dir" ]]; then
+            echo -e "  ${COLOR_ACTION}➜ Klone ${COLOR_SERVER}$avatar${COLOR_ACTION} von GitHub...${COLOR_RESET}"
+            git clone "$repo_url" "$target_dir" && echo -e "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}wurde heruntergeladen.${COLOR_RESET}"
         else
-            echo "✘ Ungültige Eingabe. Abbruch."
-            return 1
+            echo -e "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}ist bereits vorhanden, überspringe Download.${COLOR_RESET}"
         fi
 
-        # IAR-Dateien kopieren
-        echo "  ➜ Kopiere IAR-Dateien nach opensim/bin/Library..."
+        # Kopiere nur die relevanten IAR-Dateien direkt nach ruthroth
+        echo -e "  ${COLOR_ACTION}➜ Kopiere benötigte IAR-Dateien nach ${COLOR_DIR}$base_dir${COLOR_ACTION}...${COLOR_RESET}"
+        cp "$target_dir/Artifacts/IAR/"*.iar "$base_dir/" 2>/dev/null && echo -e "    ${COLOR_OK}✓ IAR-Dateien von ${COLOR_SERVER}$avatar${COLOR_RESET} kopiert.${COLOR_RESET}"
+    done
 
-        if [[ "$avatar" == "Ruth2" ]]; then
-            cp "$target_dir/Artifacts/IAR/Ruth2-v3.iar" opensim/bin/Library/ 2>/dev/null && echo "    ✓ Ruth2-v3.iar kopiert"
-            cp "$target_dir/Artifacts/IAR/Ruth2-v4.iar" opensim/bin/Library/ 2>/dev/null && echo "    ✓ Ruth2-v4.iar kopiert"
-        elif [[ "$avatar" == "Roth2" ]]; then
-            cp "$target_dir/Artifacts/IAR/Roth2-v1.iar" opensim/bin/Library/ 2>/dev/null && echo "    ✓ Roth2-v1.iar kopiert"
-            cp "$target_dir/Artifacts/IAR/Roth2-v2.iar" opensim/bin/Library/ 2>/dev/null && echo "    ✓ Roth2-v2.iar kopiert"
+    # Kopiere das updatelibrary.py-Skript ins Hauptverzeichnis ruthroth
+    echo -e "  ${COLOR_ACTION}➜ Kopiere updatelibrary.py nach ${COLOR_DIR}$base_dir${COLOR_ACTION}...${COLOR_RESET}"
+    cp "updatelibrary.py" "$base_dir/" && echo -e "    ${COLOR_OK}✓ updatelibrary.py wurde kopiert.${COLOR_RESET}"
+
+    echo "Verzeichniswechsel in $base_dir"
+
+    # Wechsel ins ruthroth-Verzeichnis
+    cd "$base_dir" || { echo -e "${COLOR_BAD}✘ Fehler beim Wechsel ins Verzeichnis ${COLOR_DIR}$base_dir${COLOR_RESET}"; return 1; }
+
+    # Entpacke die IAR-Dateien direkt in ruthroth
+    echo -e "  ${COLOR_ACTION}➜ Entpacke IAR-Pakete in ${COLOR_DIR}$base_dir${COLOR_ACTION}...${COLOR_RESET}"
+    for iar_file in *.iar; do
+        if [[ -f "$iar_file" ]]; then
+            target_dir="${iar_file%.iar}"  # Erstellt Verzeichnisname basierend auf Dateiname ohne .iar
+            mkdir -p "$target_dir"
+            tar -xzf "$iar_file" -C "$target_dir/" && echo -e "    ✓ ${iar_file} entpackt nach ${target_dir}"
+        else
+            echo -e "    ⚠ IAR-Datei ${iar_file} nicht gefunden. Überspringe..."
         fi
     done
 
-    echo "✅ Alle Avatar-IAR-Dateien wurden verarbeitet."
-    blankline
-    return 0
+    echo -e "${COLOR_OK}✅ ${COLOR_ACTION}Grundlage für die OpenSimulator-Pakete wurde erfolgreich erstellt!${COLOR_RESET}"
+
+    # Schritt 2 die verwendung von updatelibrary.py.
+    cd ruthroth
+    python3 updatelibrary.py -n "Roth2-v1" -s "Roth2-v1" -a Roth2-v1 -i Roth2-v1
+    python3 updatelibrary.py -n "Roth2-v2" -s "Roth2-v2" -a Roth2-v2 -i Roth2-v2
+    python3 updatelibrary.py -n "Ruth2-v3" -s "Ruth2-v3" -a Ruth2-v3 -i Ruth2-v3
+    python3 updatelibrary.py -n "Ruth2-v4" -s "Ruth2-v4" -a Ruth2-v4 -i Ruth2-v4
+
+    # Schritt 3 das kopieren der Daten. Das einfügen der Daten in den Dateien
+
 }
 
-function avatarassetsgit() {
-    local base_dir
-    base_dir=$(pwd)
-
-    # Repos als normaler String-Array (keine assoziativen Arrays!)
-    local repo_data
-    repo_data=(
-        "https://github.com/ManfredAabye/Ruth2.git|Ruth2|Ruth2-v3.iar Ruth2-v4.iar"
-        "https://github.com/ManfredAabye/Roth2.git|Roth2|Roth2-v1.iar Roth2-v2.iar"
-    )
-
-    for entry in "${repo_data[@]}"; do
-        IFS='|' read -r repo_url repo_dir iar_files <<< "$entry"
-
-        echo "📦 Klone Repository: $repo_url"
-        if [[ -d "$repo_dir" ]]; then
-            echo "🔁 Repository $repo_dir existiert bereits. Aktualisiere mit 'git pull'..."
-            cd "$repo_dir" || { echo "✘ Fehler beim Wechsel in $repo_dir"; continue; }
-            git pull
-            cd "$base_dir" || exit
-        else
-            git clone "$repo_url" "$repo_dir" || { echo "✘ Fehler beim Klonen von $repo_url"; continue; }
-        fi
-
-        for iar in $iar_files; do
-            local iar_path="$repo_dir/Artifacts/IAR/$iar"
-            if [[ ! -f "$iar_path" ]]; then
-                echo "⚠ IAR-Datei $iar_path nicht gefunden. Überspringe..."
-                continue
-            fi
-
-            echo "🧩 Verarbeite $iar"
-            mkdir -p temp_iar_extract
-            tar -xzf "$iar_path" -C temp_iar_extract
-
-            if [[ -d temp_iar_extract/assets ]]; then
-                mkdir -p "opensim/bin/assets/${iar%.iar}"
-                cp -r temp_iar_extract/assets/* "opensim/bin/assets/${iar%.iar}/"
-                echo "✓ Assets kopiert nach opensim/bin/assets/${iar%.iar}"
-            fi
-
-            if [[ -d temp_iar_extract/inventory ]]; then
-                mkdir -p "opensim/bin/inventory/${iar%.iar}"
-                cp -r temp_iar_extract/inventory/* "opensim/bin/inventory/${iar%.iar}/"
-                echo "✓ Inventory kopiert nach opensim/bin/inventory/${iar%.iar}"
-            fi
-
-            rm -rf temp_iar_extract
-        done
-    done
-
-    echo "✅ Roth2 + Ruth2 Avatare wurden erfolgreich integriert."
-    blankline
-}
 
 function osslscriptsgit() {
-    echo "Möchten Sie die OpenSim OSSL Beispiel-Skripte vom GitHub verwenden oder aktualisieren? ([upgrade]/new)"
+    echo -e "${COLOR_HEADING}📜 OSSL Beispiel-Skripte GitHub-Verwaltung${COLOR_RESET}"
+    
+    echo -e "${COLOR_LABEL}Möchten Sie die OpenSim OSSL Beispiel-Skripte vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
     read -r user_choice
     user_choice=${user_choice:-upgrade}
 
@@ -507,25 +546,25 @@ function osslscriptsgit() {
 
     if [[ "$user_choice" == "new" ]]; then
         if [[ -d "$repo_name" ]]; then
-            echo "Vorhandene Version wird gelöscht..."
+            echo -e "${COLOR_ACTION}Vorhandene Version wird gelöscht...${COLOR_RESET}"
             rm -rf "$repo_name"
-            echo "✓ Alte Version wurde erfolgreich entfernt."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Alte Version wurde erfolgreich entfernt.${COLOR_RESET}"
         fi
-        echo "Beispiel-Skripte werden vom GitHub heruntergeladen..."
-        git clone "$repo_url" "$repo_name" && echo "✓ Repository wurde erfolgreich heruntergeladen."
+        echo -e "${COLOR_ACTION}Beispiel-Skripte werden vom GitHub heruntergeladen...${COLOR_RESET}"
+        git clone "$repo_url" "$repo_name" && echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "$repo_name/.git" ]]; then
-            echo "✓ Repository gefunden. Aktualisiere mit 'git pull'..."
-            cd "$repo_name" || { echo "✘ Fehler beim Wechsel ins Verzeichnis!"; return 1; }
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
+            cd "$repo_name" || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler beim Wechsel ins Verzeichnis!${COLOR_RESET}"; return 1; }
             branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-            git pull origin "$branch_name" && echo "✅ Repository erfolgreich aktualisiert."
+            git pull origin "$branch_name" && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}Repository erfolgreich aktualisiert.${COLOR_RESET}"
             cd ..
         else
-            echo "⚠ Verzeichnis nicht gefunden oder kein Git-Repo. Klone Repository neu..."
-            git clone "$repo_url" "$repo_name" && echo "✅ Repository wurde erfolgreich heruntergeladen."
+            echo -e "${COLOR_WARNING}⚠ ${COLOR_ACTION}Verzeichnis nicht gefunden oder kein Git-Repo. Klone Repository neu...${COLOR_RESET}"
+            git clone "$repo_url" "$repo_name" && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
         fi
     else
-        echo "✘ Abbruch: Keine Aktion durchgeführt."
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
         return 1
     fi
 
@@ -536,22 +575,25 @@ function osslscriptsgit() {
     # Kopieren der Verzeichnisse
     if [[ -d "$repo_name/ScriptsAssetSet" ]]; then
         cp -r "$repo_name/ScriptsAssetSet" opensim/bin/assets/
-        echo "✓ ScriptsAssetSet wurde nach opensim/bin/assets kopiert."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}ScriptsAssetSet wurde nach opensim/bin/assets kopiert.${COLOR_RESET}"
     else
-        echo "✘ ScriptsAssetSet Verzeichnis nicht gefunden!"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}ScriptsAssetSet Verzeichnis nicht gefunden!${COLOR_RESET}"
     fi
 
     if [[ -d "$repo_name/inventory/ScriptsLibrary" ]]; then
         cp -r "$repo_name/inventory/ScriptsLibrary" opensim/bin/inventory/
-        echo "✓ ScriptsLibrary wurde nach opensim/bin/inventory kopiert."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}ScriptsLibrary wurde nach opensim/bin/inventory kopiert.${COLOR_RESET}"
     else
-        echo "✘ ScriptsLibrary Verzeichnis nicht gefunden!"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}ScriptsLibrary Verzeichnis nicht gefunden!${COLOR_RESET}"
     fi
+    
     blankline
     return 0
 }
 
 function pbrtexturesgit() {
+    echo -e "${COLOR_HEADING}🎨 PBR Texturen Installation${COLOR_RESET}"
+    
     textures_zip_url="https://github.com/ManfredAabye/OpenSim_PBR_Textures/releases/download/PBR/OpenSim_PBR_Textures.zip"
     zip_file="OpenSim_PBR_Textures.zip"
     unpacked_dir="OpenSim_PBR_Textures"
@@ -559,34 +601,35 @@ function pbrtexturesgit() {
 
     # ZIP herunterladen, wenn nicht vorhanden
     if [[ ! -f "$zip_file" ]]; then
-        echo "Lade OpenSim PBR Texturen herunter..."
+        echo -e "${COLOR_ACTION}Lade OpenSim PBR Texturen herunter...${COLOR_RESET}"
         if ! wget -q --show-progress -O "$zip_file" "$textures_zip_url"; then
-            echo "✘ Fehler beim Herunterladen der Texturen!"
+            echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler beim Herunterladen der Texturen!${COLOR_RESET}"
             return 1
         fi
-        echo "✓ Download abgeschlossen: $zip_file"
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Download abgeschlossen: ${COLOR_DIR}$zip_file${COLOR_RESET}"
     else
-        echo "✓ ZIP-Datei bereits vorhanden: $zip_file"
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}ZIP-Datei bereits vorhanden: ${COLOR_DIR}$zip_file${COLOR_RESET}"
     fi
 
     # Entpacken, wenn Verzeichnis noch nicht existiert
     if [[ ! -d "$unpacked_dir" ]]; then
-        echo "Entpacke Texturen nach $unpacked_dir ..."
+        echo -e "${COLOR_ACTION}Entpacke Texturen nach ${COLOR_DIR}$unpacked_dir${COLOR_ACTION}...${COLOR_RESET}"
         unzip -q "$zip_file" -d .
-        echo "✓ Entpackt."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Entpackt.${COLOR_RESET}"
     else
-        echo "✓ Verzeichnis $unpacked_dir existiert bereits – überspringe Entpacken."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Verzeichnis ${COLOR_DIR}$unpacked_dir${COLOR_ACTION} existiert bereits – überspringe Entpacken.${COLOR_RESET}"
     fi
 
     # Kopieren nach opensim/bin
     if [[ -d "$unpacked_dir/bin" ]]; then
-        echo "Kopiere Texturen nach $target_dir ..."
+        echo -e "${COLOR_ACTION}Kopiere Texturen nach ${COLOR_DIR}$target_dir${COLOR_ACTION}...${COLOR_RESET}"
         cp -r "$unpacked_dir/bin" "$target_dir"
-        echo "✓ Texturen erfolgreich installiert in $target_dir"
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Texturen erfolgreich installiert in ${COLOR_DIR}$target_dir${COLOR_RESET}"
     else
-        echo "✘ Verzeichnis $unpacked_dir/bin nicht gefunden!"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Verzeichnis ${COLOR_DIR}$unpacked_dir/bin${COLOR_ERROR} nicht gefunden!${COLOR_RESET}"
         return 1
     fi
+    
     blankline
     return 0
 }
@@ -595,11 +638,11 @@ function versionrevision() {
     file="opensim/OpenSim/Framework/VersionInfo.cs"
 
     if [[ ! -f "$file" ]]; then
-        echo "✘ Datei nicht gefunden: $file"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Datei nicht gefunden: ${COLOR_DIR}$file${COLOR_RESET}"
         return 1
     fi
 
-    echo "✓ Bearbeite Datei: $file"
+    echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Bearbeite Datei: ${COLOR_DIR}$file${COLOR_RESET}"
 
     # Ändere Flavour.Dev zu Flavour.Extended
     sed -i 's/public const Flavour VERSION_FLAVOUR = Flavour\.Dev;/public const Flavour VERSION_FLAVOUR = Flavour.Extended;/' "$file"
@@ -607,31 +650,33 @@ function versionrevision() {
     # Entferne "Nessie" aus dem Versions-String
     sed -i 's/OpenSim {versionNumber} Nessie {flavour}/OpenSim {versionNumber} {flavour}/' "$file"
 
-    echo "✓ Änderungen wurden erfolgreich vorgenommen."
+    echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Änderungen wurden erfolgreich vorgenommen.${COLOR_RESET}"
     blankline
     return 0
 }
 
 function opensimbuild() {
-    echo "Möchten Sie den OpenSimulator jetzt erstellen? ([ja]/nein)"
+    echo -e "${COLOR_HEADING}🏗️  OpenSimulator Build-Prozess${COLOR_RESET}"
+    
+    echo -e "${COLOR_LABEL}Möchten Sie den OpenSimulator jetzt erstellen? (${COLOR_OK}[ja]${COLOR_LABEL}/nein)${COLOR_RESET}"
     read -r user_choice
 
     user_choice=${user_choice:-ja}
 
     if [[ "$user_choice" == "ja" ]]; then
         if [[ -d "opensim" ]]; then
-            cd opensim || { echo "Fehler: Verzeichnis 'opensim' nicht gefunden."; return 1; }
-            echo "Starte Prebuild-Skript..."
+            cd opensim || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Verzeichnis 'opensim' nicht gefunden.${COLOR_RESET}"; return 1; }
+            echo -e "${COLOR_ACTION}Starte Prebuild-Skript...${COLOR_RESET}"
             bash runprebuild.sh
-            echo "Baue OpenSimulator..."
+            echo -e "${COLOR_ACTION}Baue OpenSimulator...${COLOR_RESET}"
             dotnet build --configuration Release OpenSim.sln
-            echo "✓ OpenSimulator wurde erfolgreich erstellt."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}OpenSimulator wurde erfolgreich erstellt.${COLOR_RESET}"
         else
-            echo "✘ Fehler: Das Verzeichnis 'opensim' existiert nicht."
+            echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
             return 1
         fi
     else
-        echo "✘ Abbruch: OpenSimulator wird nicht erstellt."
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Abbruch: OpenSimulator wird nicht erstellt.${COLOR_RESET}"
     fi
     blankline
 }
@@ -640,26 +685,28 @@ function opensimbuild() {
 #* Erstellen eines OpenSimulators Grids
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-function createdirectory () {
-    echo "Möchten Sie einen Gridserver oder einen Regionsserver erstellen? ([grid]/region)"
+function createdirectory() {
+    echo -e "${COLOR_HEADING}📂 Verzeichniserstellung${COLOR_RESET}"
+    
+    echo -e "${COLOR_LABEL}Möchten Sie einen Gridserver oder einen Regionsserver erstellen? (${COLOR_OK}[grid]${COLOR_LABEL}/region)${COLOR_RESET}"
     read -r server_type
 
     # Standardmäßig Gridserver wählen, falls keine Eingabe erfolgt
     server_type=${server_type:-grid}
 
     if [[ "$server_type" == "grid" ]]; then
-        echo "Erstelle robust Verzeichnis..."
+        echo -e "${COLOR_ACTION}Erstelle robust Verzeichnis...${COLOR_RESET}"
         mkdir -p robust/bin
-        echo "✓ Robust Verzeichnis wurde erstellt."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Robust Verzeichnis wurde erstellt.${COLOR_RESET}"
 
         # Nach der Erstellung des Gridservers auch die Regionsserver erstellen lassen
-        echo "Wie viele Regionsserver benötigen Sie?"
+        echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie?${COLOR_RESET}"
         read -r num_regions
     elif [[ "$server_type" == "region" ]]; then
-        echo "Wie viele Regionsserver benötigen Sie?"
+        echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie?${COLOR_RESET}"
         read -r num_regions
     else
-        echo "✘ Ungültige Eingabe. Bitte geben Sie 'grid' oder 'region' ein."
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Ungültige Eingabe. Bitte geben Sie 'grid' oder 'region' ein.${COLOR_RESET}"
         return 1
     fi
 
@@ -669,51 +716,52 @@ function createdirectory () {
             dir_name="sim$i"
             if [[ ! -d "$dir_name" ]]; then
                 mkdir -p "$dir_name/bin"
-                echo "$dir_name wurde erstellt."
+                echo -e "${COLOR_OK}✓ ${COLOR_DIR}$dir_name${COLOR_RESET} ${COLOR_ACTION}wurde erstellt.${COLOR_RESET}"
             else
-                echo "$dir_name existiert bereits und wird übersprungen."
+                echo -e "${COLOR_OK}✓ ${COLOR_DIR}$dir_name${COLOR_RESET} ${COLOR_WARNING}existiert bereits und wird übersprungen.${COLOR_RESET}"
             fi
         done
     else
-        echo "✘ Ungültige Anzahl an Regionsserver. Bitte geben Sie eine gültige Zahl zwischen 1 und 999 ein."
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Ungültige Anzahl an Regionsserver. Bitte geben Sie eine gültige Zahl zwischen 1 und 999 ein.${COLOR_RESET}"
     fi
     blankline
 }
 
-function opensimcopy () {
-    echo -e "\e[32m"
+function opensimcopy() {
+    echo -e "${COLOR_HEADING}📦 OpenSim Dateikopie${COLOR_RESET}"
+    
     # Prüfen, ob das Verzeichnis "opensim" existiert
     if [[ ! -d "opensim" ]]; then
-        echo "✘ Fehler: Das Verzeichnis 'opensim' existiert nicht."
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
         return 1
     fi
 
     # Prüfen, ob das Unterverzeichnis "opensim/bin" existiert
     if [[ ! -d "opensim/bin" ]]; then
-        echo "✘ Fehler: Das Verzeichnis 'opensim/bin' existiert nicht."
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim/bin' existiert nicht.${COLOR_RESET}"
         return 1
     fi
 
     # Prüfen, ob das Verzeichnis "robust" existiert und Dateien kopieren
     if [[ -d "robust/bin" ]]; then
         cp -r opensim/bin/* robust/bin
-        echo "✓ Dateien aus 'opensim/bin' wurden nach 'robust/bin' kopiert."
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Dateien aus ${COLOR_DIR}opensim/bin${COLOR_RESET} ${COLOR_ACTION}wurden nach ${COLOR_DIR}robust/bin${COLOR_RESET} ${COLOR_ACTION}kopiert.${COLOR_RESET}"
     else
-        echo "✘ Hinweis: 'robust' Verzeichnis nicht gefunden, keine Kopie durchgeführt."
+        echo -e "${COLOR_WARNING}⚠ ${COLOR_ACTION}Hinweis: 'robust' Verzeichnis nicht gefunden, keine Kopie durchgeführt.${COLOR_RESET}"
     fi
 
     # Alle simX-Verzeichnisse suchen und Dateien kopieren
     for sim_dir in sim*; do
         if [[ -d "$sim_dir/bin" ]]; then
             cp -r opensim/bin/* "$sim_dir/bin/"
-            echo "✓ Dateien aus 'opensim/bin' wurden nach '$sim_dir/bin' kopiert."
+            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Dateien aus ${COLOR_DIR}opensim/bin${COLOR_RESET} ${COLOR_ACTION}wurden nach ${COLOR_DIR}$sim_dir/bin${COLOR_RESET} ${COLOR_ACTION}kopiert.${COLOR_RESET}"
         fi
     done
 
-    echo -e "\e[0m"
     blankline
 }
 
+# mariasetup und sqlsetup werden in einer Funktion zusammengefasst, kombiniert und funktional erweitert.
 function mariasetup() {
     echo -e "\033[32m"
     
@@ -895,27 +943,29 @@ setcrontab() {
     # Strict Mode: Fehler sofort erkennen
     set -euo pipefail
 
+    echo -e "${COLOR_HEADING}⏰ Cron-Job Einrichtung${COLOR_RESET}"
+
     # Sicherheitsabfrage: Nur als root/sudo ausführen
     if [ "$(id -u)" -ne 0 ]; then
-        echo >&2 "FEHLER: Dieses Skript benötigt root-Rechte! (sudo verwenden)"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: Dieses Skript benötigt root-Rechte! (sudo verwenden)${COLOR_RESET}" >&2
         return 1
     fi
 
     # Prüfen, ob SCRIPT_DIR gesetzt und gültig ist
     if [ -z "${SCRIPT_DIR:-}" ]; then
-        echo >&2 "FEHLER: 'SCRIPT_DIR' muss gesetzt sein!"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: 'SCRIPT_DIR' muss gesetzt sein!${COLOR_RESET}" >&2
         return 1
     fi
 
     if [ ! -d "$SCRIPT_DIR" ]; then
-        echo >&2 "FEHLER: Verzeichnis '$SCRIPT_DIR' existiert nicht!"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: Verzeichnis '${COLOR_DIR}$SCRIPT_DIR${COLOR_ERROR}' existiert nicht!${COLOR_RESET}" >&2
         return 1
     fi
 
     # Temporäre Datei für neue Cron-Jobs
     local temp_cron
     temp_cron=$(mktemp) || {
-        echo >&2 "FEHLER: Temp-Datei konnte nicht erstellt werden"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: Temp-Datei konnte nicht erstellt werden${COLOR_RESET}" >&2
         return 1
     }
 
@@ -939,56 +989,54 @@ EOF
     # Cron-Jobs installieren
     if crontab "$temp_cron"; then
         rm -f "$temp_cron"
-        echo "Cron-Jobs wurden ERFOLGREICH ersetzt:"
-        crontab -l | grep -v '^#' | sed '/^$/d'
+        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Cron-Jobs wurden ERFOLGREICH ersetzt:${COLOR_RESET}"
+        crontab -l | grep -v '^#' | sed '/^$/d' | while read -r line; do
+            echo -e "${COLOR_DIR}$line${COLOR_RESET}"
+        done
         return 0
     else
-        echo >&2 "FEHLER: Installation fehlgeschlagen. Prüfe $temp_cron manuell."
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: Installation fehlgeschlagen. Prüfe $temp_cron manuell.${COLOR_RESET}" >&2
         return 1
     fi
-
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Upgrade des OpenSimulators Grids
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-# Upgrade ist eigentlich nur ein entpacken eines OpenSimulator und umbenennen des Ordners in opensim.
-# Dann das stoppen des Grids, neues OpenSim kopieren und alles neu starten.
-
 function opensimupgrade() {
-    echo -e "\n\033[33mDer OpenSimulator muss zuerst im Verzeichnis 'opensim' vorliegen!\033[0m"
-    echo "Möchten Sie den OpenSimulator aktualisieren? ([no]/yes)"
+    echo -e "\n${COLOR_WARNING}⚠ Der OpenSimulator muss zuerst im Verzeichnis 'opensim' vorliegen!${COLOR_RESET}"
+    echo -e "${COLOR_LABEL}Möchten Sie den OpenSimulator aktualisieren? (${COLOR_BAD}[no]${COLOR_LABEL}/yes)${COLOR_RESET}"
     read -r user_choice
     user_choice=${user_choice:-no}
 
     # Prüfe, ob das Verzeichnis vorhanden ist
     if [[ ! -d "opensim" ]]; then
-        echo -e "\033[31m❗Fehler: Das Verzeichnis 'opensim' existiert nicht\033[0m"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Das Verzeichnis '${COLOR_DIR}opensim${COLOR_ERROR}' existiert nicht${COLOR_RESET}"
         return 1
     fi
 
     # Prüfe, ob im Verzeichnis 'opensim/bin' die Dateien OpenSim.dll und Robust.dll vorhanden sind
     if [[ ! -f "opensim/bin/OpenSim.dll" || ! -f "opensim/bin/Robust.dll" ]]; then
-        echo -e "\033[36m❗Fehler: Benötigte Dateien (OpenSim.dll und/oder Robust.dll) fehlen im Verzeichnis 'opensim/bin'\033[0m"
-        echo -e "\n\033[33m❓Haben Sie vergessen den OpenSimulator zuerst zu Kompilieren\033[0m"
+        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Benötigte Dateien (OpenSim.dll und/oder Robust.dll) fehlen im Verzeichnis '${COLOR_DIR}opensim/bin${COLOR_ERROR}'${COLOR_RESET}"
+        echo -e "\n${COLOR_WARNING}❓ Haben Sie vergessen den OpenSimulator zuerst zu Kompilieren?${COLOR_RESET}"
         return 1
     fi
 
     if [[ "$user_choice" == "yes" ]]; then
-        echo "OpenSimulator wird gestoppt..."
+        echo -e "${COLOR_ACTION}OpenSimulator wird gestoppt...${COLOR_RESET}"
         opensimstop
         sleep 30
 
-        echo "OpenSimulator wird kopiert..."
+        echo -e "${COLOR_ACTION}OpenSimulator wird kopiert...${COLOR_RESET}"
         opensimcopy
 
-        echo "OpenSimulator wird gestartet..."
+        echo -e "${COLOR_ACTION}OpenSimulator wird gestartet...${COLOR_RESET}"
         opensimstart
 
-        echo "✔ Upgrade abgeschlossen."
+        echo -e "${COLOR_OK}✔ ${COLOR_ACTION}Upgrade abgeschlossen.${COLOR_RESET}"
     else
-        echo "Upgrade vom Benutzer abgebrochen."
+        echo -e "${COLOR_WARNING}Upgrade vom Benutzer abgebrochen.${COLOR_RESET}"
     fi
     blankline
 }
@@ -1981,62 +2029,8 @@ function cleanall() {
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
-#*          ZUSAMMENFASSUNG DER FUNKTIONEN NACH PAKETGRUPPEN          
+#*          ZUSAMMENFASSUNG DER FUNKTIONEN IN LOGISCHE GRUPPEN          
 #?──────────────────────────────────────────────────────────────────────────────────────────
-#!  Jede Gruppe kapselt logisch zusammenhängende Aufgaben.
-#!  Aufrufreihenfolge ist teilweise kritisch (z.B. muss 'opensimbuild' vor 'opensimcopy').
-#?──────────────────────────────────────────────────────────────────────────────────────────
-
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [1] SYSTEMVORBEREITUNG                                          │
-#! └─────────────────────────────────────────────────────────────────┘
-#   ├── servercheck     : Prüft Systemvoraussetzungen (RAM, CPU, Distro)
-#   ├── createdirectory : Legt Basisverzeichnisstruktur an
-#   └── sqlsetup        : Konfiguriert Datenbank (MySQL/PostgreSQL)
-
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [2] QUELLCODE-MANAGEMENT                                        │
-#! └─────────────────────────────────────────────────────────────────┘
-#   ├── opensimgit      : Klont OpenSimulator-Quellcode (Git)
-#   └── moneygit        : Klont Währungssystem-Plugin (falls benötigt)
-
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [3] BUILD-PROZESS                                               │
-#! └─────────────────────────────────────────────────────────────────┘
-#   └── opensimbuild    : Kompiliert OpenSimulator (Mono/XBuild)
-
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [4] KONFIGURATION                                               │
-#! └─────────────────────────────────────────────────────────────────┘
-#   ├── regionsconfig   : Erstellt Basis-Regionenkonfiguration
-#   ├── setwelcome      : Setzt Willkommensnachricht
-#   ├── setrobusthg     : Konfiguriert Robust-Service für HG
-#   ├── setopensim      : Server-Port-Konfiguration (TODO: pro Sim)
-#   ├── setgridcommon   : Grid-Kernparameter (TODO: DB-Separierung)
-#   ├── setflotsamcache : Cache-Einstellungen
-#   └── setosslenable   : Aktiviert OSSL (TODO: Grundeinstellungen)
-
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [5] DEPLOYMENT                                                  │
-#! └─────────────────────────────────────────────────────────────────┘
-#   └── opensimcopy     : Kopiert Binaries an Zielorte
-
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [6] AUTOMATISIERUNG                                             │
-#! └─────────────────────────────────────────────────────────────────┘
-#   └── setcrontab      : Richtet Auto-Start ein (Cronjob)
-
-#?──────────────────────────────────────────────────────────────────────────────────────────
-#*  NUTZUNGSHINWEISE:
-#!  1. Einzelaufruf   : bash osmtool.sh –funktion [FUNKTIONSNAME]
-#!  2. Komplettlauf   : bash osmtool.sh autosetinstall (fragt Bestätigung ab)
-#?──────────────────────────────────────────────────────────────────────────────────────────
-
-# ---
-
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [1] NEUSTART-FUNKTIONEN                                        │
-#! └─────────────────────────────────────────────────────────────────┘
 
 # Standalone-Service-Neustart (ohne Logbereinigung)
 function standalonerestart() {
@@ -2056,10 +2050,6 @@ function opensimrestart() {
     screen -ls || echo "Keine Screen-Sessions gefunden"
 }
 
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [2] KONFIGURATIONS-PAKETE                                      │
-#! └─────────────────────────────────────────────────────────────────┘
-
 # Basis-Konfiguration für alle Dienste ⚡ Vorsicht
 function configall() {
     setrobusthg      # Hypergrid-Konfig
@@ -2070,10 +2060,6 @@ function configall() {
     setwelcome       # Startregion
     echo -e "\033[32mAlle Konfigurationen wurden angewendet.\033[0m"
 }
-
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [3] INSTALLATIONSROUTINEN                                      │
-#! └─────────────────────────────────────────────────────────────────┘
 
 # Vollautomatische Installation ⚡ Vorsicht
 function autosetinstall() {
@@ -2112,37 +2098,27 @@ function autosetinstall() {
     echo -e "\033[1;32m\n✔ Installation abgeschlossen! Auto-Start in 30 Min.\033[0m"
 }
 
-#! ┌─────────────────────────────────────────────────────────────────┐
-#! │ [4] SYSTEMOPERATIONEN                                          │
-#! └─────────────────────────────────────────────────────────────────┘
-
 # Server-Reboot mit Vorbereitung
 function reboot() {
     echo -e "\033[1;33m⚠ Server-Neustart wird eingeleitet...\033[0m"
-    
-    # Graceful Shutdown
+
     opensimstop
     sleep 30
-    
-    # Bestätigungscheck funktioniert nicht bei cronjobs
-    # read -rp "Sicher, dass der Server jetzt neustarten soll? (j/N): " antwort
-    # [[ "${antwort,,}" == "j" ]] || {
-    #     echo -e "\033[32m✔ Abbruch durch Benutzer\033[0m"
-    #     return 0
-    # }
-    
     shutdown -r now
 }
+
 # OpenSim komplett herunterladen ⚡ Vorsicht
 function downloadallgit() {
+    # Downloads aus dem Github.
     opensimgit
     moneygit
-    #ruthrothgit
-    #avatarassetsgit
+        #ruthrothgit        # Funktioniert nicht richtig.
+        #avatarassetsgit    # Funktioniert nicht richtig.
     osslscriptsgit
     pbrtexturesgit
-
+    # Versionierung des OpenSimulators.
     versionrevision
+    # OpenSimulator erstellen aus dem Source Code.
     opensimbuild
 }
 
@@ -2150,143 +2126,73 @@ function downloadallgit() {
 #* Hilfefunktionen
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-function help () {
-    echo -e "\e[36mOpenSim Grid Starten Stoppen und Restarten:\e[0m"
-    echo -e "\e[32mopensimstart\e[0m # OpenSim starten.\e[0m"
-    echo -e "\e[32mopensimstop\e[0m # OpenSim stoppen.\e[0m"
-    echo -e "\e[32mopensimrestart\e[0m # OpenSim neu starten.\e[0m"    
-    echo -e "\e[32mcheck_screens\e[0m # Laufende OpenSim Prozesse prüfen und restarten.\e[0m"
+function help() {
+    # Überschriften
+    echo -e "${COLOR_SERVER}OpenSim Grid Starten Stoppen und Restarten:${COLOR_RESET}"
+    echo -e "${COLOR_START}opensimstart${COLOR_RESET}   # OpenSim starten"
+    echo -e "${COLOR_STOP}opensimstop${COLOR_RESET}    # OpenSim stoppen"
+    echo -e "${COLOR_START}opensimrestart${COLOR_RESET} # OpenSim neu starten"    
+    echo -e "${COLOR_OK}check_screens${COLOR_RESET}  # Laufende OpenSim Prozesse prüfen und restarten"
     echo " "
 
-    # Das folgende ist implementiert aber ich bin am überlegen ob es wirklich gebraucht wird?
-    # echo -e "\e[36mOpenSim Standalone Starten Stoppen und Restarten:\e[0m"
-    # echo -e "\e[32mstandalonestart\e[0m # OpenSim starten.\e[0m"
-    # echo -e "\e[32mstandalonestop\e[0m # OpenSim stoppen.\e[0m"
-    # echo -e "\e[32mstandalonerestart\e[0m # OpenSim neu starten.\e[0m"
-    # echo " "
-
-    echo -e "\e[36mEin OpenSim Grid erstellen oder aktualisieren:\e[0m"
-    echo -e "\e[32mservercheck\e[0m # Zuerst nachsehen ob der Server bereit für OpenSim ist."
-    echo -e "\e[32mcreatedirectory\e[0m # Verzeichnisse erstellen."
-    echo -e "\e[32mmariasetup\e[0m # MariaDB Datenbanken erstellen."
-    echo -e "\e[32msqlsetup\e[0m # SQL Datenbanken erstellen."
-    echo -e "\e[32msetcrontab\e[0m # set crontab automatisierungen."
+    # Erstellung/Aktualisierung
+    echo -e "${COLOR_SERVER}Ein OpenSim Grid erstellen oder aktualisieren:${COLOR_RESET}"
+    echo -e "${COLOR_OK}servercheck${COLOR_RESET}    # Serverbereitschaft prüfen"
+    echo -e "${COLOR_OK}createdirectory${COLOR_RESET} # Verzeichnisse erstellen"
+    echo -e "${COLOR_OK}mariasetup${COLOR_RESET}     # MariaDB einrichten"
+    echo -e "${COLOR_OK}sqlsetup${COLOR_RESET}       # SQL Datenbanken erstellen"
+    echo -e "${COLOR_OK}setcrontab${COLOR_RESET}     # Crontab Automatisierungen"
     echo " "
 
-    echo -e "\e[36mGit Downloads:\e[0m"
-    echo -e "\e[32mopensimgitcopy\e[0m # OpenSim aus dem Git herunterladen."
-    echo -e "\e[32mmoneygitcopy\e[0m # MoneyServer aus dem Git herunterladen."
-    echo -e "\e[32mruthrothgit\e[0m # ruth roth aus dem Git herunterladen als IAR. ⚡ \033[31mVorsicht\033[0m"
-    echo -e "\e[32mavatarassetsgit\e[0m # ruth roth aus dem Git herunterladen als Assets. ⚡ \033[31mVorsicht\033[0m"
-    echo -e "\e[32mosslscriptsgit\e[0m # Skripte aus dem Git herunterladen.⚡ \033[31mVorsicht\033[0m"
-    echo -e "\e[32mpbrtexturesgit\e[0m # PBR Texturen aus dem Git herunterladen.⚡ \033[31mVorsicht\033[0m"
+    # Git Downloads
+    echo -e "${COLOR_SERVER}Git Downloads:${COLOR_RESET}"
+    echo -e "${COLOR_OK}opensimgitcopy${COLOR_RESET}  # OpenSim herunterladen"
+    echo -e "${COLOR_OK}moneygitcopy${COLOR_RESET}    # MoneyServer herunterladen"
+    echo -e "${COLOR_WARNING}ruthrothgit${COLOR_RESET}   # Ruth Roth als IAR ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}avatarassetsgit${COLOR_RESET} # Ruth Roth Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}osslscriptsgit${COLOR_RESET} # Skripte ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} # PBR Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     echo " "
 
-    echo -e "\e[32mopensimbuild\e[0m # OpenSim kompilieren."
-    echo -e "\e[32mconfigall\e[0m # Vorkonfigurieren des OpenSimulators Gid Test.\e[0m⚡ \033[31mVorsicht\033[0m"  # Die automatische konfiguration zu testzwecken.
-    echo -e "\e[32mopensimcopy\e[0m # OpenSim kopieren (in alle Verzeichnisse)."
-    echo -e "\e[35mopensimconfig # Eine funktionsfähige konfiguration fehlt noch.\e[0m"
-    echo -e "\e[32mregionsconfig\e[0m # OpenSim Regionen konfigurieren."
+    # Konfiguration
+    echo -e "${COLOR_OK}opensimbuild${COLOR_RESET}   # OpenSim kompilieren"
+    echo -e "${COLOR_WARNING}configall${COLOR_RESET}     # Testkonfiguration ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "${COLOR_OK}opensimcopy${COLOR_RESET}    # OpenSim kopieren"
+    echo -e "${COLOR_WARNING}opensimconfig${COLOR_RESET}  # Konfiguration (in Entwicklung)"
+    echo -e "${COLOR_OK}regionsconfig${COLOR_RESET}  # Regionen konfigurieren"
     echo " "    
 
-    echo -e "\e[36mOpenSim Grid Bereinigen von alten Dateien, Verzeichnissen und Cache:\e[0m"
-    echo -e "\e[32mdataclean\e[0m # Robust und sim von alten Dateien befreien \033[31m( ⚡ Neuinstallation erforderlich).\e[0m"
-    echo -e "\e[32mpathclean\e[0m # Robust und sim von alten Verzeichnissen befreien \033[31m( ⚡ Neuinstallation erforderlich).\e[0m"
-    echo -e "\e[32mcacheclean\e[0m # Robust und sim Cache bereinigen.\e[0m"
-    echo -e "\e[32mlogclean\e[0m # Robust und sim von alten Logs befreien.\e[0m"
-    echo -e "\e[32mmapclean\e[0m # Robust und sim von alten Maptile Karten befreien.\e[0m"
-    echo -e "\e[32mautoallclean\e[0m # Robust und sim von alten Dateien und Verzeichnissen befreien \033[31m( ⚡ Neuinstallation erforderlich).\e[0m"
-    echo -e "\e[32mregionsclean\e[0m # Löscht alle konfigurierten Regionen aus allen Simulatoren.\e[0m"    
+    # Bereinigung
+    echo -e "${COLOR_SERVER}OpenSim Grid Bereinigen:${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}dataclean${COLOR_RESET}     # Alte Dateien ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}pathclean${COLOR_RESET}     # Alte Verzeichnisse ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
+    echo -e "${COLOR_OK}cacheclean${COLOR_RESET}    # Cache bereinigen"
+    echo -e "${COLOR_OK}logclean${COLOR_RESET}      # Logs bereinigen"
+    echo -e "${COLOR_OK}mapclean${COLOR_RESET}      # Maptiles bereinigen"
+    echo -e "${COLOR_WARNING}autoallclean${COLOR_RESET}  # Komplettbereinigung ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}regionsclean${COLOR_RESET}  # Regionen löschen"    
+    echo " "
+    
+    # Hilfe
+    echo -e "${COLOR_OK}help${COLOR_RESET}          # Diese Hilfeseite"
     echo " "
 }
-
-
-function colortest(){
-echo -e "\033[32m Symbole für Statusanzeigen\033[0m"
-echo -e "Pfeile: → ← ↑ ↓ ➔ ➜ ➤ ➣ ➢ ➠"
-echo -e "Kreise: ○ ● ⭘ ◯ ◎ ⚪ ⚫"
-echo -e "Quadrate: ■ □ ▪ ▫ ⬛ ⬜"
-echo -e "Sterne: ★ ☆ ✦ ✧ ✪ ✩ ✫ ✯ ✰"
-echo -e "Haken & Kreuze: ✓ ✕ ✘ ❌ ✅ ❎"
-echo -e "Uhren & Zeit: ⏳ ⌛ ⏰ 🕒 🕔 🕗"
-echo -e "Zahlen in Kreisen: ➀ ➁ ➂ ➃ ➄ ➅ ➆ ➇ ➈ ➉"
-echo -e "Punkte & Marker: • ◦ ∙ ☐ ☒"
-echo -e "Wetter/Status (optional): ⚡ ☔"
-echo -e "Fortschritt (Balken-Stil): ▄ █"
-echo -e "Linien/Trenner: ─ ━ │ ┃ ┄ ┅ ┆ ┇ ┈ ┉ ┊ ┋"
-echo " "
-echo -e "✓ \033[32mErfolgreich abgeschlossen!\033[0m"
-echo -e "✘ \033[31mFehler aufgetreten.\033[0m"
-echo -e "⏳ \033[33mBitte warten...\033[0m"
-echo -e "⚡ \033[31mVorsicht\033[0m"
-echo -e "\033[31m( ⚡ Neuinstallation erforderlich).\e[0m"
-
-echo " "
-echo -e "\033[1m Textfarben \033[0m"
-echo -e "\033[30m Schwarz\033[0m"
-echo -e "\033[31m Rot\033[0m"
-echo -e "\033[32m Grün\033[0m"
-echo -e "\033[33m Gelb\033[0m"
-echo -e "\033[34m Blau\033[0m"
-echo -e "\033[35m Magenta\033[0m"
-echo -e "\033[36m Cyan\033[0m"
-echo -e "\033[37m Weiß\033[0m"
-echo " "
-echo -e "\033[1m Hintergrundfarben \033[0m"
-echo -e "\033[40m Schwarzer Hintergrund\033[0m"
-echo -e "\033[41m Roter Hintergrund\033[0m"
-echo -e "\033[42m Grüner Hintergrund\033[0m"
-echo -e "\033[43m Gelber Hintergrund\033[0m"
-echo -e "\033[44m Blauer Hintergrund\033[0m"
-echo -e "\033[45m Magenta Hintergrund\033[0m"
-echo -e "\033[46m Cyan Hintergrund\033[0m"
-echo -e "\033[47m Weißer Hintergrund\033[0m"
-echo " "
-echo -e "\033[1m Formatierungen \033[0m"
-echo -e "\033[1m Fett (bold)\033[0m"
-echo -e "\033[2m Schwach (dim)\033[0m"
-echo -e "\033[3m Kursiv (italic, nicht überall unterstützt)\033[0m"
-echo -e "\033[4m Unterstrichen (underline)\033[0m"
-echo -e "\033[7m Negativ (invert colors)\033[0m"
-echo -e "\033[0m Zurücksetzen (reset)"
-echo " "
-echo -e "\033[1m Textfarben \033[0m"
-echo -e "\033[30m Schwarz\033[0m        \033[90m Hellgrau (Bright-Schwarz)\033[0m"
-echo -e "\033[31m Rot\033[0m           \033[91m Hellrot (Bright-Rot)\033[0m"
-echo -e "\033[32m Grün\033[0m         \033[92m Hellgrün (Bright-Grün)\033[0m"
-echo -e "\033[33m Gelb\033[0m         \033[93m Hellgelb (Bright-Gelb)\033[0m"
-echo -e "\033[34m Blau\033[0m         \033[94m Hellblau (Bright-Blau)\033[0m"
-echo -e "\033[35m Magenta\033[0m      \033[95m Hellmagenta (Bright-Magenta)\033[0m"
-echo -e "\033[36m Cyan\033[0m         \033[96m Hellcyan (Bright-Cyan)\033[0m"
-echo -e "\033[37m Weiß\033[0m         \033[97m Hellweiß (Bright-Weiß)\033[0m"
-echo " "
-echo -e "\n\033[1m Hintergrundfarben \033[0m"
-echo -e "\033[40m Schwarzer Hintergrund\033[0m      \033[100m Heller schwarzer Hintergrund\033[0m"
-echo -e "\033[41m Roter Hintergrund\033[0m         \033[101m Heller roter Hintergrund\033[0m"
-echo -e "\033[42m Grüner Hintergrund\033[0m       \033[102m Heller grüner Hintergrund\033[0m"
-echo -e "\033[43m Gelber Hintergrund\033[0m       \033[103m Heller gelber Hintergrund\033[0m"
-echo -e "\033[44m Blauer Hintergrund\033[0m       \033[104m Heller blauer Hintergrund\033[0m"
-echo -e "\033[45m Magenta Hintergrund\033[0m     \033[105m Heller magenta Hintergrund\033[0m"
-echo -e "\033[46m Cyan Hintergrund\033[0m         \033[106m Heller cyan Hintergrund\033[0m"
-echo -e "\033[47m Weißer Hintergrund\033[0m       \033[107m Heller weißer Hintergrund\033[0m"
-echo " "
-echo -e "\n\033[1m Kombinationen \033[0m"
-echo -e "\033[1;91;44m HELLROTER TEXT AUF BLAUEM HINTERGRUND \033[0m"
-echo -e "\033[4;93;105m UNTERSTRICHEN + HELLGELB AUF HELLMAGENTA \033[0m"
-echo " "
-}
-
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Eingabeauswertung
 #?──────────────────────────────────────────────────────────────────────────────────────────
+
 case $KOMMANDO in
+    # System-Checks und Verwaltung
     servercheck) servercheck ;;
-	createdirectory) createdirectory ;;
+    createdirectory) createdirectory ;;
+    setcrontab) setcrontab ;;
+
+    # Datenbank-Setup
     mariasetup) mariasetup ;;
     sqlsetup) sqlsetup ;;
-    setcrontab) setcrontab ;;
-    
+
+    # Git-Repository-Operationen
     opensimgitcopy|opensimgit) opensimgit ;;
     moneygitcopy|moneygit) moneygit ;;
     ruthrothgit) ruthrothgit ;;
@@ -2296,37 +2202,41 @@ case $KOMMANDO in
     downloadallgit) downloadallgit ;;
     versionrevision) versionrevision ;;
 
+    # OpenSim-Build & Deployment
     opensimbuild) opensimbuild ;;
     opensimcopy) opensimcopy ;;
-
     opensimupgrade) opensimupgrade ;;
 
-    config_menu|configure|configureopensim) config_menu ;; # Die automatische konfiguration zu testzwecken.
+    # Konfigurationsmanagement
+    config_menu|configure|configureopensim) config_menu ;; # Automatische Konfiguration für Testzwecke
     cleandoublecomments) cleandoublecomments ;;
     configclean|clean_comments_and_empty_lines) clean_comments_and_empty_lines ;;
     regionsconfig) regionsconfig ;;
     generatename|generate_name) generate_name ;;
-
     cleanconfig) clean_config "$2" ;;
-    setrobusthg) setrobusthg ;; # Die automatische konfiguration zu testzwecken.
-    setopensim) setopensim ;; # Die automatische konfiguration zu testzwecken.
-    setgridcommon) setgridcommon ;; # Die automatische konfiguration zu testzwecken.
-    setflotsamcache) setflotsamcache ;; # Die automatische konfiguration zu testzwecken.
-    setosslenable) setosslenable ;; # Die automatische konfiguration zu testzwecken.
-    setwelcome) setwelcome ;; # Die automatische konfiguration zu testzwecken.
-
-    configall) configall ;; # Die automatische konfiguration zu testzwecken.
+    
+    # Automatische Konfiguration
+    setrobusthg) setrobusthg ;;
+    setopensim) setopensim ;;
+    setgridcommon) setgridcommon ;;
+    setflotsamcache) setflotsamcache ;;
+    setosslenable) setosslenable ;;
+    setwelcome) setwelcome ;;
+    configall) configall ;;
     autosetinstall) autosetinstall ;;
-
+    
+    # OpenSim Steuerung
     start|opensimstart) opensimstart ;;
     stop|opensimstop) opensimstop ;;
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
 
+    # OpenSim Standalone-Modus
     standalone) standalone ;;
     standalonestart) standalonestart ;;
     standalonestop) standalonestop ;;
     standalonerestart) standalonerestart ;;
 
+    # System- und Datenbereinigung
     reboot) reboot ;;
     check_screens) check_screens ;;
     dataclean) dataclean ;;
@@ -2337,11 +2247,13 @@ case $KOMMANDO in
     autoallclean) autoallclean ;;
     regionsclean) regionsclean ;;
     cleanall) cleanall ;;
-    renamefiles) renamefiles ;;  # Die automatische konfiguration zu testzwecken.
+    renamefiles) renamefiles ;; # Automatische Konfiguration für Testzwecke
     colortest) colortest ;;
-	h|help|hilfe|*) help ;;
+
+    # Hilfe-Optionen
+    h|help|hilfe|*) help ;;
 esac
 
-# Programm Ende
+# Programm Ende mit Zeitstempel
 echo -e "\e[36m${SCRIPTNAME}\e[0m ${VERSION} wurde beendet $(date +'%Y-%m-%d %H:%M:%S')" >&2
 exit 0
