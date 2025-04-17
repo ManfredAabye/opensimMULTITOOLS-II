@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.48.141"
+VERSION="V25.4.59.149"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -28,14 +28,20 @@ COLOR_SERVER='\e[36m'      # Cyan (Server/Verzeichnisse/IPs)
 COLOR_DIR='\e[90m'         # Grau (Pfade)
 COLOR_LABEL='\e[97m'       # Weiß (Beschriftungen)
 COLOR_WARNING='\e[33m'     # Gelb (Warnungen)
-COLOR_RESET='\e[0m'        # Farbreset
-COLOR_LABEL='\e[97m'       # Weiß für Beschriftungen
 COLOR_VALUE='\e[36m'       # Cyan für Werte
 COLOR_ACTION='\e[92m'      # Hellgrün für Aktionen
+COLOR_RESET='\e[0m'        # Farbreset
 
-function blankline() {
-    echo " "
-}
+#* SYMBOLDEFINITIONEN
+SYM_OK="${COLOR_OK}✓${COLOR_RESET}"
+SYM_BAD="${COLOR_BAD}✗${COLOR_RESET}"
+SYM_INFO="${COLOR_VALUE}☛${COLOR_RESET}"  # Alternative: ▲ ● ◆ ☛ ⚑ ⓘ 
+SYM_WAIT="${COLOR_VALUE}⏳${COLOR_RESET}"
+SYM_LOG="${COLOR_VALUE}📋${COLOR_RESET}"
+COLOR_SECTION='\e[0;35m'  # Magenta für Sektionsnamen
+COLOR_FILE='\e[0;33m'     # Gelb für Dateipfade
+
+function blankline() { echo " ";}
 
 # Hauptpfad des Skripts automatisch setzen
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
@@ -156,7 +162,7 @@ function standalonestop() {
 
 #* OpenSim starten (robust → money → sim1 bis sim999)
 function opensimstart() {
-    echo -e "${COLOR_HEADING}⏳ ${COLOR_START}Starte das Grid!${COLOR_RESET}"
+    echo -e "${SYM_WAIT} ${COLOR_START}Starte das Grid!${COLOR_RESET}"
 
     # RobustServer starten
     if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
@@ -197,7 +203,7 @@ function opensimstart() {
 
 #* OpenSim stoppen (sim999 bis sim1 → money → robust)
 function opensimstop() {
-    echo -e "${COLOR_HEADING}⏳ ${COLOR_STOP}Stoppe das Grid!${COLOR_RESET}"
+    echo -e "${SYM_WAIT} ${COLOR_STOP}Stoppe das Grid!${COLOR_RESET}"
 
     # Sim-Regionen stoppen
     for ((i=999; i>=1; i--)); do
@@ -291,7 +297,7 @@ function check_screens() {
 #* Erstellen eines OpenSimulators
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-function opensimgit() {
+function opensimgitcopy() {
     echo -e "${COLOR_HEADING}🔄 OpenSimulator GitHub-Verwaltung${COLOR_RESET}"
     
     echo -e "${COLOR_LABEL}Möchten Sie den OpenSimulator vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
@@ -341,7 +347,7 @@ function opensimgit() {
     blankline
 }
 
-function moneygit() {
+function moneygitcopy() {
     echo -e "${COLOR_HEADING}💰 MoneyServer GitHub-Verwaltung${COLOR_RESET}"
     
     echo -e "${COLOR_LABEL}Möchten Sie den MoneyServer vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
@@ -528,8 +534,8 @@ function ruthrothgit() {
     python3 updatelibrary.py -n "Roth2-v2" -s "Roth2-v2" -a Roth2-v2 -i Roth2-v2
     python3 updatelibrary.py -n "Ruth2-v3" -s "Ruth2-v3" -a Ruth2-v3 -i Ruth2-v3
     python3 updatelibrary.py -n "Ruth2-v4" -s "Ruth2-v4" -a Ruth2-v4 -i Ruth2-v4
-
-    # Schritt 3 das kopieren der Daten. Das einfügen der Daten in den Dateien
+    cd ..
+    # Schritt 3 das kopieren der Daten. Das einfügen der Daten in den Dateien ähnlich wie bei PBR.
 
 }
 
@@ -591,6 +597,7 @@ function osslscriptsgit() {
     return 0
 }
 
+# Es werden die Konfiguartionen jetzt auch geändert.
 function pbrtexturesgit() {
     echo -e "${COLOR_HEADING}🎨 PBR Texturen Installation${COLOR_RESET}"
     
@@ -629,7 +636,34 @@ function pbrtexturesgit() {
         echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Verzeichnis ${COLOR_DIR}$unpacked_dir/bin${COLOR_ERROR} nicht gefunden!${COLOR_RESET}"
         return 1
     fi
+
+    local asset_sets_file="opensim/bin/assets/AssetSets.xml"
+    local libraries_file="opensim/bin/inventory/Libraries.xml"
     
+    # Funktion zur Überprüfung und Hinzufügung eines Eintrags
+    add_xml_section() {
+        local file="$1"
+        local section_name="$2"
+        local content="$3"
+        
+        # Überprüfen ob der Abschnitt bereits existiert
+        if ! grep -q "<Section Name=\"$section_name\">" "$file"; then
+            # Abschnitt vor </Nini> einfügen
+            sed -i "s|</Nini>|  <Section Name=\"$section_name\">\n$content\n  </Section>\n</Nini>|" "$file"
+            echo "Added $section_name to $file"
+        else
+            echo "$section_name already exists in $file - no changes made"
+        fi
+    }
+    
+    # AssetSets.xml bearbeiten
+    add_xml_section "$asset_sets_file" "PBR Textures AssetSet" \
+    "    <Key Name=\"file\" Value=\"PBRTexturesAssetSet/PBRTexturesAssetSet.xml\"/>"
+    
+    # Libraries.xml bearbeiten
+    add_xml_section "$libraries_file" "PBRTextures Library" \
+    "    <Key Name=\"foldersFile\" Value=\"PBRTexturesLibrary/PBRTexturesLibraryFolders.xml\"/>\n    <Key Name=\"itemsFile\" Value=\"PBRTexturesLibrary/PBRTexturesLibraryItems.xml\"/>"
+
     blankline
     return 0
 }
@@ -1162,7 +1196,7 @@ function cacheclean() {
 }
 
 function logclean() {
-    echo -e "${COLOR_HEADING}📋 Log-Bereinigung wird durchgeführt...${COLOR_RESET}"
+    echo -e "${SYM_LOG}${COLOR_HEADING} Log-Bereinigung wird durchgeführt...${COLOR_RESET}"
 
     # RobustServer bereinigen
     if [[ -d "robust/bin" ]]; then
@@ -1252,6 +1286,315 @@ WARNUNG
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Konfigurationen
 #?──────────────────────────────────────────────────────────────────────────────────────────
+
+# shellcheck disable=SC2317
+function verify_ini_section() {
+    local file="$1"
+    local section="$2"
+    
+    if [ ! -f "$file" ]; then
+        echo -e "${SYM_BAD} Error: File ${file} does not exist" >&2
+        return 2
+    fi
+    
+    if grep -q "^\[${section}\]" "$file"; then
+        echo -e "${SYM_OK} Section [${section}] exists in ${file}"
+        return 0
+    else
+        echo -e "${SYM_BAD} Section [${section}] not found in ${file}"
+        return 1
+    fi
+}
+
+# shellcheck disable=SC2317
+function verify_ini_key() {
+    local file="$1"
+    local section="$2"
+    local key="$3"
+    
+    if [ ! -f "$file" ]; then
+        echo -e "${SYM_BAD} Error: File ${file} does not exist" >&2
+        return 2
+    fi
+    
+    # Finde den Abschnitt und dann den Key darin
+    if awk -v section="[${section}]" -v key="^${key}=" '
+        $0 == section { in_section=1; next }
+        in_section && /^\[/ { in_section=0; next }
+        in_section && $0 ~ key { found=1; exit }
+        END { exit !found }' "$file"; then
+        echo -e "${SYM_OK} Key ${key} in section [${section}] exists in ${file}"
+        return 0
+    else
+        echo -e "${SYM_BAD} Key ${key} in section [${section}] not found in ${file}"
+        return 1
+    fi
+}
+
+# shellcheck disable=SC2317
+function add_ini_section() {
+    local file="$1"
+    local section="$2"
+    
+    if verify_ini_section "$file" "$section" >/dev/null; then
+        return 0
+    fi
+    
+    echo -e "${SYM_INFO} Adding section [${section}] to ${file}"
+    
+    # Abschnitt am Ende der Datei hinzufügen
+    if printf "\n[%s]\n" "$section" >> "$file"; then
+        echo -e "${SYM_OK} Successfully added section [${section}] to ${file}"
+        return 0
+    else
+        echo -e "${SYM_BAD} Failed to add section [${section}] to ${file}" >&2
+        return 1
+    fi
+}
+
+# shellcheck disable=SC2317
+function set_ini_key() {
+    local file="$1" section="$2" key="$3" value="$4"
+    local temp_file
+    temp_file=$(mktemp) || { 
+        echo -e "${COLOR_BAD}Failed to create temp file${COLOR_RESET}" >&2
+        return 1
+    }
+
+    # Verarbeitung mit awk
+    if ! awk -v section="[${section}]" -v key="$key" -v value="$value" '
+        BEGIN { in_section = 0; modified = 0 }
+        $0 == section { in_section = 1; print; next }
+        in_section && /^\[/ { 
+            # Neue Sektion beginnt, Key einfügen
+            printf "%s=%s\n\n", key, value
+            modified = 1
+            in_section = 0
+        }
+        in_section && $0 ~ "^[[:blank:]]*" key "=" {
+            # Existierenden Key ersetzen (ignoriert führende Leerzeichen/Tabs)
+            printf "%s=%s\n", key, value
+            modified = 1
+            in_section = 0
+            next
+        }
+        { print }
+        END {
+            if (!modified && in_section) {
+                # Am Ende der Sektion einfügen
+                printf "%s=%s\n", key, value
+            } else if (!modified) {
+                # Neue Sektion am Dateiende
+                printf "\n[%s]\n%s=%s\n", section, key, value
+            }
+        }
+    ' "$file" > "$temp_file"; then
+        echo -e "${COLOR_BAD}AWK processing failed${COLOR_RESET}" >&2
+        rm -f "$temp_file"
+        return 1
+    fi
+
+    if ! mv "$temp_file" "$file"; then
+        echo -e "${COLOR_BAD}Failed to update ${COLOR_FILE}${file}${COLOR_RESET}" >&2
+        return 1
+    fi
+
+    echo -e "${COLOR_OK}Set ${COLOR_KEY}${key}=${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
+    return 0
+}
+
+# shellcheck disable=SC2317
+function del_ini_section() {
+    local file="$1"
+    local section="$2"
+    
+    # Verifizieren ob der Abschnitt existiert (still, ohne Ausgabe)
+    if ! verify_ini_section "$file" "$section" >/dev/null; then
+        echo -e "${SYM_INFO} Section [${section}] not found in ${COLOR_FILE}${file}${COLOR_RESET}"
+        return 0
+    fi
+    
+    echo -e "${SYM_INFO} Removing section [${COLOR_SECTION}${section}${COLOR_RESET}] from ${COLOR_FILE}${file}${COLOR_RESET}"
+    
+    # Temporäre Datei mit Fehlerbehandlung
+    local temp_file
+    temp_file=$(mktemp) || {
+        echo -e "${SYM_BAD} Failed to create temporary file" >&2
+        return 1
+    }
+    
+    # Abschnitt entfernen
+    if awk -v section="[${section}]" '
+        $0 == section { skip=1; next }
+        skip && /^\[/ { skip=0 }
+        !skip { print }
+    ' "$file" > "$temp_file"; then
+        
+        if mv "$temp_file" "$file"; then
+            echo -e "${SYM_OK} Successfully removed section [${COLOR_SECTION}${section}${COLOR_RESET}]"
+            return 0
+        else
+            echo -e "${SYM_BAD} Failed to update ${COLOR_FILE}${file}${COLOR_RESET}" >&2
+            rm -f "$temp_file"
+            return 1
+        fi
+        
+    else
+        echo -e "${SYM_BAD} AWK processing failed" >&2
+        rm -f "$temp_file"
+        return 1
+    fi
+}
+
+# shellcheck disable=SC2317
+function uncomment_ini_line() {
+    local file="$1"
+    local search_key="$2"
+    
+    # Sicherheitsprüfungen
+    [ ! -f "$file" ] && { echo -e "${COLOR_BAD}Datei nicht gefunden: ${file}${COLOR_RESET}" >&2; return 1; }
+    [ -z "$search_key" ] && { echo -e "${COLOR_BAD}Suchschlüssel darf nicht leer sein${COLOR_RESET}" >&2; return 1; }
+
+    # Temporäre Datei erstellen
+    local temp_file
+    temp_file=$(mktemp) || { echo -e "${COLOR_BAD}Temp-Datei konnte nicht erstellt werden${COLOR_RESET}" >&2; return 1; }
+
+    # Entkommentieren der Zeile
+    sed -E "/^[[:space:]]*;[[:space:]]*${search_key}[[:space:]]*=/s/^[[:space:]]*;//" "$file" > "$temp_file" || {
+        rm -f "$temp_file"
+        echo -e "${COLOR_BAD}Sed-Verarbeitung fehlgeschlagen${COLOR_RESET}" >&2
+        return 1
+    }
+
+    # Originaldatei ersetzen
+    if mv "$temp_file" "$file"; then
+        echo -e "${COLOR_OK}Zeile '${search_key}' erfolgreich entkommentiert${COLOR_RESET}"
+        return 0
+    else
+        echo -e "${COLOR_BAD}Datei konnte nicht aktualisiert werden${COLOR_RESET}" >&2
+        return 1
+    fi
+}
+
+#* Beispiel Implementierung
+function configure_example_ini() {
+    local config_file="example.ini"
+    
+    echo -e "\n${COLOR_HEADING}=== Example INI Configuration ===${COLOR_RESET}"
+    
+    # Abschnitt erstellen
+    add_ini_section "$config_file" "database"
+    
+    # Keys setzen
+    set_ini_key "$config_file" "database" "host" "localhost"
+    set_ini_key "$config_file" "database" "port" "3306"
+    set_ini_key "$config_file" "database" "user" "admin"
+    
+    # Verifizieren
+    verify_ini_key "$config_file" "database" "host"
+    verify_ini_key "$config_file" "database" "port"
+    
+    # Zum Testen des Löschens folgende Zeile einkommentieren:
+    # del_ini_section "$config_file" "database"
+}
+
+# shellcheck disable=SC2317
+function verify_xml_section() {
+    
+    local file="$1"
+    local section_name="$2"
+    
+    if [ ! -f "$file" ]; then
+        echo -e "${SYM_BAD} ${COLOR_BAD}Error: File ${COLOR_DIR}${file}${COLOR_BAD} does not exist${COLOR_RESET}" >&2
+        return 2
+    fi
+    
+    if grep -q "<Section Name=\"$section_name\">" "$file"; then
+        echo -e "${SYM_OK} ${COLOR_LABEL}Section ${COLOR_VALUE}'$section_name'${COLOR_LABEL} exists in ${COLOR_DIR}${file}${COLOR_RESET}"
+        return 0
+    else
+        echo -e "${SYM_BAD} ${COLOR_LABEL}Section ${COLOR_VALUE}'$section_name'${COLOR_LABEL} not found in ${COLOR_DIR}${file}${COLOR_RESET}"
+        return 1
+    fi
+}
+
+# shellcheck disable=SC2317
+function add_xml_section() {
+    local file="$1"
+    local section_name="$2"
+    local content="$3"
+    local closing_tag="${4:-</Nini>}"  # Standard ist </Nini>, kann überschrieben werden
+    
+    # Verifizieren ob der Abschnitt bereits existiert
+    if verify_xml_section "$file" "$section_name" >/dev/null; then
+        return 0
+    fi
+    
+    # Temporäre Datei für Sicherheitskopie
+    local temp_file
+    temp_file=$(mktemp)
+    
+    echo -e "${SYM_INFO} ${COLOR_ACTION}Adding section ${COLOR_VALUE}'$section_name'${COLOR_ACTION} to ${COLOR_DIR}${file}${COLOR_RESET}"
+    
+    # Abschnitt vor dem schließenden Tag einfügen
+    if sed "s|$closing_tag|  <Section Name=\"$section_name\">\n$content\n  </Section>\n$closing_tag|" "$file" > "$temp_file"; then
+        if mv "$temp_file" "$file"; then
+            echo -e "${SYM_OK} ${COLOR_OK}Successfully added section ${COLOR_VALUE}'$section_name'${COLOR_OK} to ${COLOR_DIR}${file}${COLOR_RESET}"
+            return 0
+        fi
+    fi
+    
+    echo -e "${SYM_BAD} ${COLOR_BAD}Failed to add section ${COLOR_VALUE}'$section_name'${COLOR_BAD} to ${COLOR_DIR}${file}${COLOR_RESET}" >&2
+    return 1
+}
+
+# shellcheck disable=SC2317
+function del_xml_section() {
+    local file="$1"
+    local section_name="$2"
+    
+    # Verifizieren ob der Abschnitt existiert
+    if ! verify_xml_section "$file" "$section_name" >/dev/null; then
+        return 0  # Abschnitt existiert nicht - nichts zu tun
+    fi
+    
+    # Temporäre Datei für Sicherheitskopie
+    local temp_file
+    temp_file=$(mktemp)
+    
+    echo -e "${SYM_INFO} ${COLOR_ACTION}Removing section ${COLOR_VALUE}'$section_name'${COLOR_ACTION} from ${COLOR_DIR}${file}${COLOR_RESET}"
+    
+    # Abschnitt entfernen (inklusive aller Zeilen zwischen Section-Tags)
+    if sed "/<Section Name=\"$section_name\">/,/<\/Section>/d" "$file" > "$temp_file"; then
+        if mv "$temp_file" "$file"; then
+            echo -e "${SYM_OK} ${COLOR_OK}Successfully removed section ${COLOR_VALUE}'$section_name'${COLOR_OK} from ${COLOR_DIR}${file}${COLOR_RESET}"
+            return 0
+        fi
+    fi
+    
+    echo -e "${SYM_BAD} ${COLOR_BAD}Failed to remove section ${COLOR_VALUE}'$section_name'${COLOR_BAD} from ${COLOR_DIR}${file}${COLOR_RESET}" >&2
+    return 1
+}
+
+#* Beispiel Implementierung für PBR Textures ohne Test eingefügt.
+function configure_pbr_textures() {
+    local asset_sets_file="opensim/bin/assets/AssetSets.xml"
+    local libraries_file="opensim/bin/inventory/Libraries.xml"
+    
+    echo -e "\n${COLOR_HEADING}=== Configuring PBR Textures ===${COLOR_RESET}"
+    
+    # AssetSets.xml bearbeiten
+    add_xml_section "$asset_sets_file" "PBR Textures AssetSet" \
+    "    <Key Name=\"file\" Value=\"PBRTexturesAssetSet/PBRTexturesAssetSet.xml\"/>" || return 1
+    
+    # Libraries.xml bearbeiten
+    add_xml_section "$libraries_file" "PBRTextures Library" \
+    "    <Key Name=\"foldersFile\" Value=\"PBRTexturesLibrary/PBRTexturesLibraryFolders.xml\"/>\n    <Key Name=\"itemsFile\" Value=\"PBRTexturesLibrary/PBRTexturesLibraryItems.xml\"/>" || return 1
+    
+    echo -e "${SYM_OK} ${COLOR_OK}PBR Textures configuration completed successfully${COLOR_RESET}"
+
+    #del_xml_section "$asset_sets_file" "" # Blender damit der Fehler aufhört.
+}
 
 # Funktion zur Generierung von UUIDs
 function generate_uuid() {
@@ -2077,7 +2420,7 @@ function autosetinstall() {
     servercheck || return $?
 
     echo -e "\033[1;34m\n[Phase 2] Quellcode\033[0m"
-    opensimgit && moneygit || return $?
+    opensimgitcopy && moneygitcopy || return $?
 
     echo -e "\033[1;34m\n[Phase 3] Build-Prozess\033[0m"
     opensimbuild || return $?
@@ -2110,8 +2453,8 @@ function reboot() {
 # OpenSim komplett herunterladen ⚡ Vorsicht
 function downloadallgit() {
     # Downloads aus dem Github.
-    opensimgit
-    moneygit
+    opensimgitcopy
+    moneygitcopy
         #ruthrothgit        # Funktioniert nicht richtig.
         #avatarassetsgit    # Funktioniert nicht richtig.
     osslscriptsgit
@@ -2137,26 +2480,26 @@ function help() {
 
     # Erstellung/Aktualisierung
     echo -e "${COLOR_SERVER}Ein OpenSim Grid erstellen oder aktualisieren:${COLOR_RESET}"
-    echo -e "${COLOR_OK}servercheck${COLOR_RESET}    # Serverbereitschaft prüfen"
+    echo -e "${COLOR_OK}servercheck${COLOR_RESET}     # Serverbereitschaft prüfen"
     echo -e "${COLOR_OK}createdirectory${COLOR_RESET} # Verzeichnisse erstellen"
-    echo -e "${COLOR_OK}mariasetup${COLOR_RESET}     # MariaDB einrichten"
-    echo -e "${COLOR_OK}sqlsetup${COLOR_RESET}       # SQL Datenbanken erstellen"
-    echo -e "${COLOR_OK}setcrontab${COLOR_RESET}     # Crontab Automatisierungen"
+    echo -e "${COLOR_OK}mariasetup${COLOR_RESET}      # MariaDB einrichten"
+    echo -e "${COLOR_OK}sqlsetup${COLOR_RESET}        # SQL Datenbanken erstellen"
+    echo -e "${COLOR_OK}setcrontab${COLOR_RESET}      # Crontab Automatisierungen"
     echo " "
 
     # Git Downloads
     echo -e "${COLOR_SERVER}Git Downloads:${COLOR_RESET}"
     echo -e "${COLOR_OK}opensimgitcopy${COLOR_RESET}  # OpenSim herunterladen"
     echo -e "${COLOR_OK}moneygitcopy${COLOR_RESET}    # MoneyServer herunterladen"
-    echo -e "${COLOR_WARNING}ruthrothgit${COLOR_RESET}   # Ruth Roth als IAR ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}ruthrothgit${COLOR_RESET}     # Ruth Roth als IAR ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     echo -e "${COLOR_WARNING}avatarassetsgit${COLOR_RESET} # Ruth Roth Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    echo -e "${COLOR_WARNING}osslscriptsgit${COLOR_RESET} # Skripte ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    echo -e "${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} # PBR Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}osslscriptsgit${COLOR_RESET}  # Skripte ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}pbrtexturesgit${COLOR_RESET}  # PBR Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     echo " "
 
     # Konfiguration
     echo -e "${COLOR_OK}opensimbuild${COLOR_RESET}   # OpenSim kompilieren"
-    echo -e "${COLOR_WARNING}configall${COLOR_RESET}     # Testkonfiguration ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "${COLOR_WARNING}configall${COLOR_RESET}      # Testkonfiguration ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     echo -e "${COLOR_OK}opensimcopy${COLOR_RESET}    # OpenSim kopieren"
     echo -e "${COLOR_WARNING}opensimconfig${COLOR_RESET}  # Konfiguration (in Entwicklung)"
     echo -e "${COLOR_OK}regionsconfig${COLOR_RESET}  # Regionen konfigurieren"
@@ -2183,77 +2526,81 @@ function help() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 case $KOMMANDO in
-    # System-Checks und Verwaltung
-    servercheck) servercheck ;;
-    createdirectory) createdirectory ;;
-    setcrontab) setcrontab ;;
+    #  SYSTEM-CHECKS & SETUP  #
+    servercheck)       servercheck ;;
+    createdirectory)   createdirectory ;;
+    setcrontab)        setcrontab ;;
+    check_screens)     check_screens ;;
 
-    # Datenbank-Setup
-    mariasetup) mariasetup ;;
-    sqlsetup) sqlsetup ;;
+    #  DATENBANK-MANAGEMENT   #
+    mariasetup)        mariasetup ;;
+    sqlsetup)          sqlsetup ;;
 
-    # Git-Repository-Operationen
-    opensimgitcopy|opensimgit) opensimgit ;;
-    moneygitcopy|moneygit) moneygit ;;
-    ruthrothgit) ruthrothgit ;;
-    avatarassetsgit) avatarassetsgit ;;
-    osslscriptsgit) osslscriptsgit ;;
-    pbrtexturesgit) pbrtexturesgit ;;
-    downloadallgit) downloadallgit ;;
-    versionrevision) versionrevision ;;
+    #  GIT-OPERATIONEN       #
+    opensimgitcopy|opensimgit)  opensimgitcopy ;;
+    moneygitcopy|moneygit)      moneygitcopy ;;
+    ruthrothgit)                ruthrothgit ;;
+    avatarassetsgit)            avatarassetsgit ;;
+    osslscriptsgit)             osslscriptsgit ;;
+    pbrtexturesgit)             pbrtexturesgit ;;
+    downloadallgit)             downloadallgit ;;
+    versionrevision)            versionrevision ;;
 
-    # OpenSim-Build & Deployment
-    opensimbuild) opensimbuild ;;
-    opensimcopy) opensimcopy ;;
-    opensimupgrade) opensimupgrade ;;
+    #  OPENSIM BUILD & DEPLOY #
+    opensimbuild)      opensimbuild ;;
+    opensimcopy)       opensimcopy ;;
+    opensimupgrade)    opensimupgrade ;;
 
-    # Konfigurationsmanagement
-    config_menu|configure|configureopensim) config_menu ;; # Automatische Konfiguration für Testzwecke
-    cleandoublecomments) cleandoublecomments ;;
+    #  KONFIGURATIONS-MGMT    #
+    config_menu|configure|configureopensim) config_menu ;;
+    cleandoublecomments)        cleandoublecomments ;;
     configclean|clean_comments_and_empty_lines) clean_comments_and_empty_lines ;;
-    regionsconfig) regionsconfig ;;
+    regionsconfig)              regionsconfig ;;
     generatename|generate_name) generate_name ;;
-    cleanconfig) clean_config "$2" ;;
+    cleanconfig)                clean_config "$2" ;;
     
-    # Automatische Konfiguration
-    setrobusthg) setrobusthg ;;
-    setopensim) setopensim ;;
-    setgridcommon) setgridcommon ;;
-    setflotsamcache) setflotsamcache ;;
-    setosslenable) setosslenable ;;
-    setwelcome) setwelcome ;;
-    configall) configall ;;
-    autosetinstall) autosetinstall ;;
+    #  AUTOKONFIGURATION      #
+    setrobusthg)       setrobusthg ;;
+    setopensim)        setopensim ;;
+    setgridcommon)     setgridcommon ;;
+    setflotsamcache)   setflotsamcache ;;
+    setosslenable)     setosslenable ;;
+    setwelcome)        setwelcome ;;
+    configall)         configall ;;
+    autosetinstall)    autosetinstall ;;
+    #  Experimental            #
+    configure_pbr_textures) configure_pbr_textures ;;
+    configure_example_ini) configure_example_ini ;;
     
-    # OpenSim Steuerung
-    start|opensimstart) opensimstart ;;
-    stop|opensimstop) opensimstop ;;
+    #  OPENSIM-STEUERUNG      #
+    start|opensimstart)        opensimstart ;;
+    stop|opensimstop)          opensimstop ;;
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
 
-    # OpenSim Standalone-Modus
-    standalone) standalone ;;
-    standalonestart) standalonestart ;;
-    standalonestop) standalonestop ;;
+    #  STANDALONE-MODUS       #
+    standalone)        standalone ;;
+    standalonestart)   standalonestart ;;
+    standalonestop)    standalonestop ;;
     standalonerestart) standalonerestart ;;
 
-    # System- und Datenbereinigung
-    reboot) reboot ;;
-    check_screens) check_screens ;;
-    dataclean) dataclean ;;
-    pathclean) pathclean ;;
-    cacheclean) cacheclean ;;
-    logclean) logclean ;;
-    mapclean) mapclean ;;
-    autoallclean) autoallclean ;;
-    regionsclean) regionsclean ;;
-    cleanall) cleanall ;;
-    renamefiles) renamefiles ;; # Automatische Konfiguration für Testzwecke
-    colortest) colortest ;;
+    #  SYSTEM-BEREINIGUNG     #
+    reboot)            reboot ;;
+    dataclean)         dataclean ;;
+    pathclean)         pathclean ;;
+    cacheclean)        cacheclean ;;
+    logclean)          logclean ;;
+    mapclean)          mapclean ;;
+    autoallclean)      autoallclean ;;
+    regionsclean)      regionsclean ;;
+    cleanall)          cleanall ;;
+    renamefiles)       renamefiles ;;
+    colortest)         colortest ;;
 
-    # Hilfe-Optionen
-    h|help|hilfe|*) help ;;
+    #  HILFE & SONSTIGES      #
+    h|help|hilfe|*)   help ;;
 esac
 
 # Programm Ende mit Zeitstempel
+blankline
 echo -e "\e[36m${SCRIPTNAME}\e[0m ${VERSION} wurde beendet $(date +'%Y-%m-%d %H:%M:%S')" >&2
 exit 0
