@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.59.149"
+VERSION="V25.4.59.154"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -94,7 +94,7 @@ function servercheck() {
     elif [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
         required_dotnet="dotnet-sdk-8.0"
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_WARNING}Keine unterstützte Version für .NET gefunden!${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_WARNING}Keine unterstützte Version für .NET gefunden!${COLOR_RESET}"
         return 1
     fi
 
@@ -103,19 +103,19 @@ function servercheck() {
     
     if [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
         if ! pacman -Qi "$required_dotnet" >/dev/null 2>&1; then
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Installiere ${COLOR_SERVER}$required_dotnet${COLOR_RESET}..."
+            echo -e "${SYM_OK} ${COLOR_ACTION}Installiere ${COLOR_SERVER}$required_dotnet${COLOR_RESET}..."
             sudo pacman -S --noconfirm "$required_dotnet"
-            echo -e "${COLOR_OK}✓ ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}wurde erfolgreich installiert.${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}wurde erfolgreich installiert.${COLOR_RESET}"
         else
-            echo -e "${COLOR_OK}✓ ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}ist bereits installiert.${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}ist bereits installiert.${COLOR_RESET}"
         fi
     else
         if ! dpkg -s "$required_dotnet" >/dev/null 2>&1; then
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Installiere ${COLOR_SERVER}$required_dotnet${COLOR_RESET}..."
+            echo -e "${SYM_OK} ${COLOR_ACTION}Installiere ${COLOR_SERVER}$required_dotnet${COLOR_RESET}..."
             sudo apt-get install -y "$required_dotnet"
-            echo -e "${COLOR_OK}✓ ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}wurde erfolgreich installiert.${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}wurde erfolgreich installiert.${COLOR_RESET}"
         else
-            echo -e "${COLOR_OK}✓ ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}ist bereits installiert.${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}ist bereits installiert.${COLOR_RESET}"
         fi
     fi
 
@@ -126,18 +126,18 @@ function servercheck() {
     for package in "${required_packages[@]}"; do
         if [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
             if ! pacman -Qi "$package" >/dev/null 2>&1; then
-                echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Installiere ${COLOR_SERVER}$package${COLOR_RESET}..."
+                echo -e "${SYM_OK} ${COLOR_ACTION}Installiere ${COLOR_SERVER}$package${COLOR_RESET}..."
                 sudo pacman -S --noconfirm "$package"
             fi
         else
             if ! dpkg -s "$package" >/dev/null 2>&1; then
-                echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Installiere ${COLOR_SERVER}$package${COLOR_RESET}..."
+                echo -e "${SYM_OK} ${COLOR_ACTION}Installiere ${COLOR_SERVER}$package${COLOR_RESET}..."
                 sudo apt-get install -y "$package"
             fi
         fi
     done
 
-    echo -e "${COLOR_OK}✓ ${COLOR_HEADING}Alle benötigten Pakete wurden installiert.${COLOR_RESET}"
+    echo -e "${SYM_OK} ${COLOR_HEADING}Alle benötigten Pakete wurden installiert.${COLOR_RESET}"
     blankline
 }
 
@@ -166,24 +166,24 @@ function opensimstart() {
 
     # RobustServer starten
     if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
-        echo -e "${COLOR_OK}✓ ${COLOR_START}Starte ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
         cd robust/bin || exit 1
         screen -fa -S robustserver -d -U -m dotnet Robust.dll
         cd - >/dev/null 2>&1 || exit 1
         sleep 30
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Robust.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Robust.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
     fi
 
     # MoneyServer starten
     if [[ -f "robust/bin/MoneyServer.dll" ]]; then
-        echo -e "${COLOR_OK}✓ ${COLOR_START}Starte ${COLOR_SERVER}MoneyServer${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}MoneyServer${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
         cd robust/bin || exit 1
         screen -fa -S moneyserver -d -U -m dotnet MoneyServer.dll
         cd - >/dev/null 2>&1 || exit 1
         sleep 30
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}MoneyServer.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}MoneyServer.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
     fi
 
     # Sim-Regionen starten
@@ -191,7 +191,7 @@ function opensimstart() {
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
-            echo -e "${COLOR_OK}✓ ${COLOR_START}Starte ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             cd "$sim_dir" || continue
             screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll
             cd - >/dev/null 2>&1 || continue
@@ -210,27 +210,27 @@ function opensimstop() {
         sim_dir="sim$i"
         if screen -list | grep -q "$sim_dir"; then
             screen -S "sim$i" -p 0 -X stuff "shutdown^M"
-            echo -e "${COLOR_OK}✓ ${COLOR_STOP}Stoppe ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
             sleep 15
         fi
     done
 
     # MoneyServer stoppen
     if screen -list | grep -q "moneyserver"; then
-        echo -e "${COLOR_OK}✓ ${COLOR_STOP}Stoppe ${COLOR_SERVER}MoneyServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}MoneyServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
         screen -S moneyserver -p 0 -X stuff "shutdown^M"
         sleep 30
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
     fi
 
     # RobustServer stoppen
     if screen -list | grep -q "robust"; then
-        echo -e "${COLOR_OK}✓ ${COLOR_STOP}Stoppe ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
         screen -S robustserver -p 0 -X stuff "shutdown^M"
         sleep 30
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
     fi
     blankline
 }
@@ -309,17 +309,17 @@ function opensimgitcopy() {
         if [[ -d "opensim" ]]; then
             echo -e "${COLOR_ACTION}Vorhandene OpenSimulator-Version wird gelöscht...${COLOR_RESET}"
             rm -rf opensim
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Alte OpenSimulator-Version wurde erfolgreich entfernt.${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}Alte OpenSimulator-Version wurde erfolgreich entfernt.${COLOR_RESET}"
         fi
 
         echo -e "${COLOR_ACTION}OpenSimulator wird von GitHub geholt...${COLOR_RESET}"
         git clone git://opensimulator.org/git/opensim opensim
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}OpenSimulator wurde erfolgreich heruntergeladen.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde erfolgreich heruntergeladen.${COLOR_RESET}"
 
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "opensim/.git" ]]; then
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
-            cd opensim || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
+            echo -e "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
+            cd opensim || { echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
             git pull origin master && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich aktualisiert!${COLOR_RESET}"
             cd ..
         else
@@ -327,7 +327,7 @@ function opensimgitcopy() {
             git clone git://opensimulator.org/git/opensim opensim && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich heruntergeladen!${COLOR_RESET}"
         fi
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
         return 1
     fi
 
@@ -338,11 +338,11 @@ function opensimgitcopy() {
 
     if [[ "$dotnet_version" == "6" ]]; then
         echo -e "${COLOR_ACTION}Wechsle zu .NET 6-Version...${COLOR_RESET}"
-        cd opensim || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Verzeichnis 'opensim' nicht gefunden.${COLOR_RESET}"; return 1; }
+        cd opensim || { echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Verzeichnis 'opensim' nicht gefunden.${COLOR_RESET}"; return 1; }
         git checkout dotnet6
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}OpenSimulator wurde für .NET 6 umgebaut.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde für .NET 6 umgebaut.${COLOR_RESET}"
     else
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Standardmäßig wird .NET 8 verwendet.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Standardmäßig wird .NET 8 verwendet.${COLOR_RESET}"
     fi
     blankline
 }
@@ -358,15 +358,15 @@ function moneygitcopy() {
         if [[ -d "opensimcurrencyserver" ]]; then
             echo -e "${COLOR_ACTION}Vorhandene MoneyServer-Version wird gelöscht...${COLOR_RESET}"
             rm -rf opensimcurrencyserver
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Alte MoneyServer-Version wurde erfolgreich entfernt.${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}Alte MoneyServer-Version wurde erfolgreich entfernt.${COLOR_RESET}"
         fi
         echo -e "${COLOR_ACTION}MONEYSERVER: MoneyServer wird vom GIT geholt...${COLOR_RESET}"
         git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}MoneyServer wurde erfolgreich heruntergeladen.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}MoneyServer wurde erfolgreich heruntergeladen.${COLOR_RESET}"
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "opensimcurrencyserver/.git" ]]; then
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
-            cd opensimcurrencyserver || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
+            echo -e "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
+            cd opensimcurrencyserver || { echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
             
             # Automatische Branch-Erkennung
             branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
@@ -378,104 +378,28 @@ function moneygitcopy() {
             git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer erfolgreich heruntergeladen!${COLOR_RESET}"
         fi
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
         return 1
     fi
 
     # Prüfen, ob das Verzeichnis existiert, bevor es kopiert wird
     if [[ -d "opensimcurrencyserver/addon-modules" ]]; then
         cp -r opensimcurrencyserver/addon-modules opensim/
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}MONEYSERVER: addon-modules wurde nach opensim kopiert${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}MONEYSERVER: addon-modules wurde nach opensim kopiert${COLOR_RESET}"
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}MONEYSERVER: addon-modules existiert nicht${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}MONEYSERVER: addon-modules existiert nicht${COLOR_RESET}"
     fi
 
     if [[ -d "opensimcurrencyserver/bin" ]]; then
         cp -r opensimcurrencyserver/bin opensim/
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}MONEYSERVER: bin wurde nach opensim kopiert${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}MONEYSERVER: bin wurde nach opensim kopiert${COLOR_RESET}"
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}MONEYSERVER: bin existiert nicht${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}MONEYSERVER: bin existiert nicht${COLOR_RESET}"
     fi
     
     blankline
     return 0
 }
-
-# Versuch um die Avatar-Assets von Ruth und Roth herunterzuladen zu Bearbeiten.
-
-
-# function ruthrothgit() {
-#     echo -e "${COLOR_HEADING}👥 Ruth & Roth Avatar-Assets Download${COLOR_RESET}"
-    
-#     echo -e "${COLOR_LABEL}Möchten Sie die Ruth2 und Roth2 Avatare neu klonen oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
-#     read -r user_choice
-#     user_choice=${user_choice:-upgrade}
-
-#     declare -A repos=(
-#         ["Ruth2"]="https://github.com/ManfredAabye/Ruth2.git"
-#         ["Roth2"]="https://github.com/ManfredAabye/Roth2.git"
-#     )
-
-#     base_dir="ruthroth"
-#     mkdir -p "$base_dir"
-
-#     for avatar in "${!repos[@]}"; do
-#         repo_url="${repos[$avatar]}"
-#         target_dir="$avatar"
-
-#         echo -e "${COLOR_ACTION}➤ Bearbeite ${COLOR_SERVER}$avatar${COLOR_ACTION}...${COLOR_RESET}"
-
-#         if [[ "$user_choice" == "new" ]]; then
-#             [[ -d "$target_dir" ]] && echo -e "  ${COLOR_ACTION}➜ Lösche alte Version von ${COLOR_SERVER}$avatar${COLOR_ACTION}...${COLOR_RESET}" && rm -rf "$target_dir"
-#             echo -e "  ${COLOR_ACTION}➜ Klone ${COLOR_SERVER}$avatar${COLOR_ACTION} von GitHub...${COLOR_RESET}"
-#             git clone "$repo_url" "$target_dir" && echo -e "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}wurde neu heruntergeladen.${COLOR_RESET}"
-#         elif [[ "$user_choice" == "upgrade" ]]; then
-#             if [[ -d "$target_dir/.git" ]]; then
-#                 echo -e "  ${COLOR_ACTION}➜ Aktualisiere ${COLOR_SERVER}$avatar${COLOR_ACTION} mit git pull...${COLOR_RESET}"
-#                 cd "$target_dir" || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler beim Wechsel in ${COLOR_DIR}$target_dir${COLOR_RESET}"; continue; }
-#                 branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-#                 git pull origin "$branch_name" && echo -e "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}wurde aktualisiert.${COLOR_RESET}"
-#                 cd ..
-#             else
-#                 echo -e "  ${COLOR_WARNING}⚠ ${COLOR_ACTION}Verzeichnis ${COLOR_DIR}$target_dir${COLOR_ACTION} existiert nicht oder ist kein Git-Repo. Klone neu...${COLOR_RESET}"
-#                 git clone "$repo_url" "$target_dir" && echo -e "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}wurde neu heruntergeladen.${COLOR_RESET}"
-#             fi
-#         else
-#             echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Ungültige Eingabe. Abbruch.${COLOR_RESET}"
-#             return 1
-#         fi
-
-#         # Nur die IAR-Dateien entpacken
-#         echo -e "  ${COLOR_ACTION}➜ Entpacke benötigte IAR-Dateien in ${COLOR_DIR}$base_dir${COLOR_ACTION}...${COLOR_RESET}"
-#         mkdir -p "$base_dir/extracted"
-#         for iar_file in "${avatar}-v1.iar" "${avatar}-v2.iar" "${avatar}-v3.iar" "${avatar}-v4.iar"; do
-#             iar_path="$target_dir/Artifacts/IAR/$iar_file"
-#             if [[ -f "$iar_path" ]]; then
-#                 tar -xzf "$iar_path" -C "$base_dir/extracted" && echo -e "    ${COLOR_OK}✓ ${COLOR_DIR}${iar_file}${COLOR_RESET} ${COLOR_ACTION}entpackt.${COLOR_RESET}"
-#             else
-#                 echo -e "    ${COLOR_WARNING}⚠ IAR-Datei ${COLOR_DIR}${iar_file}${COLOR_WARNING} nicht gefunden. Überspringe...${COLOR_RESET}"
-#             fi
-#         done
-#     done
-
-#     echo -e "${COLOR_OK}✅ ${COLOR_ACTION}Alle benötigten Avatar-IAR-Dateien wurden entpackt und bereitgestellt.${COLOR_RESET}"
-
-#     # Automatische Integration in OpenSim
-#     echo -e "${COLOR_ACTION}Führe updatelibrary.py für alle Assets aus...${COLOR_RESET}"
-#     python3 updatelibrary.py -n "Roth2-v1" -s "Roth2-v1" -a Roth2-v1 -i Roth2-v1
-#     python3 updatelibrary.py -n "Roth2-v2" -s "Roth2-v2" -a Roth2-v2 -i Roth2-v2
-#     python3 updatelibrary.py -n "Ruth2-v3" -s "Ruth2-v3" -a Ruth2-v3 -i Ruth2-v3
-#     python3 updatelibrary.py -n "Ruth2-v4" -s "Ruth2-v4" -a Ruth2-v4 -i Ruth2-v4
-
-#     # Verzeichnisse für Libraries erstellen
-#     echo -e "${COLOR_ACTION}Erstelle Inventar-Verzeichnisse...${COLOR_RESET}"
-#     mkdir -p opensim/bin/inventory/Roth2-v1Library
-#     mkdir -p opensim/bin/inventory/Roth2-v2Library
-#     mkdir -p opensim/bin/inventory/Ruth2-v3Library
-#     mkdir -p opensim/bin/inventory/Ruth2-v4Library
-
-#     echo -e "${COLOR_OK}✅ ${COLOR_ACTION}Verzeichnisse für Inventar-Libraries wurden erstellt.${COLOR_RESET}"
-# }
 
 function ruthrothgit() {
     # Schritt 1 das bereitstellen der Pakete zur weiteren bearbeitung.
@@ -502,17 +426,17 @@ function ruthrothgit() {
 
         # Kopiere nur die relevanten IAR-Dateien direkt nach ruthroth
         echo -e "  ${COLOR_ACTION}➜ Kopiere benötigte IAR-Dateien nach ${COLOR_DIR}$base_dir${COLOR_ACTION}...${COLOR_RESET}"
-        cp "$target_dir/Artifacts/IAR/"*.iar "$base_dir/" 2>/dev/null && echo -e "    ${COLOR_OK}✓ IAR-Dateien von ${COLOR_SERVER}$avatar${COLOR_RESET} kopiert.${COLOR_RESET}"
+        cp "$target_dir/Artifacts/IAR/"*.iar "$base_dir/" 2>/dev/null && echo -e "    ${SYM_OK} IAR-Dateien von ${COLOR_SERVER}$avatar${COLOR_RESET} kopiert.${COLOR_RESET}"
     done
 
     # Kopiere das updatelibrary.py-Skript ins Hauptverzeichnis ruthroth
     echo -e "  ${COLOR_ACTION}➜ Kopiere updatelibrary.py nach ${COLOR_DIR}$base_dir${COLOR_ACTION}...${COLOR_RESET}"
-    cp "updatelibrary.py" "$base_dir/" && echo -e "    ${COLOR_OK}✓ updatelibrary.py wurde kopiert.${COLOR_RESET}"
+    cp "updatelibrary.py" "$base_dir/" && echo -e "    ${SYM_OK} updatelibrary.py wurde kopiert.${COLOR_RESET}"
 
     echo "Verzeichniswechsel in $base_dir"
 
     # Wechsel ins ruthroth-Verzeichnis
-    cd "$base_dir" || { echo -e "${COLOR_BAD}✘ Fehler beim Wechsel ins Verzeichnis ${COLOR_DIR}$base_dir${COLOR_RESET}"; return 1; }
+    cd "$base_dir" || { echo -e "${SYM_BAD} Fehler beim Wechsel ins Verzeichnis ${COLOR_DIR}$base_dir${COLOR_RESET}"; return 1; }
 
     # Entpacke die IAR-Dateien direkt in ruthroth
     echo -e "  ${COLOR_ACTION}➜ Entpacke IAR-Pakete in ${COLOR_DIR}$base_dir${COLOR_ACTION}...${COLOR_RESET}"
@@ -554,14 +478,14 @@ function osslscriptsgit() {
         if [[ -d "$repo_name" ]]; then
             echo -e "${COLOR_ACTION}Vorhandene Version wird gelöscht...${COLOR_RESET}"
             rm -rf "$repo_name"
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Alte Version wurde erfolgreich entfernt.${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}Alte Version wurde erfolgreich entfernt.${COLOR_RESET}"
         fi
         echo -e "${COLOR_ACTION}Beispiel-Skripte werden vom GitHub heruntergeladen...${COLOR_RESET}"
-        git clone "$repo_url" "$repo_name" && echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
+        git clone "$repo_url" "$repo_name" && echo -e "${SYM_OK} ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "$repo_name/.git" ]]; then
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
-            cd "$repo_name" || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler beim Wechsel ins Verzeichnis!${COLOR_RESET}"; return 1; }
+            echo -e "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
+            cd "$repo_name" || { echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Wechsel ins Verzeichnis!${COLOR_RESET}"; return 1; }
             branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
             git pull origin "$branch_name" && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}Repository erfolgreich aktualisiert.${COLOR_RESET}"
             cd ..
@@ -570,7 +494,7 @@ function osslscriptsgit() {
             git clone "$repo_url" "$repo_name" && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
         fi
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
         return 1
     fi
 
@@ -581,16 +505,16 @@ function osslscriptsgit() {
     # Kopieren der Verzeichnisse
     if [[ -d "$repo_name/ScriptsAssetSet" ]]; then
         cp -r "$repo_name/ScriptsAssetSet" opensim/bin/assets/
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}ScriptsAssetSet wurde nach opensim/bin/assets kopiert.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}ScriptsAssetSet wurde nach opensim/bin/assets kopiert.${COLOR_RESET}"
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}ScriptsAssetSet Verzeichnis nicht gefunden!${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}ScriptsAssetSet Verzeichnis nicht gefunden!${COLOR_RESET}"
     fi
 
     if [[ -d "$repo_name/inventory/ScriptsLibrary" ]]; then
         cp -r "$repo_name/inventory/ScriptsLibrary" opensim/bin/inventory/
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}ScriptsLibrary wurde nach opensim/bin/inventory kopiert.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}ScriptsLibrary wurde nach opensim/bin/inventory kopiert.${COLOR_RESET}"
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}ScriptsLibrary Verzeichnis nicht gefunden!${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}ScriptsLibrary Verzeichnis nicht gefunden!${COLOR_RESET}"
     fi
     
     blankline
@@ -610,30 +534,30 @@ function pbrtexturesgit() {
     if [[ ! -f "$zip_file" ]]; then
         echo -e "${COLOR_ACTION}Lade OpenSim PBR Texturen herunter...${COLOR_RESET}"
         if ! wget -q --show-progress -O "$zip_file" "$textures_zip_url"; then
-            echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler beim Herunterladen der Texturen!${COLOR_RESET}"
+            echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Herunterladen der Texturen!${COLOR_RESET}"
             return 1
         fi
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Download abgeschlossen: ${COLOR_DIR}$zip_file${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Download abgeschlossen: ${COLOR_DIR}$zip_file${COLOR_RESET}"
     else
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}ZIP-Datei bereits vorhanden: ${COLOR_DIR}$zip_file${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}ZIP-Datei bereits vorhanden: ${COLOR_DIR}$zip_file${COLOR_RESET}"
     fi
 
     # Entpacken, wenn Verzeichnis noch nicht existiert
     if [[ ! -d "$unpacked_dir" ]]; then
         echo -e "${COLOR_ACTION}Entpacke Texturen nach ${COLOR_DIR}$unpacked_dir${COLOR_ACTION}...${COLOR_RESET}"
         unzip -q "$zip_file" -d .
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Entpackt.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Entpackt.${COLOR_RESET}"
     else
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Verzeichnis ${COLOR_DIR}$unpacked_dir${COLOR_ACTION} existiert bereits – überspringe Entpacken.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Verzeichnis ${COLOR_DIR}$unpacked_dir${COLOR_ACTION} existiert bereits – überspringe Entpacken.${COLOR_RESET}"
     fi
 
     # Kopieren nach opensim/bin
     if [[ -d "$unpacked_dir/bin" ]]; then
         echo -e "${COLOR_ACTION}Kopiere Texturen nach ${COLOR_DIR}$target_dir${COLOR_ACTION}...${COLOR_RESET}"
         cp -r "$unpacked_dir/bin" "$target_dir"
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Texturen erfolgreich installiert in ${COLOR_DIR}$target_dir${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Texturen erfolgreich installiert in ${COLOR_DIR}$target_dir${COLOR_RESET}"
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Verzeichnis ${COLOR_DIR}$unpacked_dir/bin${COLOR_ERROR} nicht gefunden!${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Verzeichnis ${COLOR_DIR}$unpacked_dir/bin${COLOR_ERROR} nicht gefunden!${COLOR_RESET}"
         return 1
     fi
 
@@ -672,11 +596,11 @@ function versionrevision() {
     file="opensim/OpenSim/Framework/VersionInfo.cs"
 
     if [[ ! -f "$file" ]]; then
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Datei nicht gefunden: ${COLOR_DIR}$file${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Datei nicht gefunden: ${COLOR_DIR}$file${COLOR_RESET}"
         return 1
     fi
 
-    echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Bearbeite Datei: ${COLOR_DIR}$file${COLOR_RESET}"
+    echo -e "${SYM_OK} ${COLOR_ACTION}Bearbeite Datei: ${COLOR_DIR}$file${COLOR_RESET}"
 
     # Ändere Flavour.Dev zu Flavour.Extended
     sed -i 's/public const Flavour VERSION_FLAVOUR = Flavour\.Dev;/public const Flavour VERSION_FLAVOUR = Flavour.Extended;/' "$file"
@@ -684,7 +608,7 @@ function versionrevision() {
     # Entferne "Nessie" aus dem Versions-String
     sed -i 's/OpenSim {versionNumber} Nessie {flavour}/OpenSim {versionNumber} {flavour}/' "$file"
 
-    echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Änderungen wurden erfolgreich vorgenommen.${COLOR_RESET}"
+    echo -e "${SYM_OK} ${COLOR_ACTION}Änderungen wurden erfolgreich vorgenommen.${COLOR_RESET}"
     blankline
     return 0
 }
@@ -699,18 +623,18 @@ function opensimbuild() {
 
     if [[ "$user_choice" == "ja" ]]; then
         if [[ -d "opensim" ]]; then
-            cd opensim || { echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Verzeichnis 'opensim' nicht gefunden.${COLOR_RESET}"; return 1; }
+            cd opensim || { echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Verzeichnis 'opensim' nicht gefunden.${COLOR_RESET}"; return 1; }
             echo -e "${COLOR_ACTION}Starte Prebuild-Skript...${COLOR_RESET}"
             bash runprebuild.sh
             echo -e "${COLOR_ACTION}Baue OpenSimulator...${COLOR_RESET}"
             dotnet build --configuration Release OpenSim.sln
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}OpenSimulator wurde erfolgreich erstellt.${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde erfolgreich erstellt.${COLOR_RESET}"
         else
-            echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
+            echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
             return 1
         fi
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Abbruch: OpenSimulator wird nicht erstellt.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Abbruch: OpenSimulator wird nicht erstellt.${COLOR_RESET}"
     fi
     blankline
 }
@@ -731,7 +655,7 @@ function createdirectory() {
     if [[ "$server_type" == "grid" ]]; then
         echo -e "${COLOR_ACTION}Erstelle robust Verzeichnis...${COLOR_RESET}"
         mkdir -p robust/bin
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Robust Verzeichnis wurde erstellt.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Robust Verzeichnis wurde erstellt.${COLOR_RESET}"
 
         # Nach der Erstellung des Gridservers auch die Regionsserver erstellen lassen
         echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie?${COLOR_RESET}"
@@ -740,7 +664,7 @@ function createdirectory() {
         echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie?${COLOR_RESET}"
         read -r num_regions
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Ungültige Eingabe. Bitte geben Sie 'grid' oder 'region' ein.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Ungültige Eingabe. Bitte geben Sie 'grid' oder 'region' ein.${COLOR_RESET}"
         return 1
     fi
 
@@ -750,13 +674,13 @@ function createdirectory() {
             dir_name="sim$i"
             if [[ ! -d "$dir_name" ]]; then
                 mkdir -p "$dir_name/bin"
-                echo -e "${COLOR_OK}✓ ${COLOR_DIR}$dir_name${COLOR_RESET} ${COLOR_ACTION}wurde erstellt.${COLOR_RESET}"
+                echo -e "${SYM_OK} ${COLOR_DIR}$dir_name${COLOR_RESET} ${COLOR_ACTION}wurde erstellt.${COLOR_RESET}"
             else
-                echo -e "${COLOR_OK}✓ ${COLOR_DIR}$dir_name${COLOR_RESET} ${COLOR_WARNING}existiert bereits und wird übersprungen.${COLOR_RESET}"
+                echo -e "${SYM_OK} ${COLOR_DIR}$dir_name${COLOR_RESET} ${COLOR_WARNING}existiert bereits und wird übersprungen.${COLOR_RESET}"
             fi
         done
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Ungültige Anzahl an Regionsserver. Bitte geben Sie eine gültige Zahl zwischen 1 und 999 ein.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Ungültige Anzahl an Regionsserver. Bitte geben Sie eine gültige Zahl zwischen 1 und 999 ein.${COLOR_RESET}"
     fi
     blankline
 }
@@ -766,20 +690,20 @@ function opensimcopy() {
     
     # Prüfen, ob das Verzeichnis "opensim" existiert
     if [[ ! -d "opensim" ]]; then
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
         return 1
     fi
 
     # Prüfen, ob das Unterverzeichnis "opensim/bin" existiert
     if [[ ! -d "opensim/bin" ]]; then
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim/bin' existiert nicht.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim/bin' existiert nicht.${COLOR_RESET}"
         return 1
     fi
 
     # Prüfen, ob das Verzeichnis "robust" existiert und Dateien kopieren
     if [[ -d "robust/bin" ]]; then
         cp -r opensim/bin/* robust/bin
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Dateien aus ${COLOR_DIR}opensim/bin${COLOR_RESET} ${COLOR_ACTION}wurden nach ${COLOR_DIR}robust/bin${COLOR_RESET} ${COLOR_ACTION}kopiert.${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Dateien aus ${COLOR_DIR}opensim/bin${COLOR_RESET} ${COLOR_ACTION}wurden nach ${COLOR_DIR}robust/bin${COLOR_RESET} ${COLOR_ACTION}kopiert.${COLOR_RESET}"
     else
         echo -e "${COLOR_WARNING}⚠ ${COLOR_ACTION}Hinweis: 'robust' Verzeichnis nicht gefunden, keine Kopie durchgeführt.${COLOR_RESET}"
     fi
@@ -788,81 +712,15 @@ function opensimcopy() {
     for sim_dir in sim*; do
         if [[ -d "$sim_dir/bin" ]]; then
             cp -r opensim/bin/* "$sim_dir/bin/"
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Dateien aus ${COLOR_DIR}opensim/bin${COLOR_RESET} ${COLOR_ACTION}wurden nach ${COLOR_DIR}$sim_dir/bin${COLOR_RESET} ${COLOR_ACTION}kopiert.${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}Dateien aus ${COLOR_DIR}opensim/bin${COLOR_RESET} ${COLOR_ACTION}wurden nach ${COLOR_DIR}$sim_dir/bin${COLOR_RESET} ${COLOR_ACTION}kopiert.${COLOR_RESET}"
         fi
     done
 
     blankline
 }
 
-# mariasetup und sqlsetup werden in einer Funktion zusammengefasst, kombiniert und funktional erweitert.
-function mariasetup() {
-    echo -e "\033[32m"
-    
-    # 1. Prüfen ob MariaDB installiert ist
-    if ! command -v mariadb &> /dev/null && ! command -v mysql &> /dev/null; then
-        echo -e "\033[33mMariaDB ist nicht installiert.\033[0m"
-        echo "Möchten Sie MariaDB installieren? (j/n) " 
-        read -r install_choice
-        
-        if [[ "$install_choice" =~ ^[jJ] ]]; then
-            echo "Installiere MariaDB..."
-            
-            # Distro-spezifische Installation
-            if [[ -f /etc/debian_version ]]; then
-                sudo apt-get update
-                sudo apt-get install -y mariadb-server
-            elif [[ -f /etc/redhat-release ]]; then
-                sudo yum install -y mariadb-server
-                sudo systemctl start mariadb
-                sudo systemctl enable mariadb
-            else
-                echo "Nicht unterstütztes Betriebssystem für automatische Installation"
-                return 1
-            fi
-            
-            # Sichere Installation durchführen
-            sudo mysql_secure_installation
-        else
-            echo "Installation abgebrochen."
-            return 0
-        fi
-    else
-        echo "MariaDB ist bereits installiert."
-    fi
-    
-    # 2. Datenbanken anlegen für vorhandene Server
-    echo "Erstelle Datenbanken für vorhandene Server..."
-    
-    # Für RobustServer
-    if [[ -d "robust" ]]; then
-        echo "Erstelle Datenbank 'robust'..."
-        sudo mysql -e "CREATE DATABASE IF NOT EXISTS robust;"
-        sudo mysql -e "GRANT ALL PRIVILEGES ON robust.* TO 'robustuser'@'localhost' IDENTIFIED BY 'robustpassword';"
-        sudo mysql -e "FLUSH PRIVILEGES;"
-    fi
-    
-    # Für alle simX Server
-    for ((i=1; i<=999; i++)); do
-        if [[ -d "sim$i" ]]; then
-            db_name="sim$i"
-            echo "Erstelle Datenbank '$db_name'..."
-            sudo mysql -e "CREATE DATABASE IF NOT EXISTS $db_name;"
-            sudo mysql -e "GRANT ALL PRIVILEGES ON $db_name.* TO 'simuser'@'localhost' IDENTIFIED BY 'simpassword';"
-            sudo mysql -e "FLUSH PRIVILEGES;"
-        fi
-    done
-    
-    echo -e "\n\033[32mDatenbankeinrichtung abgeschlossen!\033[0m"
-    echo -e "Zusammenfassung der erstellten Datenbanken:"
-    sudo mysql -e "SHOW DATABASES LIKE 'robust';"
-    sudo mysql -e "SHOW DATABASES LIKE 'sim%';"
-    echo -e "\033[0m"
-    blankline
-}
-
-function sqlsetup() {
-    echo -e "\033[32m"
+function database_setup() {
+    echo -e "${COLOR_SECTION}=== MariaDB/MySQL Datenbank-Setup ===${COLOR_RESET}"
     
     # 1. Distribution Detection
     detect_distro() {
@@ -878,102 +736,109 @@ function sqlsetup() {
     }
 
     current_distro=$(detect_distro)
-    supported_distros=("debian" "ubuntu" "linuxmint" "pop" "mx" "kali" "zorin" "elementary" "raspbian")
+    supported_distros=("debian" "ubuntu" "linuxmint" "pop" "mx" "kali" "zorin" "elementary" "raspbian" "centos" "fedora")
 
-    if ! printf '%s\n' "${supported_distros[@]}" | grep -q "^$current_distro$"; then
-        echo -e "\033[31mNicht unterstützte Distribution: $current_distro\033[0m"
+    # 2. Support-Check
+    if ! printf '%s\n' "${supported_distros[@]}" | grep -q "^${current_distro}$"; then
+        echo -e "${SYM_BAD} ${COLOR_BAD}Nicht unterstützte Distribution: '${current_distro}'${COLOR_RESET}"
+        echo -e "${SYM_INFO} Unterstützt: ${supported_distros[*]}"
         return 1
     fi
 
-    # 2. MariaDB Installation Check
+    # 3. Installation Check
     if ! command -v mariadb &> /dev/null && ! command -v mysql &> /dev/null; then
-        echo -e "\033[33mMariaDB ist nicht installiert.\033[0m"
-        echo "Möchten Sie MariaDB installieren? (j/n) " 
-        read -r install_choice
+        echo -e "${SYM_WAIT} ${COLOR_WARNING}MariaDB/MySQL ist nicht installiert${COLOR_RESET}"
+        read -rp "$(echo -e "${COLOR_ACTION}MariaDB installieren? (j/n) ${COLOR_RESET}")" install_choice
+        [[ "$install_choice" =~ ^[jJ] ]] || { echo -e "${SYM_BAD} Installation abgebrochen"; return 0; }
         
-        if [[ "$install_choice" =~ ^[jJ] ]]; then
-            echo "Installiere MariaDB für $current_distro..."
-            
-            case $current_distro in
-                debian|ubuntu|linuxmint|pop|zorin|elementary|kali|mx)
-                    sudo apt-get update
-                    sudo apt-get install -y mariadb-server
-                    ;;
-                raspbian)
-                    sudo apt-get update
-                    sudo apt-get install -y mariadb-server-10.5
-                    ;;
-                *)
-                    echo "Automatische Installation für $current_distro nicht verfügbar"
-                    return 1
-                    ;;
-            esac
-            
-            # Secure Installation
-            echo -e "\033[34mFühre sichere Installation durch...\033[0m"
-            sudo mysql_secure_installation
-        else
-            echo "Installation abgebrochen."
-            return 0
-        fi
+        case $current_distro in
+            debian|ubuntu|*mint|pop|zorin|elementary|kali|mx|raspbian)
+                echo -e "${SYM_INFO} ${COLOR_ACTION}Installiere MariaDB...${COLOR_RESET}"
+                sudo apt-get update && sudo apt-get install -y mariadb-server ;;
+            centos|fedora)
+                echo -e "${SYM_INFO} ${COLOR_ACTION}Installiere MariaDB...${COLOR_RESET}"
+                sudo yum install -y mariadb-server
+                sudo systemctl start mariadb
+                sudo systemctl enable mariadb ;;
+            *) echo -e "${SYM_BAD} ${COLOR_BAD}Automatische Installation nicht verfügbar${COLOR_RESET}"; return 1 ;;
+        esac
+        sudo mysql_secure_installation
     else
-        echo "MariaDB ist bereits installiert."
+        echo -e "${SYM_OK} ${COLOR_OK}MariaDB/MySQL ist bereits installiert${COLOR_RESET}"
     fi
-    
-    # 3. Database Setup with Secure Random Passwords
-    echo "Erstelle Datenbanken für vorhandene Server..."
-    
-    generate_password() {
-        tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 16
-    }
+
+    # 4. Benutzeranmeldedaten
+    echo -e "\n${COLOR_SECTION}=== Datenbank-Zugangsdaten ===${COLOR_RESET}"
+    read -rp "$(echo -e "${COLOR_ACTION}Standard-Zugangsdaten verwenden? (j/n) ${COLOR_RESET}")" default_cred_choice
+    if [[ "$default_cred_choice" =~ ^[jJ] ]]; then
+        db_user="simuser"
+        db_pass=$(tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 16)
+        echo -e "${SYM_INFO} ${COLOR_LABEL}Generiertes Passwort: ${COLOR_VALUE}${db_pass}${COLOR_RESET}"
+    else
+        read -rp "$(echo -e "${COLOR_ACTION}Benutzername: ${COLOR_RESET}")" db_user
+        read -rsp "$(echo -e "${COLOR_ACTION}Passwort: ${COLOR_RESET}")" db_pass
+        echo
+    fi
+
+    # 5. Datenbankeinrichtung
+    echo -e "\n${COLOR_SECTION}=== Datenbank-Konfiguration ===${COLOR_RESET}"
     
     # RobustServer DB
     if [[ -d "robust" ]]; then
-        robust_pw=$(generate_password)
-        echo "Erstelle Datenbank 'robust'..."
-        sudo mysql -e "CREATE DATABASE IF NOT EXISTS robust;"
-        sudo mysql -e "CREATE USER IF NOT EXISTS 'robustuser'@'localhost' IDENTIFIED BY '$robust_pw';"
-        sudo mysql -e "GRANT ALL PRIVILEGES ON robust.* TO 'robustuser'@'localhost';"
-        sudo mysql -e "FLUSH PRIVILEGES;"
-        echo -e "\033[34mRobust DB Passwort: $robust_pw\033[0m"
+        if ! sudo mysql -e "USE robust" &> /dev/null; then
+            sudo mysql -e "CREATE DATABASE robust CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            echo -e "${SYM_OK} ${COLOR_VALUE}robust${COLOR_RESET} Datenbank angelegt"
+        else
+            echo -e "${SYM_INFO} ${COLOR_WARNING}robust-Datenbank existiert bereits${COLOR_RESET}"
+        fi
     fi
-    
+
     # simX Server DBs
-    for ((i=1; i<=999; i++)); do
-        if [[ -d "sim$i" ]]; then
-            sim_pw=$(generate_password)
-            db_name="sim$i"
-            echo "Erstelle Datenbank '$db_name'..."
-            sudo mysql -e "CREATE DATABASE IF NOT EXISTS $db_name;"
-            sudo mysql -e "CREATE USER IF NOT EXISTS 'sim${i}user'@'localhost' IDENTIFIED BY '$sim_pw';"
-            sudo mysql -e "GRANT ALL PRIVILEGES ON $db_name.* TO 'sim${i}user'@'localhost';"
-            sudo mysql -e "FLUSH PRIVILEGES;"
-            echo -e "\033[34mSim$i DB Passwort: $sim_pw\033[0m"
+    for ((i=1; i<=1000; i++)); do
+        if [[ -d "sim${i}" ]]; then
+            db_name="sim${i}"
+            if ! sudo mysql -e "USE ${db_name}" &> /dev/null; then
+                sudo mysql -e "CREATE DATABASE ${db_name} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                echo -e "${SYM_OK} ${COLOR_VALUE}${db_name}${COLOR_RESET} Datenbank angelegt"
+            else
+                echo -e "${SYM_INFO} ${COLOR_WARNING}${db_name}-Datenbank existiert bereits${COLOR_RESET}"
+            fi
         fi
     done
-    
-    # 4. Post-Install Check
-    echo -e "\n\033[32mDatenbankeinrichtung abgeschlossen!\033[0m"
-    echo -e "Zusammenfassung:"
-    sudo mysql -e "SELECT User, Host FROM mysql.user WHERE User LIKE 'robustuser' OR User LIKE 'sim%';"
-    sudo mysql -e "SHOW DATABASES LIKE 'robust'; SHOW DATABASES LIKE 'sim%';"
-    
-    # Save passwords securely
-    if [[ -d "robust" ]]; then
-        echo "robust DB Passwort: $robust_pw" | sudo tee "$SCRIPT_DIR"/mariadb_passwords.txt >/dev/null
+
+    # Benutzerverwaltung
+    if ! sudo mysql -e "SELECT user FROM mysql.user WHERE user='${db_user}' AND host='localhost'" | grep -q "${db_user}"; then
+        sudo mysql -e "CREATE USER '${db_user}'@'localhost' IDENTIFIED BY '${db_pass}'"
+        echo -e "${SYM_OK} ${COLOR_VALUE}${db_user}${COLOR_RESET} Benutzer angelegt"
+    else
+        echo -e "${SYM_INFO} ${COLOR_WARNING}Benutzer ${db_user} existiert bereits${COLOR_RESET}"
     fi
-    for ((i=1; i<=999; i++)); do
-        if [[ -d "sim$i" ]]; then
-            echo "sim$i DB Passwort: $sim_pw" | sudo tee -a "$SCRIPT_DIR"/mariadb_passwords.txt >/dev/null
-        fi
+
+    # Rechte vergeben
+    [[ -d "robust" ]] && sudo mysql -e "GRANT ALL PRIVILEGES ON robust.* TO '${db_user}'@'localhost'"
+    for ((i=1; i<=1000; i++)); do
+        [[ -d "sim${i}" ]] && sudo mysql -e "GRANT ALL PRIVILEGES ON sim${i}.* TO '${db_user}'@'localhost'"
     done
+    sudo mysql -e "FLUSH PRIVILEGES"
+
+    # 6. Zusammenfassung
+    echo -e "\n${COLOR_SECTION}=== Zusammenfassung ===${COLOR_RESET}"
+    echo -e "${COLOR_LABEL}Benutzername: ${COLOR_VALUE}${db_user}${COLOR_RESET}"
+    echo -e "${COLOR_LABEL}Passwort: ${COLOR_VALUE}${db_pass}${COLOR_RESET}"
     
-    echo -e "\n\033[33mPasswörter wurden in $SCRIPT_DIR/mariadb_passwords.txt gespeichert\033[0m"
-    echo -e "\033[0m"
-    blankline
+    if sudo mysql -e "SELECT user FROM mysql.user WHERE user='${db_user}' AND host='localhost'" | grep -q "${db_user}"; then
+        echo -e "${COLOR_LABEL}Berechtigungen:${COLOR_RESET}"
+        sudo mysql -e "SHOW GRANTS FOR '${db_user}'@'localhost'"
+    else
+        echo -e "${SYM_BAD} ${COLOR_WARNING}Benutzerberechtigungen nicht verfügbar${COLOR_RESET}"
+    fi
+    
+    # Zugangsdaten speichern
+    echo -e "\n${SYM_LOG} ${COLOR_LABEL}Zugangsdaten gespeichert in: ${COLOR_FILE}${SCRIPT_DIR}/mariadb_passwords.txt${COLOR_RESET}"
+    echo "Benutzername: ${db_user} Passwort: ${db_pass}" | sudo tee "${SCRIPT_DIR}/mariadb_passwords.txt" >/dev/null
 }
 
-setcrontab() {
+function setcrontab() {
     # Strict Mode: Fehler sofort erkennen
     set -euo pipefail
 
@@ -981,25 +846,25 @@ setcrontab() {
 
     # Sicherheitsabfrage: Nur als root/sudo ausführen
     if [ "$(id -u)" -ne 0 ]; then
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: Dieses Skript benötigt root-Rechte! (sudo verwenden)${COLOR_RESET}" >&2
+        echo -e "${SYM_BAD} ${COLOR_ERROR}FEHLER: Dieses Skript benötigt root-Rechte! (sudo verwenden)${COLOR_RESET}" >&2
         return 1
     fi
 
     # Prüfen, ob SCRIPT_DIR gesetzt und gültig ist
     if [ -z "${SCRIPT_DIR:-}" ]; then
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: 'SCRIPT_DIR' muss gesetzt sein!${COLOR_RESET}" >&2
+        echo -e "${SYM_BAD} ${COLOR_ERROR}FEHLER: 'SCRIPT_DIR' muss gesetzt sein!${COLOR_RESET}" >&2
         return 1
     fi
 
     if [ ! -d "$SCRIPT_DIR" ]; then
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: Verzeichnis '${COLOR_DIR}$SCRIPT_DIR${COLOR_ERROR}' existiert nicht!${COLOR_RESET}" >&2
+        echo -e "${SYM_BAD} ${COLOR_ERROR}FEHLER: Verzeichnis '${COLOR_DIR}$SCRIPT_DIR${COLOR_ERROR}' existiert nicht!${COLOR_RESET}" >&2
         return 1
     fi
 
     # Temporäre Datei für neue Cron-Jobs
     local temp_cron
     temp_cron=$(mktemp) || {
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: Temp-Datei konnte nicht erstellt werden${COLOR_RESET}" >&2
+        echo -e "${SYM_BAD} ${COLOR_ERROR}FEHLER: Temp-Datei konnte nicht erstellt werden${COLOR_RESET}" >&2
         return 1
     }
 
@@ -1023,13 +888,13 @@ EOF
     # Cron-Jobs installieren
     if crontab "$temp_cron"; then
         rm -f "$temp_cron"
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Cron-Jobs wurden ERFOLGREICH ersetzt:${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Cron-Jobs wurden ERFOLGREICH ersetzt:${COLOR_RESET}"
         crontab -l | grep -v '^#' | sed '/^$/d' | while read -r line; do
             echo -e "${COLOR_DIR}$line${COLOR_RESET}"
         done
         return 0
     else
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}FEHLER: Installation fehlgeschlagen. Prüfe $temp_cron manuell.${COLOR_RESET}" >&2
+        echo -e "${SYM_BAD} ${COLOR_ERROR}FEHLER: Installation fehlgeschlagen. Prüfe $temp_cron manuell.${COLOR_RESET}" >&2
         return 1
     fi
 }
@@ -1046,13 +911,13 @@ function opensimupgrade() {
 
     # Prüfe, ob das Verzeichnis vorhanden ist
     if [[ ! -d "opensim" ]]; then
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Das Verzeichnis '${COLOR_DIR}opensim${COLOR_ERROR}' existiert nicht${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Das Verzeichnis '${COLOR_DIR}opensim${COLOR_ERROR}' existiert nicht${COLOR_RESET}"
         return 1
     fi
 
     # Prüfe, ob im Verzeichnis 'opensim/bin' die Dateien OpenSim.dll und Robust.dll vorhanden sind
     if [[ ! -f "opensim/bin/OpenSim.dll" || ! -f "opensim/bin/Robust.dll" ]]; then
-        echo -e "${COLOR_BAD}✘ ${COLOR_ERROR}Fehler: Benötigte Dateien (OpenSim.dll und/oder Robust.dll) fehlen im Verzeichnis '${COLOR_DIR}opensim/bin${COLOR_ERROR}'${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Benötigte Dateien (OpenSim.dll und/oder Robust.dll) fehlen im Verzeichnis '${COLOR_DIR}opensim/bin${COLOR_ERROR}'${COLOR_RESET}"
         echo -e "\n${COLOR_WARNING}❓ Haben Sie vergessen den OpenSimulator zuerst zu Kompilieren?${COLOR_RESET}"
         return 1
     fi
@@ -1084,7 +949,7 @@ function dataclean() {
 
     # RobustServer bereinigen
     if [[ -d "robust/bin" ]]; then
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche Dateien im RobustServer...${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Lösche Dateien im RobustServer...${COLOR_RESET}"
         find "robust/bin" -maxdepth 1 -type f \( -name "*.log" -o -name "*.dll" -o -name "*.exe" -o -name "*.so" -o -name "*.xml" -o -name "*.dylib" -o -name "*.example" -o -name "*.sample" -o -name "*.txt" -o -name "*.config" -o -name "*.py" -o -name "*.old" -o -name "*.pdb" \) -delete
     fi
 
@@ -1092,7 +957,7 @@ function dataclean() {
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" ]]; then
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche Dateien in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}Lösche Dateien in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             find "$sim_dir" -maxdepth 1 -type f \( -name "*.log" -o -name "*.dll" -o -name "*.exe" -o -name "*.so" -o -name "*.xml" -o -name "*.dylib" -o -name "*.example" -o -name "*.sample" -o -name "*.txt" -o -name "*.config" -o -name "*.py" -o -name "*.old" -o -name "*.pdb" \) -delete
         fi
     done
@@ -1108,7 +973,7 @@ function pathclean() {
 
     # RobustServer bereinigen
     if [[ -d "robust/bin" ]]; then
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche komplette Verzeichnisse im RobustServer...${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Lösche komplette Verzeichnisse im RobustServer...${COLOR_RESET}"
         
         # Normale Verzeichnisse
         for dir in "${directories[@]}"; do
@@ -1134,7 +999,7 @@ function pathclean() {
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" ]]; then
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche komplette Verzeichnisse in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}Lösche komplette Verzeichnisse in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             
             # Normale Verzeichnisse
             for dir in "${directories[@]}"; do
@@ -1167,7 +1032,7 @@ function cacheclean() {
 
     # RobustServer bereinigen
     if [[ -d "robust/bin" ]]; then
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Leere Cache-Verzeichnisse im RobustServer...${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Leere Cache-Verzeichnisse im RobustServer...${COLOR_RESET}"
         for dir in "${cache_dirs[@]}"; do
             target="robust/bin/$dir"
             if [[ -d "$target" ]]; then
@@ -1181,7 +1046,7 @@ function cacheclean() {
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" ]]; then
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Leere Cache-Verzeichnisse in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}Leere Cache-Verzeichnisse in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             for dir in "${cache_dirs[@]}"; do
                 target="$sim_dir/$dir"
                 if [[ -d "$target" ]]; then
@@ -1200,7 +1065,7 @@ function logclean() {
 
     # RobustServer bereinigen
     if [[ -d "robust/bin" ]]; then
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche Log-Dateien in ${COLOR_DIR}robust/bin...${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Lösche Log-Dateien in ${COLOR_DIR}robust/bin...${COLOR_RESET}"
         rm -f robust/bin/*.log
     fi
 
@@ -1208,7 +1073,7 @@ function logclean() {
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" ]]; then
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}Lösche Log-Dateien in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}Lösche Log-Dateien in ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
             rm -f "$sim_dir"/*.log
         fi
     done
@@ -1223,7 +1088,7 @@ function mapclean() {
     # Sicherheitscheck für robust/bin/maptiles
     if [[ -d "robust/bin/maptiles" ]]; then
         rm -rf -- "robust/bin/maptiles/"*
-        echo -e "${COLOR_OK}✓ ${COLOR_ACTION}robust/bin/maptiles geleert${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}robust/bin/maptiles geleert${COLOR_RESET}"
     fi
 
     # Sicherheitscheck für alle simX/bin/maptiles
@@ -1232,7 +1097,7 @@ function mapclean() {
         if [[ -d "$sim_dir" ]]; then
             # shellcheck disable=SC2115
             rm -rf -- "${sim_dir}/"*
-            echo -e "${COLOR_OK}✓ ${COLOR_ACTION}${COLOR_DIR}$sim_dir${COLOR_RESET} ${COLOR_ACTION}geleert${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}${COLOR_DIR}$sim_dir${COLOR_RESET} ${COLOR_ACTION}geleert${COLOR_RESET}"
         fi
     done
 
@@ -1593,7 +1458,6 @@ function configure_pbr_textures() {
     
     echo -e "${SYM_OK} ${COLOR_OK}PBR Textures configuration completed successfully${COLOR_RESET}"
 
-    #del_xml_section "$asset_sets_file" "" # Blender damit der Fehler aufhört.
 }
 
 # Funktion zur Generierung von UUIDs
@@ -2471,55 +2335,110 @@ function downloadallgit() {
 
 function help() {
     # Überschriften
-    echo -e "${COLOR_SERVER}OpenSim Grid Starten Stoppen und Restarten:${COLOR_RESET}"
-    echo -e "${COLOR_START}opensimstart${COLOR_RESET}   # OpenSim starten"
-    echo -e "${COLOR_STOP}opensimstop${COLOR_RESET}    # OpenSim stoppen"
-    echo -e "${COLOR_START}opensimrestart${COLOR_RESET} # OpenSim neu starten"    
-    echo -e "${COLOR_OK}check_screens${COLOR_RESET}  # Laufende OpenSim Prozesse prüfen und restarten"
+    printf "%b\n" "${COLOR_SERVER}OpenSim Grid Starten Stoppen und Restarten:${COLOR_RESET}"
+    printf "\t%-30b # %s\n" "${COLOR_START}opensimstart${COLOR_RESET}" "OpenSim starten"
+    printf "\t%-30b # %s\n" "${COLOR_STOP}opensimstop${COLOR_RESET}" "OpenSim stoppen"
+    printf "\t%-30b # %s\n" "${COLOR_START}opensimrestart${COLOR_RESET}" "OpenSim neu starten"
+    printf "\t%-30b # %s\n" "${COLOR_OK}check_screens${COLOR_RESET}" "Laufende OpenSim Prozesse prüfen und restarten"
     echo " "
 
     # Erstellung/Aktualisierung
-    echo -e "${COLOR_SERVER}Ein OpenSim Grid erstellen oder aktualisieren:${COLOR_RESET}"
-    echo -e "${COLOR_OK}servercheck${COLOR_RESET}     # Serverbereitschaft prüfen"
-    echo -e "${COLOR_OK}createdirectory${COLOR_RESET} # Verzeichnisse erstellen"
-    echo -e "${COLOR_OK}mariasetup${COLOR_RESET}      # MariaDB einrichten"
-    echo -e "${COLOR_OK}sqlsetup${COLOR_RESET}        # SQL Datenbanken erstellen"
-    echo -e "${COLOR_OK}setcrontab${COLOR_RESET}      # Crontab Automatisierungen"
+    printf "%b\n" "${COLOR_SERVER}Ein OpenSim Grid erstellen oder aktualisieren:${COLOR_RESET}"
+    printf "\t%-30b # %s\n" "${COLOR_OK}servercheck${COLOR_RESET}" "Serverbereitschaft prüfen und nachinstallieren"
+    printf "\t%-30b # %s\n" "${COLOR_OK}createdirectory${COLOR_RESET}" "Verzeichnisse erstellen (robust, sim1, sim2,...)"
+    printf "\t%-30b # %s\n" "${COLOR_OK}opensimbuild${COLOR_RESET}" "OpenSim Programm erstellen"
+    printf "\t%-30b # %s\n" "${COLOR_OK}opensimcopy${COLOR_RESET}" "OpenSim kopieren/upgraden"
+    printf "\t%-30b # %s\n" "${COLOR_OK}database_setup${COLOR_RESET}" "SQL Datenbanken erstellen"
+    printf "\t%-30b # %s\n" "${COLOR_OK}setcrontab${COLOR_RESET}" "Crontab Automatisierungen erstellen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}opensimupgrade${COLOR_RESET}" "OpenSim aktualisieren"
     echo " "
 
     # Git Downloads
-    echo -e "${COLOR_SERVER}Git Downloads:${COLOR_RESET}"
-    echo -e "${COLOR_OK}opensimgitcopy${COLOR_RESET}  # OpenSim herunterladen"
-    echo -e "${COLOR_OK}moneygitcopy${COLOR_RESET}    # MoneyServer herunterladen"
-    echo -e "${COLOR_WARNING}ruthrothgit${COLOR_RESET}     # Ruth Roth als IAR ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    echo -e "${COLOR_WARNING}avatarassetsgit${COLOR_RESET} # Ruth Roth Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    echo -e "${COLOR_WARNING}osslscriptsgit${COLOR_RESET}  # Skripte ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    echo -e "${COLOR_WARNING}pbrtexturesgit${COLOR_RESET}  # PBR Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    printf "%b\n" "${COLOR_SERVER}Git Downloads:${COLOR_RESET}"
+    printf "\t%-30b # %s\n" "${COLOR_OK}opensimgitcopy${COLOR_RESET}" "OpenSim herunterladen"
+    printf "\t%-30b # %s\n" "${COLOR_OK}moneygitcopy${COLOR_RESET}" "MoneyServer herunterladen"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}ruthrothgit${COLOR_RESET}" "Ruth Roth als IAR ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}avatarassetsgit${COLOR_RESET}" "Ruth Roth Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    printf "\t%-30b # %s\n" "${COLOR_OK}osslscriptsgit${COLOR_RESET}" "OSSL Beispiel-Skripte ${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}pbrtexturesgit${COLOR_RESET}" "PBR Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}downloadallgit${COLOR_RESET}" "Alle Git-Repos herunterladen"
+    printf "\t%-30b # %s\n" "${COLOR_OK}versionrevision${COLOR_RESET}" "Versionsrevision auf Expanded setzen"
     echo " "
 
     # Konfiguration
-    echo -e "${COLOR_OK}opensimbuild${COLOR_RESET}   # OpenSim kompilieren"
-    echo -e "${COLOR_WARNING}configall${COLOR_RESET}      # Testkonfiguration ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    echo -e "${COLOR_OK}opensimcopy${COLOR_RESET}    # OpenSim kopieren"
-    echo -e "${COLOR_WARNING}opensimconfig${COLOR_RESET}  # Konfiguration (in Entwicklung)"
-    echo -e "${COLOR_OK}regionsconfig${COLOR_RESET}  # Regionen konfigurieren"
-    echo " "    
+    #printf "%b\n" "${COLOR_SERVER}Konfigurationsmanagement:${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}configall${COLOR_RESET}" "Testkonfiguration ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}opensimconfig${COLOR_RESET}" "Konfiguration (in Entwicklung)"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}regionsconfig${COLOR_RESET}" "Regionen konfigurieren"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}cleandoublecomments${COLOR_RESET}" "Doppelte Kommentare bereinigen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}clean_comments_and_empty_lines${COLOR_RESET}" "Kommentare/Leerzeilen löschen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}generate_name${COLOR_RESET}" "Zufälligen Namen generieren"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}clean_config${COLOR_RESET}" "Konfigurationsdatei bereinigen"
+    #echo " "
+
+    # INI-Operationen
+    #printf "%b\n" "${COLOR_SERVER}INI-Datei Operationen:${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}verify_ini_section${COLOR_RESET}" "INI-Abschnitt verifizieren"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}verify_ini_key${COLOR_RESET}" "INI-Schlüssel verifizieren"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}add_ini_section${COLOR_RESET}" "INI-Abschnitt hinzufügen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}set_ini_key${COLOR_RESET}" "INI-Schlüssel setzen"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}del_ini_section${COLOR_RESET}" "INI-Abschnitt löschen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}uncomment_ini_line${COLOR_RESET}" "INI-Zeile entkommentieren"
+    #echo " "
+
+    # XML-Operationen
+    #printf "%b\n" "${COLOR_SERVER}XML-Datei Operationen:${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}verify_xml_section${COLOR_RESET}" "XML-Abschnitt verifizieren"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}add_xml_section${COLOR_RESET}" "XML-Abschnitt hinzufügen"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}del_xml_section${COLOR_RESET}" "XML-Abschnitt löschen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    #echo " "
+
+    # Autokonfiguration
+    #printf "%b\n" "${COLOR_SERVER}Automatische Konfiguration:${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}setrobusthg${COLOR_RESET}" "Robust-HG einstellen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}setopensim${COLOR_RESET}" "OpenSim-Pfade einstellen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}setgridcommon${COLOR_RESET}" "Grid-Konfiguration einstellen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}setflotsamcache${COLOR_RESET}" "Flotsam-Cache konfigurieren"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}setosslenable${COLOR_RESET}" "OSSL-Funktionen aktivieren"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}setwelcome${COLOR_RESET}" "Willkommensregion setzen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}autosetinstall${COLOR_RESET}" "Automatische Installation"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}configure_pbr_textures${COLOR_RESET}" "PBR-Texturen (experimentell)"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}configure_example_ini${COLOR_RESET}" "Beispiel-INI (experimentell)"
+    #echo " "
+
+    # Standalone-Modus
+    #printf "%b\n" "${COLOR_SERVER}Standalone-Modus:${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}standalone${COLOR_RESET}" "Standalone-Menü"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}standalonestart${COLOR_RESET}" "Standalone starten"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}standalonestop${COLOR_RESET}" "Standalone stoppen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}standalonerestart${COLOR_RESET}" "Standalone neustarten"
+    #echo " "
 
     # Bereinigung
-    echo -e "${COLOR_SERVER}OpenSim Grid Bereinigen:${COLOR_RESET}"
-    echo -e "${COLOR_WARNING}dataclean${COLOR_RESET}     # Alte Dateien ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
-    echo -e "${COLOR_WARNING}pathclean${COLOR_RESET}     # Alte Verzeichnisse ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
-    echo -e "${COLOR_OK}cacheclean${COLOR_RESET}    # Cache bereinigen"
-    echo -e "${COLOR_OK}logclean${COLOR_RESET}      # Logs bereinigen"
-    echo -e "${COLOR_OK}mapclean${COLOR_RESET}      # Maptiles bereinigen"
-    echo -e "${COLOR_WARNING}autoallclean${COLOR_RESET}  # Komplettbereinigung ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
-    echo -e "${COLOR_WARNING}regionsclean${COLOR_RESET}  # Regionen löschen"    
+    printf "%b\n" "${COLOR_SERVER}OpenSim Grid Bereinigen:${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}dataclean${COLOR_RESET}" "Alte Dateien löschen ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}pathclean${COLOR_RESET}" "Alte Verzeichnisse löschen ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
+    printf "\t%-30b # %s\n" "${COLOR_OK}cacheclean${COLOR_RESET}" "Cache bereinigen"
+    printf "\t%-30b # %s\n" "${COLOR_OK}logclean${COLOR_RESET}" "Logs löschen"
+    printf "\t%-30b # %s\n" "${COLOR_OK}mapclean${COLOR_RESET}" "Maptiles löschen"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}autoallclean${COLOR_RESET}" "Komplettbereinigung ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}regionsclean${COLOR_RESET}" "Regionen löschen"
+    #printf "\t%-30b # %s\n" "${COLOR_WARNING}cleanall${COLOR_RESET}" "Alles bereinigen ${COLOR_BAD}(⚡ Gefährlich)${COLOR_RESET}"
+    printf "\t%-30b # %s\n" "${COLOR_OK}renamefiles${COLOR_RESET}" "Umbenennung aller *.example Dateien"
     echo " "
-    
+
+    # System
+    printf "%b\n" "${COLOR_SERVER}Systembefehle:${COLOR_RESET}"
+    printf "\t%-30b # %s\n" "${COLOR_OK}reboot${COLOR_RESET}" "Server neustarten ${COLOR_RESET}"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}colortest${COLOR_RESET}" "Farbtest anzeigen"
+    echo " "
+
     # Hilfe
-    echo -e "${COLOR_OK}help${COLOR_RESET}          # Diese Hilfeseite"
+    printf "%b\n" "${COLOR_SERVER}Hilfen:${COLOR_RESET}"
+    printf "\t%-30b # %s\n" "${COLOR_OK}help${COLOR_RESET}" "Diese Hilfeseite"
     echo " "
 }
+
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Eingabeauswertung
@@ -2533,8 +2452,7 @@ case $KOMMANDO in
     check_screens)     check_screens ;;
 
     #  DATENBANK-MANAGEMENT   #
-    mariasetup)        mariasetup ;;
-    sqlsetup)          sqlsetup ;;
+    database_setup)    database_setup ;;
 
     #  GIT-OPERATIONEN       #
     opensimgitcopy|opensimgit)  opensimgitcopy ;;
@@ -2552,7 +2470,6 @@ case $KOMMANDO in
     opensimupgrade)    opensimupgrade ;;
 
     #  KONFIGURATIONS-MGMT    #
-    config_menu|configure|configureopensim) config_menu ;;
     cleandoublecomments)        cleandoublecomments ;;
     configclean|clean_comments_and_empty_lines) clean_comments_and_empty_lines ;;
     regionsconfig)              regionsconfig ;;
@@ -2571,6 +2488,17 @@ case $KOMMANDO in
     #  Experimental            #
     configure_pbr_textures) configure_pbr_textures ;;
     configure_example_ini) configure_example_ini ;;
+    #  INI-OPERATIONEN        #
+    verify_ini_section)    verify_ini_section "$2" "$3" "$4" ;;
+    verify_ini_key)        verify_ini_key "$2" "$3" "$4" ;;
+    add_ini_section)       add_ini_section "$2" "$3" ;;
+    set_ini_key)           set_ini_key "$2" "$3" "$4" "$5" ;;
+    del_ini_section)       del_ini_section "$2" "$3" ;;
+    uncomment_ini_line)    uncomment_ini_line "$2" "$3" ;;
+    #  XML-OPERATIONEN        #
+    verify_xml_section)    verify_xml_section "$2" "$3" ;;
+    add_xml_section)       add_xml_section "$2" "$3" "$4" ;;
+    del_xml_section)       del_xml_section "$2" "$3" ;;
     
     #  OPENSIM-STEUERUNG      #
     start|opensimstart)        opensimstart ;;
