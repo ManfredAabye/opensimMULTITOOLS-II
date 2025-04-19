@@ -22,7 +22,15 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 ## **📋 Inhaltsverzeichnis**  
 1. [OpenSim starten/stoppen](#-opensim-starten-stoppen-und-neustarten)  
 2. [OpenSim-Grid erstellen/aktualisieren](#-opensim-grid-erstellen-oder-aktualisieren)  
-3. [OpenSim bereinigen](#-opensim-grid-bereinigen)  
+3. [Diverse Git-Downloads](#-diverse-git-downloads)  
+4. [Konfiguration](#-konfiguration)  
+5. [INI-Operationen](#-ini-operationen)  
+6. [XML-Operationen](#-xml-operationen)  
+7. [Autokonfiguration](#-autokonfiguration)  
+8. [Standalone-Modus](#-standalone-modus)  
+9. [OpenSim bereinigen](#-opensim-grid-bereinigen)  
+10. [Systembefehle](#-systembefehle)  
+11. [Hilfen](#-hilfen)  
 
 ---
 
@@ -34,120 +42,121 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | `opensimrestart` | Startet OpenSim neu. |  
 | `check_screens` | Überprüft laufende OpenSim-Prozesse und startet sie bei Bedarf neu. |  
 
-## **🔄 (Optional implementiert, aber nicht aktiv genutzt:)** 
-| Befehl | Beschreibung |  
-|--------|-------------|  
-| `standalonestart` | Startet OpenSim im Standalone-Modus. |  
-| `standalonestop` | Stoppt OpenSim im Standalone-Modus. |  
-| `standalonerestart` | Startet OpenSim Standalone neu. |  
-
 ---
 
 ## **🛠️ OpenSim-Grid erstellen oder aktualisieren**  
-### **Schritt 1: Vorbereitung**  
 | Befehl | Beschreibung |  
 |--------|-------------|  
 | `servercheck` | Prüft, ob der Server für OpenSim bereit ist. |  
 | `createdirectory` | Erstellt die benötigten Verzeichnisse. |  
-| `mariasetup` | Erstellt und richtet die MariaDB-Datenbanken ein. |  
-| `sqlsetup` | Erstellt und richtet die SQL-Datenbanken ein. |  
-| `setcrontab` | Konfiguriert crontab Automatisierungen. |  
-
-### **Schritt 2: OpenSim herunterladen & kompilieren**  
-| Befehl | Beschreibung |  
-|--------|-------------|  
-| `opensimgitcopy` | Lädt OpenSim aus dem Git-Repository herunter. |  
-| `moneygitcopy` | Lädt den MoneyServer aus dem Git-Repository herunter. |  
-| `ruthrothgit` | Ruth/Roth IAR-Dateien aus Git herunterladen. ⚡ *Vorsicht* |  
-| `avatarassetsgit` | Ruth/Roth Assets aus Git herunterladen. ⚡ *Vorsicht* |  
-| `osslscriptsgit` | OSSL-Skripte aus Git herunterladen. ⚡ *Vorsicht* |  
-| `pbrtexturesgit` | PBR Texturen aus dem Git herunterladen. ⚡ *Vorsicht* |
-| `opensimbuild` | Kompiliert OpenSim. |  
-
-### **Schritt 3: Konfiguration & Deployment** *(In Arbeit)*  
-| Befehl | Beschreibung |  
-|--------|-------------|  
-| `configall` | Vorkonfiguriert ein komplettes Test-Grid automatisch. ⚡ *Vorsicht* |  
-| `opensimcopy` | Kopiert OpenSim in alle Zielverzeichnisse. |  
-| *(Geplant)* `opensimconfig` | Konfiguriert OpenSim-Einstellungen. |  
-| `regionsconfig` | Konfiguriert automatisch OpenSim-Regionen. |  
+| `opensimbuild` | OpenSim-Programm erstellen. |  
+| `opensimcopy` | OpenSim kopieren/upgraden. |  
+| `database_setup` | SQL-Datenbanken erstellen. |  
+| `setcrontab` | Crontab Automatisierungen erstellen. |  
+| `opensimupgrade` | OpenSim aktualisieren (_Experimentelle Funktion_) |
 
 ---
 
-## **🧹 OpenSim-Grid bereinigen**  
+## **📂 Diverse Git-Downloads**  
+| Befehl | Beschreibung |  
+|--------|-------------|  
+| `opensimgitcopy` | OpenSim aus Git herunterladen. |  
+| `moneygitcopy` | MoneyServer aus Git herunterladen. |  
+| `ruthrothgit` | Ruth/Roth IAR-Dateien aus Git (_Experimentelle Funktion_). |  
+| `avatarassetsgit` | Ruth/Roth Assets aus Git (_Experimentelle Funktion_). |  
+| `osslscriptsgit` | OSSL Beispiel-Skripte herunterladen. |  
+| `pbrtexturesgit` | PBR Texturen aus Git (_Experimentelle Funktion_). |  
+| `downloadallgit` | Alle Git-Repositories herunterladen (_Experimentelle Funktion_). |  
+| `versionrevision` | Versionsrevision auf Expanded setzen. |  
+
+---
+
+## **⚙️ Konfiguration**  
+| Befehl | Beschreibung |  
+|--------|-------------|  
+| `configall` | Testkonfiguration setzen (_Experimentelle Funktion_). |  
+| `opensimconfig` | OpenSim-Einstellungen setzen (_Experimentelle Funktion_). |  
+| `regionsconfig` | Automatische OpenSim-Regionenkonfiguration (_Experimentelle Funktion_). |  
+| `cleandoublecomments` | Doppelte Kommentare bereinigen (_Experimentelle Funktion_). |  
+| `clean_comments_and_empty_lines` | Kommentare und Leerzeilen löschen (_Experimentelle Funktion_). |  
+| `generate_name` | Zufälligen Namen generieren (_Experimentelle Funktion_). |  
+| `clean_config` | Konfigurationsdatei bereinigen (_Experimentelle Funktion_). |  
+
+---
+
+## **📜 INI-Operationen**  
+| Befehl | Beschreibung |  
+|--------|-------------|  
+| `verify_ini_section` | INI-Abschnitt verifizieren (_Experimentelle Funktion_). |  
+| `verify_ini_key` | INI-Schlüssel verifizieren (_Experimentelle Funktion_). |  
+| `add_ini_section` | INI-Abschnitt hinzufügen (_Experimentelle Funktion_). |  
+| `set_ini_key` | INI-Schlüssel setzen (_Experimentelle Funktion_). |  
+| `del_ini_section` | INI-Abschnitt löschen (_Experimentelle Funktion_). |  
+| `uncomment_ini_line` | INI-Zeile entkommentieren (_Experimentelle Funktion_). |  
+
+---
+
+## **📄 XML-Operationen**  
+| Befehl | Beschreibung |  
+|--------|-------------|  
+| `verify_xml_section` | XML-Abschnitt verifizieren (_Experimentelle Funktion_). |  
+| `add_xml_section` | XML-Abschnitt hinzufügen (_Experimentelle Funktion_). |  
+| `del_xml_section` | XML-Abschnitt löschen (_Experimentelle Funktion_). |  
+
+---
+
+## **🔧 Autokonfiguration**  
+| Befehl | Beschreibung |  
+|--------|-------------|  
+| `setrobusthg` | Robust-HG einstellen (_Experimentelle Funktion_). |  
+| `setopensim` | OpenSim-Pfade einstellen (_Experimentelle Funktion_). |  
+| `setgridcommon` | Grid-Konfiguration einstellen (_Experimentelle Funktion_). |  
+| `setflotsamcache` | Flotsam-Cache konfigurieren (_Experimentelle Funktion_). |  
+| `setosslenable` | OSSL-Funktionen aktivieren (_Experimentelle Funktion_). |  
+| `setwelcome` | Willkommensregion setzen (_Experimentelle Funktion_). |  
+| `autosetinstall` | Automatische Installation (_Experimentelle Funktion_). |  
+| `configure_pbr_textures` | PBR-Texturen (_Experimentelle Funktion_). |  
+
+---
+
+## **🖥️ Standalone-Modus**  
+| Befehl | Beschreibung |  
+|--------|-------------|  
+| `standalone` | Standalone-Menü. |  
+| `standalonestart` | Startet OpenSim im Standalone-Modus (_Experimentelle Funktion_). |  
+| `standalonestop` | Stoppt OpenSim im Standalone-Modus (_Experimentelle Funktion_). |  
+| `standalonerestart` | Startet OpenSim Standalone neu (_Experimentelle Funktion_). |  
+
+---
+
+## **🧹 OpenSim Grid Bereinigen**  
 ⚠ **Warnung:** Einige Befehle erfordern eine **Neuinstallation** von OpenSim!  
 
+| Befehl            | Beschreibung |  
+|------------------|-------------|  
+| `dataclean`      | Alte Dateien löschen (⚡ Neuinstallation erforderlich!) (_Experimentelle Funktion_) |  
+| `pathclean`      | Alte Verzeichnisse löschen (⚡ Neuinstallation erforderlich!) (_Experimentelle Funktion_) |  
+| `cacheclean`     | Cache bereinigen. |  
+| `logclean`       | Logs löschen. |  
+| `mapclean`       | Maptiles löschen. |  
+| `autoallclean`   | Komplettbereinigung (⚡ Neuinstallation erforderlich!) (_Experimentelle Funktion_) |  
+| `regionsclean`   | Alle Regionen löschen. (_Experimentelle Funktion_) |  
+| `cleanall`       | Alles bereinigen (⚡ Neuinstallation erforderlich!) (_Experimentelle Funktion_) |  
+| `renamefiles`    | Umbenennung aller *.example Dateien. |  
+
+---
+
+## **🛠️ Systembefehle**  
 | Befehl | Beschreibung |  
 |--------|-------------|  
-| `dataclean` | Entfernt alle alten Dateien von Robust & Sim. ⚡ *Neuinstallation erforderlich!* |  
-| `pathclean` | Entfernt alle alten Verzeichnisse von Robust & Sim. ⚡ *Neuinstallation erforderlich!* |  
-| `cacheclean` | Bereinigt den Cache von Robust & Sim. |  
-| `logclean` | Löscht alte Log-Dateien. |  
-| `mapclean` | Löscht alte Maptile-Karten. |  
-| `autoallclean` | Führt alle Cleaner aus. ⚡ *Neuinstallation erforderlich!* |  
-| `regionsclean` | Entfernt alle konfigurierten Regionen aus allen Simulatoren. | 
+| `reboot` | Grid herunterfahren und Server neustarten. |  
 
 ---
 
-## 🧪 Erweiterte Tools & Entwicklerfunktionen (optional)
-Diese Befehle sind für Test-, Konfigurations- und Wartungszwecke gedacht:
-
-| Befehl | Beschreibung |
-|--------|-------------|
-| `setrobusthg`, `setopensim`, ... | Automatische Konfiguration für verschiedene Ini-Dateien |
-| `renamefiles` | Bennent bestimmte Konfigurationsdateien um |
-| `cleanconfig` | Löscht oder bereinigt Konfig-Dateien (optional: mit Parameter) |
-| `colortest` | Testet die Farbausgabe im Terminal |
-| `generate_name` | Erzeugt automatisch Namen für Regionen oder Avatare |
-
----
-
-➜ **Das Grid läuft sofort nach einem Upgrade mit:**  
-- Behaltenen Regionen  
-- Gleichen Benutzerkonten  
-- Intakten Einstellungen  
-
-⚠ **Warnung:** Dies ist eine gefährliche Aktion, bitte prüfen und vergleichen Sie die alten Konfigurationen mit den neuen Example-Konfigurationen.  
-
----
-
-## **⚠️ Wichtige Hinweise**  
-- **`autoallclean` ist irreversibel!** → OpenSim muss danach neu installiert werden.  
-- **Backups erstellen**, bevor Bereinigungsbefehle ausgeführt werden.  
-- Auch wenn keine Konfigurationsdateien gelöscht werden, empfehle ich eine manuelle Sicherung.  
-- Einige Funktionen sind noch in Arbeit (`opensimconfig`, `regionsconfig`).  
-
----
-
-## **🔄 OpenSimulator auto- start stop restart Beispiel**
-
-### List crontabs:
-     crontab -l
-
-### Edit crontabs:
-     crontab -e
-```
-# Minute Hour Day Month Year Command
-#
-# Restart at 5 AM, and on the 1st of each month, restart the entire server.
-#
-
-# Restart server on the first of each month to clear cache data debris.
-40 4 1 * * bash /opt/osmtool.sh cacheclean
-45 4 1 * * bash /opt/osmtool.sh reboot
-
-# Restart the grid every morning at 5 AM.
-55 4 * * * bash /opt/osmtool.sh logclean
-0 5 * * * bash /opt/osmtool.sh autorestart
-
-# If Robust or the Welcome region fails, restart the grid.
-*/30 * * * * bash /opt/osmtool.sh check_screens
-```
-### Save crontabs
-     ctrl O  
-     Enter  
-### Exit editor
-     ctrl X  
+## **❓ Hilfen**  
+| Befehl | Beschreibung |  
+|--------|-------------|  
+| `help` | Diese Hilfeseite anzeigen. |  
 
 ---
 
@@ -155,4 +164,6 @@ Diese Befehle sind für Test-, Konfigurations- und Wartungszwecke gedacht:
 - **Skriptname**: `osmtool.sh`  
 - **Version**: *V25.4.46.123*  
 - **Autor**: *Manfred Aabye*  
-- **Lizenz**: *MIT*  
+- **Lizenz**: *MIT*
+
+---
