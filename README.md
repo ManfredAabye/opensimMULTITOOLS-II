@@ -156,13 +156,13 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 ## **❓ Hilfen**  
 | Befehl | Beschreibung |  
 |--------|-------------|  
-| `help` | Diese Hilfeseite anzeigen. |  
+| `help` | Die Hilfeseite anzeigen. |  
 
 ---
 
 ## **📜 Lizenz & Nutzung**  
 - **Skriptname**: `osmtool.sh`  
-- **Version**: *V25.4.46.123*  
+- **Version**: *V25.4.59.154*  
 - **Autor**: *Manfred Aabye*  
 - **Lizenz**: *MIT*
 
