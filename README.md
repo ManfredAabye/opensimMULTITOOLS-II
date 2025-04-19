@@ -6,9 +6,19 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ```diff
 - WICHTIGE WARNUNGEN:
-1. Dies ist ein ALPHA-Skript - Im Produktivbetrieb nur nach ausführlichem Testing verwenden
-2. Immer Backups erstellen VOR jeder Ausführung
-3. Keine Haftung für Datenverlust oder Grid-Ausfälle
+
+1.    ALPHA-STATUS
+      Dies ist ein Alpha-Skript – Nutzung im Produktivbetrieb ausschließlich nach gründlichem Testen in einer sicheren Umgebung.
+
+2.    BACKUPS SIND VERPFLICHTEND
+      Vor jeder Ausführung müssen vollständige Backups aller betroffenen Systeme/Daten erstellt werden.
+
+3.    HAFTUNGSAUSSCHLUSS
+      Es wird keine Haftung für Datenverlust, Systemausfälle oder Folgeschäden übernommen. Nutzung auf eigenes Risiko.
+
+4.    EINGESCHRÄNKTE ZUVERLÄSSIGKEIT
+      Selbst als "sicher" markierte Funktionen können je nach Betriebssystem, Konfiguration oder Umgebung unerwartetes Verhalten zeigen.
+      → Ausführliche Tests in Ihrer spezifischen Umgebung sind zwingend erforderlich.
 ```
 
 ### 📜 **Nutzungsbedingungen**  
