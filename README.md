@@ -81,7 +81,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ---
 
-## **⚙️ Konfiguration**  
+## **⚙️ Konfiguration wird entfernt**  
 | Befehl | Beschreibung |  
 |--------|-------------|  
 | `configall` | Testkonfiguration setzen (_Experimentelle Funktion_). |  
