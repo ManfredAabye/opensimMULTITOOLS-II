@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.59.154"
+VERSION="V25.4.65.169"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -40,6 +40,14 @@ SYM_WAIT="${COLOR_VALUE}⏳${COLOR_RESET}"
 SYM_LOG="${COLOR_VALUE}📋${COLOR_RESET}"
 COLOR_SECTION='\e[0;35m'  # Magenta für Sektionsnamen
 COLOR_FILE='\e[0;33m'     # Gelb für Dateipfade
+
+#* WARTEZEITEN muessen leider sein damit der Server nicht überfordert wird.
+Simulator_Start_wait=15 # Sekunden
+MoneyServer_Start_wait=30 # Sekunden
+RobustServer_Start_wait=30 # Sekunden
+Simulator_Stop_wait=15 # Sekunden
+MoneyServer_Stop_wait=30 # Sekunden
+RobustServer_Stop_wait=30 # Sekunden
 
 function blankline() { echo " ";}
 
@@ -120,7 +128,7 @@ function servercheck() {
     fi
 
     # Fehlende Pakete prüfen und installieren
-    required_packages=("libc6" "libgcc-s1" "libgssapi-krb5-2" "libicu70" "liblttng-ust1" "libssl3" "libstdc++6" "libunwind8" "zlib1g" "libgdiplus" "zip" "screen")
+    required_packages=("git" "libc6" "libgcc-s1" "libgssapi-krb5-2" "libicu70" "liblttng-ust1" "libssl3" "libstdc++6" "libunwind8" "zlib1g" "libgdiplus" "zip" "screen")
 
     echo -e "${COLOR_HEADING}📦 Überprüfe fehlende Pakete...${COLOR_RESET}"
     for package in "${required_packages[@]}"; do
@@ -170,7 +178,7 @@ function opensimstart() {
         cd robust/bin || exit 1
         screen -fa -S robustserver -d -U -m dotnet Robust.dll
         cd - >/dev/null 2>&1 || exit 1
-        sleep 30
+        sleep $RobustServer_Start_wait
     else
         echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Robust.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
     fi
@@ -181,7 +189,7 @@ function opensimstart() {
         cd robust/bin || exit 1
         screen -fa -S moneyserver -d -U -m dotnet MoneyServer.dll
         cd - >/dev/null 2>&1 || exit 1
-        sleep 30
+        sleep $MoneyServer_Start_wait
     else
         echo -e "${SYM_BAD} ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}MoneyServer.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
     fi
@@ -195,7 +203,7 @@ function opensimstart() {
             cd "$sim_dir" || continue
             screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll
             cd - >/dev/null 2>&1 || continue
-            sleep 20
+            sleep $Simulator_Start_wait
         fi
     done
     blankline
@@ -211,7 +219,7 @@ function opensimstop() {
         if screen -list | grep -q "$sim_dir"; then
             screen -S "sim$i" -p 0 -X stuff "shutdown^M"
             echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
-            sleep 15
+            sleep $Simulator_Stop_wait
         fi
     done
 
@@ -219,7 +227,7 @@ function opensimstop() {
     if screen -list | grep -q "moneyserver"; then
         echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}MoneyServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
         screen -S moneyserver -p 0 -X stuff "shutdown^M"
-        sleep 30
+        sleep $MoneyServer_Stop_wait
     else
         echo -e "${SYM_BAD} ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
     fi
@@ -228,7 +236,7 @@ function opensimstop() {
     if screen -list | grep -q "robust"; then
         echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
         screen -S robustserver -p 0 -X stuff "shutdown^M"
-        sleep 30
+        sleep $RobustServer_Stop_wait
     else
         echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
     fi
@@ -276,7 +284,7 @@ function check_screens() {
         return 0
     fi
 
-    # Überprüfen, ob andere simulierte Regionen (sim2 bis sim999) einzeln neu gestartet werden müssen
+    # Überprüfen, ob andere Regionen (sim2 bis sim999) einzeln neu gestartet werden müssen
     for ((i=2; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
@@ -286,7 +294,7 @@ function check_screens() {
                 cd "$sim_dir" || continue
                 screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll
                 cd - >/dev/null 2>&1 || continue
-                sleep 20
+                sleep $Simulator_Start_wait
             fi
         fi
     done
@@ -401,6 +409,7 @@ function moneygitcopy() {
     return 0
 }
 
+#* Das ist erst halb fertig.
 function ruthrothgit() {
     # Schritt 1 das bereitstellen der Pakete zur weiteren bearbeitung.
     echo -e "${COLOR_HEADING}👥 Ruth & Roth Avatar-Assets Vorbereitung${COLOR_RESET}"
@@ -925,7 +934,7 @@ function opensimupgrade() {
     if [[ "$user_choice" == "yes" ]]; then
         echo -e "${COLOR_ACTION}OpenSimulator wird gestoppt...${COLOR_RESET}"
         opensimstop
-        sleep 30
+        sleep $Simulator_Stop_wait
 
         echo -e "${COLOR_ACTION}OpenSimulator wird kopiert...${COLOR_RESET}"
         opensimcopy
@@ -1148,11 +1157,39 @@ WARNUNG
     blankline
 }
 
+function clean_linux_logs() {
+    local log_files=()
+    echo -e "${COLOR_SECTION}${SYM_LOG} Suche nach alten Log-Dateien...${COLOR_RESET}"
+    
+    # Find and list files to be deleted
+    while IFS= read -r -d $'\0' file; do
+        log_files+=("$file")
+        echo -e "${COLOR_FILE}${SYM_INFO} ${COLOR_LABEL}Gelöscht wird:${COLOR_RESET} ${COLOR_VALUE}$file${COLOR_RESET}"
+    done < <(find "/var/log" -name "*.log" -type f -mtime +7 -print0)
+    
+    if [ ${#log_files[@]} -eq 0 ]; then
+        echo -e "${SYM_OK} ${COLOR_LABEL}Keine alten Log-Dateien gefunden.${COLOR_RESET}"
+        return 0
+    fi
+    
+    echo -e "${COLOR_WARNING}${#log_files[@]} Log-Dateien werden gelöscht. Fortfahren? (j/N) ${COLOR_RESET}" 
+    read -r confirm
+    case "${confirm,,}" in
+        j|ja|y|yes)
+            find "/var/log" -name "*.log" -type f -mtime +7 -delete
+            echo -e "${SYM_OK} ${COLOR_OK}${#log_files[@]} Log-Dateien wurden gelöscht.${COLOR_RESET}"
+            ;;
+        *)
+            echo -e "${SYM_BAD} ${COLOR_BAD}Bereinigung abgebrochen.${COLOR_RESET}"
+            return 1
+            ;;
+    esac
+}
+
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Konfigurationen
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-# shellcheck disable=SC2317
 function verify_ini_section() {
     local file="$1"
     local section="$2"
@@ -1171,7 +1208,6 @@ function verify_ini_section() {
     fi
 }
 
-# shellcheck disable=SC2317
 function verify_ini_key() {
     local file="$1"
     local section="$2"
@@ -1196,7 +1232,6 @@ function verify_ini_key() {
     fi
 }
 
-# shellcheck disable=SC2317
 function add_ini_section() {
     local file="$1"
     local section="$2"
@@ -1217,8 +1252,64 @@ function add_ini_section() {
     fi
 }
 
-# shellcheck disable=SC2317
 function set_ini_key() {
+    local file="$1" section="$2" key="$3" value="$4"
+    local temp_file
+    temp_file=$(mktemp) || {
+        echo -e "${COLOR_BAD}Fehler beim Erstellen der temporären Datei${COLOR_RESET}" >&2
+        return 1
+    }
+
+    awk -v section="[$section]" -v key="$key" -v value="$value" '
+    BEGIN { in_section = 0; key_set = 0 }
+    {
+        if ($0 == section) {
+            print
+            in_section = 1
+            next
+        }
+
+        if (in_section && /^\[/) {
+            if (!key_set) {
+                printf "%s=%s\n", key, value
+                key_set = 1
+            }
+            in_section = 0
+        }
+
+        if (in_section && $0 ~ "^[[:blank:]]*" key "[[:blank:]]*=") {
+            printf "%s=%s\n", key, value
+            key_set = 1
+            next
+        }
+
+        print
+    }
+    END {
+        if (in_section && !key_set) {
+            # Key fehlt, am Ende der Sektion einfügen
+            printf "%s=%s\n", key, value
+        } else if (!key_set) {
+            # Sektion existiert nicht, am Ende anfügen
+            printf "\n[%s]\n%s=%s\n", section, key, value
+        }
+    }' "$file" > "$temp_file" || {
+        echo -e "${COLOR_BAD}AWK-Verarbeitung fehlgeschlagen${COLOR_RESET}" >&2
+        rm -f "$temp_file"
+        return 1
+    }
+
+    if ! mv "$temp_file" "$file"; then
+        echo -e "${COLOR_BAD}Konnte Datei ${COLOR_FILE}${file}${COLOR_RESET} nicht aktualisieren" >&2
+        return 1
+    fi
+
+    echo -e "${COLOR_OK}Gesetzt: ${COLOR_KEY}${key}=${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
+    return 0
+}
+
+function add_ini_key() {
+    # todo: Es werden keine einstellungen geändert sondern neue hinzugefügen.
     local file="$1" section="$2" key="$3" value="$4"
     local temp_file
     temp_file=$(mktemp) || { 
@@ -1268,7 +1359,6 @@ function set_ini_key() {
     return 0
 }
 
-# shellcheck disable=SC2317
 function del_ini_section() {
     local file="$1"
     local section="$2"
@@ -1311,7 +1401,6 @@ function del_ini_section() {
     fi
 }
 
-# shellcheck disable=SC2317
 function uncomment_ini_line() {
     local file="$1"
     local search_key="$2"
@@ -1341,27 +1430,315 @@ function uncomment_ini_line() {
     fi
 }
 
-#* Beispiel Implementierung
-function configure_example_ini() {
-    local config_file="example.ini"
-    
-    echo -e "\n${COLOR_HEADING}=== Example INI Configuration ===${COLOR_RESET}"
-    
-    # Abschnitt erstellen
-    add_ini_section "$config_file" "database"
-    
-    # Keys setzen
-    set_ini_key "$config_file" "database" "host" "localhost"
-    set_ini_key "$config_file" "database" "port" "3306"
-    set_ini_key "$config_file" "database" "user" "admin"
-    
-    # Verifizieren
-    verify_ini_key "$config_file" "database" "host"
-    verify_ini_key "$config_file" "database" "port"
-    
-    # Zum Testen des Löschens folgende Zeile einkommentieren:
-    # del_ini_section "$config_file" "database"
+#* #################################################################################################
+
+# Hauptfunktion, fragt Benutzer nach IP & Gridnamen und ruft alle Teilfunktionen auf
+function iniconfig() {
+    echo "Wie ist Ihre IP oder DNS-Adresse?"
+    read -r ip
+
+    echo "Wie heißt Ihr Grid?"
+    read -r gridname
+
+    # Konfigurationsfunktionen für verschiedene Komponenten aufrufen
+    moneyserveriniconfig "$ip" "$gridname"
+    opensiminiconfig "$ip" "$gridname"
+    robusthginiconfig "$ip" "$gridname"
+    robustiniconfig "$ip" "$gridname"
+    gridcommoniniconfig "$ip" "$gridname"
+    standalonecommoniniconfig "$ip" "$gridname"
+    flotsaminiconfig "$ip" "$gridname"
+    osslenableiniconfig "$ip" "$gridname"
+    welcomeiniconfig "$ip" "$gridname"
 }
+
+# welcomeiniconfig - Sets the Welcome_Area.ini
+function welcomeiniconfig() {
+    ip="$1"
+    local gridname="$2"
+
+    # todo: Namen in der Robust.HG.ini und Robust.ini einfügen.
+
+    local welcome_ini="${SCRIPT_DIR}/sim1/bin/Regions/$gridname.ini"
+    region_uuid=$(uuidgen)
+    
+    cat > "$welcome_ini" << EOF
+[$gridname]
+RegionUUID = $region_uuid
+Location = 3000,3000
+SizeX = 256
+SizeY = 256
+SizeZ = 256
+InternalPort = 9010
+ExternalHostName = "$ip"
+MaxPrims = 15000
+MaxAgents = 40
+MaptileStaticUUID = $region_uuid
+InternalAddress = 0.0.0.0
+AllowAlternatePorts = False
+;NonPhysicalPrimMax = 512
+;PhysicalPrimMax = 128
+;MasterAvatarSandboxPassword = "$(openssl rand -base64 12)"
+;MasterAvatarLastName = Admin
+;MasterAvatarFirstName = System
+;RegionType = Estate
+EOF
+
+    clean_config "$welcome_ini"
+    echo "Welcome_Area.ini configuration completed"
+    blankline
+}
+
+# Konfiguriert MoneyServer.ini im robust/bin Verzeichnis
+function moneyserveriniconfig() {
+    local ip="$1"
+    local gridname="$2"
+
+    # echo "Möchten Sie die MoneyServer.ini erstellen? (ja/nein)"
+    # read -r create_moneyserver
+    # if [[ "$create_moneyserver" != "ja" ]]; then
+    #     return
+    # fi
+
+    local dir="$SCRIPT_DIR/robust/bin"
+    local file="$dir/MoneyServer.ini"
+
+    mkdir -p "$dir"
+    #[[ -f "$file.example" ]] && cp "$file.example" "$file" || touch "$file"
+
+    if [[ -f "$file.example" ]]; then
+        cp "$file.example" "$file"
+    else
+        touch "$file"
+    fi
+
+
+    set_ini_key "$file" "MoneyServer" "MoneyServerIPaddress" "http://$ip:8008"
+    set_ini_key "$file" "MoneyServer" "MoneyScriptIPaddress" "$ip"
+
+    echo "Weitere Infos: https://github.com/ManfredAabye/opensimcurrencyserver-dotnet"
+}
+
+# Konfiguriert OpenSim.ini für alle sim1 bis sim99-Verzeichnisse
+function opensiminiconfig() {
+    local ip="$1"
+    local gridname="$2"
+    local base_port=9000
+    local sim_counter=1
+
+    # Iteration über alle sim1 bis sim99 Verzeichnisse
+    for i in $(seq 1 99); do
+        sim_dir="$SCRIPT_DIR/sim$i"
+        if [[ -d "$sim_dir/bin" ]]; then
+            local dir="$sim_dir/bin"
+            local file="$dir/OpenSim.ini"
+
+            mkdir -p "$dir"
+            #[[ -f "$file.example" ]] && cp "$file.example" "$file" || touch "$file"
+            if [[ -f "$file.example" ]]; then
+                cp "$file.example" "$file"
+            else
+                touch "$file"
+            fi
+
+            # Portberechnung pro Instanz
+            local public_port=$((base_port + (sim_counter - 1) * 100))
+
+            # Werte setzen
+            set_ini_key "$file" "Const" "BaseHostname" "$ip"
+            set_ini_key "$file" "Const" "BaseURL" "http://$ip:$public_port"
+            set_ini_key "$file" "Const" "PublicPort" "$public_port"
+            set_ini_key "$file" "Const" "PrivatePort" "$((public_port + 3))"
+            set_ini_key "$file" "Const" "PrivURL" "http://$ip:$((public_port + 3))"
+
+            ((sim_counter++))
+        fi
+    done
+}
+
+# Konfiguration von Robust.HG.ini im robust/bin Verzeichnis
+function robusthginiconfig() {
+    local ip="$1"
+    local gridname="$2"
+    local dir="$SCRIPT_DIR/robust/bin"
+    local file="$dir/Robust.HG.ini"
+
+    mkdir -p "$dir"
+    #[[ -f "$file.example" ]] && cp "$file.example" "$file" || touch "$file"
+    if [[ -f "$file.example" ]]; then
+        cp "$file.example" "$file"
+    else
+        touch "$file"
+    fi
+
+    set_ini_key "$file" "Const" "BaseHostname" "$ip"
+    set_ini_key "$file" "Const" "BaseURL" "http://$ip:8002"
+    set_ini_key "$file" "Const" "PublicPort" "8002"
+    set_ini_key "$file" "Const" "PrivatePort" "8003"
+
+    
+    #gridname = "the lost continent of hippo"
+    set_ini_key "$file" "GridInfoService" "gridname" "$gridname"
+}
+
+# Konfiguration von Robust.ini im robust/bin Verzeichnis
+function robustiniconfig() {
+    local ip="$1"
+    local gridname="$2"
+    local dir="$SCRIPT_DIR/robust/bin"
+    local file="$dir/Robust.ini"
+
+    mkdir -p "$dir"
+    #[[ -f "$file.example" ]] && cp "$file.example" "$file" || touch "$file"
+    if [[ -f "$file.example" ]]; then
+        cp "$file.example" "$file"
+    else
+        touch "$file"
+    fi
+
+    set_ini_key "$file" "Const" "BaseHostname" "$ip"
+    set_ini_key "$file" "Const" "BaseURL" "http://$ip:8002"
+    set_ini_key "$file" "Const" "PublicPort" "8002"
+    set_ini_key "$file" "Const" "PrivatePort" "8003"
+
+    #gridname = "the lost continent of hippo"
+    set_ini_key "$file" "GridInfoService" "gridname" "$gridname"
+}
+
+# Erstellt FlotsamCache.ini komplett neu in allen simX/config-include Verzeichnissen
+function flotsaminiconfig() {
+    for i in $(seq 1 99); do
+        local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
+        local file="$config_dir/FlotsamCache.ini"
+
+        if [[ -d "$config_dir" ]]; then
+            echo -e "${COLOR_FILE}Erstelle $file${COLOR_RESET}"
+
+            mkdir -p "$config_dir"
+
+            cat > "$file" <<EOF
+[AssetCache]
+CacheDirectory = ./assetcache
+LogLevel = 0
+HitRateDisplay = 100
+MemoryCacheEnabled = false
+UpdateFileTimeOnCacheHit = false
+NegativeCacheEnabled = true
+NegativeCacheTimeout = 120
+NegativeCacheSliding = false
+FileCacheEnabled = true
+MemoryCacheTimeout = .016
+FileCacheTimeout = 48
+FileCleanupTimer = 1.0
+EOF
+            echo -e "${COLOR_OK}→ FlotsamCache.ini neu geschrieben für sim$i${COLOR_RESET}"
+        fi
+    done
+}
+
+# Erstellt GridCommon.ini mit [Const]-Sektion zuerst, dann Inhalt aus .example-Datei
+function gridcommoniniconfig() {
+    local ip="$1"
+    local gridname="$2"
+
+    for i in $(seq 1 99); do
+        local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
+        local file="$config_dir/GridCommon.ini"
+        local example_file="$config_dir/GridCommon.ini.example"
+
+        if [[ -d "$config_dir" ]]; then
+            mkdir -p "$config_dir"
+
+            # Erstellt neue GridCommon.ini mit [Const]-Werten
+            cat > "$file" <<EOF
+[Const]
+BaseHostname = "$ip"
+BaseURL = "http://$ip"
+PublicPort = "9000"
+PrivatePort = "9003"
+PrivURL = "http://$ip:9003"
+EOF
+
+            # Hängt Inhalt der .example-Datei an (wenn vorhanden)
+            if [[ -f "$example_file" ]]; then
+                echo -e "\n# --- Inhalte aus .example Datei ---\n" >> "$file"
+                cat "$example_file" >> "$file"
+            fi
+
+            echo -e "${COLOR_OK}→ GridCommon.ini erstellt in sim$i${COLOR_RESET}"
+        fi
+    done
+}
+
+# Erstellt osslEnable.ini komplett neu in allen simX/config-include Verzeichnissen
+function osslenableiniconfig() {
+    for i in $(seq 1 99); do
+        local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
+        local file="$config_dir/osslEnable.ini"
+
+        if [[ -d "$config_dir" ]]; then
+            echo -e "${COLOR_FILE}Erstelle $file${COLOR_RESET}"
+
+            mkdir -p "$config_dir"
+
+            cat > "$file" <<EOF
+[OSSL]
+AllowOSFunctions = true
+AllowMODFunctions = true
+AllowLightShareFunctions = true
+PermissionErrorToOwner = false
+OSFunctionThreatLevel = High
+osslParcelO = "PARCEL_OWNER,"
+osslParcelOG = "PARCEL_GROUP_MEMBER,PARCEL_OWNER,"
+osslNPC = \${OSSL|osslParcelOG}ESTATE_MANAGER,ESTATE_OWNER
+EOF
+            echo -e "${COLOR_OK}→ osslEnable.ini neu geschrieben für sim$i${COLOR_RESET}"
+        fi
+    done
+}
+
+# Erstellt StandaloneCommon.ini mit [Const] zuerst, dann .example-Inhalte, dann HG-Settings
+function standalonecommoniniconfig() {
+    local ip="$1"
+    local gridname="$2"
+
+    for i in $(seq 1 99); do
+        local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
+        local file="$config_dir/StandaloneCommon.ini"
+        local example_file="$config_dir/StandaloneCommon.ini.example"
+
+        if [[ -d "$config_dir" ]]; then
+            mkdir -p "$config_dir"
+
+            # Erstellt neue StandaloneCommon.ini mit [Const]-Sektion
+            cat > "$file" <<EOF
+[Const]
+BaseHostname = "$ip"
+BaseURL = "http://$ip"
+PublicPort = "9000"
+PrivatePort = "9003"
+PrivURL = "http://$ip:9003"
+EOF
+
+            # Hängt .example-Inhalte an, falls vorhanden
+            if [[ -f "$example_file" ]]; then
+                echo -e "\n# --- Inhalte aus .example Datei ---\n" >> "$file"
+                cat "$example_file" >> "$file"
+            fi
+
+            # Fügt Hypergrid- und GridInfo-Werte danach ein
+            set_ini_key "$file" "Hypergrid" "GatekeeperURI" "http://$ip:8002"
+            set_ini_key "$file" "Hypergrid" "HomeURI" "http://$ip:8002"
+            set_ini_key "$file" "GridInfoService" "GridName" "$gridname"
+            set_ini_key "$file" "GridInfoService" "GridLoginURI" "http://$ip:8002"
+
+            echo -e "${COLOR_OK}→ StandaloneCommon.ini erstellt in sim$i${COLOR_RESET}"
+        fi
+    done
+}
+
+
+#* #################################################################################################
 
 # shellcheck disable=SC2317
 function verify_xml_section() {
@@ -1495,7 +1872,7 @@ function generate_name() {
 }
 
 # Hauptfunktion
-function regionsconfig() {
+function regionsiniconfig() {
     # Konstanten
     local center_x=4000
     local center_y=4000
@@ -1747,463 +2124,9 @@ clean_config() {
     sed -i 's/^[ \t]*//' "$file"
 }
 
-function setrobusthg() {
-    local robust_ini="${SCRIPT_DIR}/robust/bin/Robust.HG.ini.example"
-    local target_ini="${SCRIPT_DIR}/robust/bin/Robust.ini"
-    local backup_file="${SCRIPT_DIR}/robust/bin/Robust.ini.bak"
 
-    # Prüfe, ob Robust.ini existiert und erstelle ein Backup
-    if [ -f "$target_ini" ]; then
-        echo "Sichere bestehende Datei: $target_ini -> $backup_file"
-        mv "$target_ini" "$backup_file"
-    fi
 
-    # Kopiere Robust.HG.ini nach Robust.ini
-    if [ -f "$robust_ini" ]; then
-        cp "$robust_ini" "$target_ini"
-        echo "$robust_ini wurde nach $target_ini kopiert."
-    else
-        echo "Warnung: $robust_ini nicht gefunden!"
-        return 1
-    fi
-
-    # Bereinige die Datei, damit crudini korrekt arbeitet
-    clean_config "$target_ini"
-
-    # Basis-Konfiguration
-    crudini --set "$target_ini" Const BaseHostname "\"$system_ip\""
-    crudini --set "$target_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
-    crudini --set "$target_ini" Const PublicPort "\"8002\""
-    crudini --set "$target_ini" Const PrivatePort "\"8003\""
-
-    # Dienste aktivieren (ServiceList)
-    services=(
-        "OfflineIMServiceConnector"
-        "GroupsServiceConnector"
-        "BakedTextureService"
-        "UserProfilesServiceConnector"
-        "HGGroupsServiceConnector"
-    )
-    for service in "${services[@]}"; do
-        sed -i "/^; *$service/s/^;//" "$target_ini"
-    done
-
-    # Hypergrid Konfiguration
-    crudini --set "$target_ini" Hypergrid HomeURI "\"\${Const|BaseURL}:\${Const|PublicPort}\""
-    crudini --set "$target_ini" Hypergrid GatekeeperURI "\"\${Const|BaseURL}:\${Const|PublicPort}\""
-
-    # Access Control - Verbotene Clients
-    crudini --set "$target_ini" AccessControl DeniedClients "\"Imprudence|CopyBot|Twisted|Crawler|Cryolife|darkstorm|DarkStorm|Darkstorm|hydrastorm viewer|kinggoon copybot|goon squad copybot|copybot pro|darkstorm viewer|copybot club|darkstorm second life|copybot download|HydraStorm Copybot Viewer|Copybot|Firestorm Pro|DarkStorm v3|DarkStorm v2|ShoopedStorm|HydraStorm|hydrastorm|kinggoon|goon squad|goon|copybot|Shooped|ShoopedStorm|Triforce|Triforce Viewer|Firestorm Professional|ShoopedLife|Sombrero|Sombrero Firestorm|GoonSquad|Solar|SolarStorm\""
-
-    # Datenbank-Konfiguration
-    crudini --set "$target_ini" DatabaseService ConnectionString "\"Data Source=localhost;Database=opensim;User ID=opensim;Password=$DB_PASSWORD;Old Guids=true;SslMode=None;\""
-
-    # Grid-Dienste
-    crudini --set "$target_ini" GridService MapTileDirectory "\"./maptiles\""
-    crudini --set "$target_ini" GridService Region_Welcome_Area "\"DefaultRegion, DefaultHGRegion\""
-
-    # Login-Service
-    crudini --set "$target_ini" LoginService DestinationGuide "\"\${Const|BaseURL}/guide.php\""
-    crudini --set "$target_ini" LoginService GridSearch "\"\${Const|BaseURL}/searchservice.php\""
-
-    # Map-Bild-Service
-    crudini --set "$target_ini" MapImageService TilesStoragePath "\"maptiles\""
-    crudini --set "$target_ini" MapImageService GridService "\"OpenSim.Services.GridService.dll:GridService\""
-
-    # Grid-Info-Service
-    crudini --set "$target_ini" GridInfoService welcome "\${Const|BaseURL}/welcomesplashpage.php"
-    crudini --set "$target_ini" GridInfoService economy "\${Const|BaseURL}:8008/"
-    crudini --set "$target_ini" GridInfoService about "\${Const|BaseURL}/aboutinformation.php"
-    crudini --set "$target_ini" GridInfoService register "\${Const|BaseURL}/createavatar.php"
-    crudini --set "$target_ini" GridInfoService help "\${Const|BaseURL}/help.php"
-    crudini --set "$target_ini" GridInfoService password "\${Const|BaseURL}/passwordreset.php"
-    crudini --set "$target_ini" GridInfoService partner "\${Const|BaseURL}/partner.php"
-    crudini --set "$target_ini" GridInfoService GridStatus "\${Const|BaseURL}:\${Const|PublicPort}/gridstatus.php"
-    crudini --set "$target_ini" GridInfoService GridStatusRSS "\${Const|BaseURL}:\${Const|PublicPort}/gridstatusrss.php"
-
-    # User-Agent-Service
-    crudini --set "$target_ini" UserAgentService LevelOutsideContacts "0"
-    crudini --set "$target_ini" UserAgentService ShowUserDetailsInHGProfile "True"
-
-    # Bereinige die Datei (entferne führende Leerzeichen)
-    clean_config "$target_ini"
-    
-    echo "Konfiguration von Robust.ini erfolgreich abgeschlossen."
-    blankline
-}
-
-function setopensim() {
-    local base_dir="${SCRIPT_DIR}/"
-    
-    # Durchsuche alle vorhandenen simX-Ordner (sim1 bis sim999)
-    for i in {1..999}; do
-        local sim_dir="${base_dir}sim$i/bin"
-        local opensim_example="$sim_dir/OpenSim.ini.example"
-        local opensim_ini="$sim_dir/OpenSim.ini"
-        local backup_ini="$sim_dir/OpenSim.ini.bak"
-
-        # Prüfen, ob das Verzeichnis existiert
-        if [ -d "$sim_dir" ]; then
-            echo "Konfiguriere OpenSim.ini für $sim_dir"
-
-            # Falls OpenSim.ini existiert, sichere sie zuerst
-            if [ -f "$opensim_ini" ]; then
-                echo "Sichere bestehende Datei: $opensim_ini -> $backup_ini"
-                mv "$opensim_ini" "$backup_ini"
-            fi
-
-            # Kopiere OpenSim.ini.example nach OpenSim.ini
-            if [ -f "$opensim_example" ]; then
-                cp "$opensim_example" "$opensim_ini"
-                echo "$opensim_example wurde nach $opensim_ini kopiert."
-            else
-                echo "Warnung: $opensim_example nicht gefunden! Überspringe sim$i."
-                continue
-            fi
-
-            # Bereinige die Datei, damit crudini korrekt arbeitet
-            clean_config "$opensim_ini"
-
-            # Konfiguration mit crudini setzen
-
-            #Const-Konfiguration
-            crudini --set "$opensim_ini" Const BaseHostname "\"$system_ip\""
-            crudini --set "$opensim_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
-            #crudini --set "$opensim_ini" Const PublicPort "\"9000\""
-            crudini --set "$opensim_ini" Const PublicPort "\"8002\""
-            crudini --set "$opensim_ini" Const PrivURL "\"\${Const|BaseURL}\""
-            crudini --set "$opensim_ini" Const PrivatePort "\"8003\""
-
-            # Startup-Einstellungen
-            crudini --set "$opensim_ini" Startup async_call_method "SmartThreadPool"
-            crudini --set "$opensim_ini" Startup MaxPoolThreads "300"
-            crudini --set "$opensim_ini" Startup MinPoolThreads "32"
-            crudini --set "$opensim_ini" Startup CacheSculptMaps "false"
-            crudini --set "$opensim_ini" Startup DefaultScriptEngine "\"YEngine\""
-
-            # Map-Konfiguration
-            crudini --set "$opensim_ini" Map MaptileStaticUUID "\"00000000-0000-0000-0000-000000000000\""
-
-            # Berechtigungen
-            crudini --set "$opensim_ini" Permissions automatic_gods "false"
-            crudini --set "$opensim_ini" Permissions implicit_gods "false"
-            crudini --set "$opensim_ini" Permissions allow_grid_gods "true"
-
-            # Netzwerk-Konfiguration
-            crudini --set "$opensim_ini" Network http_listener_port "9010"
-            crudini --set "$opensim_ini" Network shard "\"OpenSim\""
-            crudini --set "$opensim_ini" Network user_agent "\"OpenSim LSL (Mozilla Compatible)\""
-
-            # BulletSim-Einstellungen
-            crudini --set "$opensim_ini" BulletSim AvatarToAvatarCollisionsByDefault "true"
-            crudini --set "$opensim_ini" BulletSim UseSeparatePhysicsThread "true"
-            crudini --set "$opensim_ini" BulletSim TerrainImplementation "0"
-
-            # Materialeinstellungen
-            crudini --set "$opensim_ini" Materials MaxMaterialsPerTransaction "250"
-
-            # Benutzerprofile
-            crudini --set "$opensim_ini" UserProfiles ProfileServiceURL "\"http://services.osgrid.org\""
-
-            # Skript-Engines
-            crudini --set "$opensim_ini" YEngine Enabled "true"
-            crudini --set "$opensim_ini" XEngine Enabled "false"
-
-            # OSSL-Einstellungen
-            crudini --set "$opensim_ini" OSSL Include-osslDefaultEnable "\"config-include/osslDefaultEnable.ini\""
-
-            # NPC-Einstellungen
-            crudini --set "$opensim_ini" NPC Enabled "true"
-
-            # Terrain-Konfiguration
-            crudini --set "$opensim_ini" Terrain InitialTerrain "\"flat\""
-
-            # XBakes-Konfiguration
-            crudini --set "$opensim_ini" XBakes URL "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
-
-            # Architektur
-            crudini --set "$opensim_ini" Architecture Include-Architecture "\"config-include/GridHypergrid.ini\""
-
-            echo "Konfiguration von OpenSim.ini erfolgreich abgeschlossen."
-        fi
-    done
-    blankline
-}
-
-function setgridcommon() {
-    local base_dir="${SCRIPT_DIR}/"
-
-    for i in {1..999}; do
-        local sim_dir="${base_dir}sim$i/bin/config-include"
-        local gridcommon_example="$sim_dir/GridCommon.ini.example"
-        local gridcommon_ini="$sim_dir/GridCommon.ini"
-        local backup_ini="$sim_dir/GridCommon.ini.bak"
-
-        if [ -d "$sim_dir" ]; then
-            echo "Konfiguriere GridCommon.ini für $sim_dir"
-
-            if [ -f "$gridcommon_ini" ]; then
-                echo "Sichere bestehende Datei: $gridcommon_ini -> $backup_ini"
-                mv "$gridcommon_ini" "$backup_ini"
-            fi
-
-            if [ -f "$gridcommon_example" ]; then
-                # 1. Erstelle neue GridCommon.ini mit Const-Bereich
-                echo "[Const]" > "$gridcommon_ini"
-                crudini --set "$gridcommon_ini" Const BaseHostname "\"$system_ip\""
-                crudini --set "$gridcommon_ini" Const BaseURL "\"http://\${Const|BaseHostname}\""
-                crudini --set "$gridcommon_ini" Const PublicPort "\"8002\""
-                crudini --set "$gridcommon_ini" Const PrivatePort "\"8003\""
-                
-                # 2. Füge eine Leerzeile ein für bessere Lesbarkeit
-                echo "" >> "$gridcommon_ini"
-                
-                # 3. Füge den kompletten Inhalt der Beispiel-Datei hinzu
-                cat "$gridcommon_example" >> "$gridcommon_ini"
-                
-                echo "GridCommon.ini wurde erstellt mit Const-Bereich und Inhalt von $gridcommon_example."
-            else
-                echo "Warnung: $gridcommon_example nicht gefunden! Überspringe sim$i."
-                continue
-            fi
-
-            clean_config "$gridcommon_ini"
-            echo "Konfiguration von GridCommon.ini für $sim_dir erfolgreich abgeschlossen."
-        fi
-    done
-    blankline
-}
-
-function setflotsamcache() {
-    local base_dir="${SCRIPT_DIR}/"
-
-    # Durchsuche alle existierenden simX-Ordner (sim1 bis sim999)
-    for i in {1..999}; do
-        local sim_dir="${base_dir}sim$i/bin/config-include"
-        local flotsam_ini="$sim_dir/FlotsamCache.ini"
-        local backup_ini="$sim_dir/FlotsamCache.ini.bak"
-
-        # Prüfe, ob das Sim-Verzeichnis existiert
-        if [ -d "$sim_dir" ]; then
-            echo "Erstelle FlotsamCache.ini für $sim_dir"
-
-            # Falls die Datei existiert, sichere sie zuerst
-            if [ -f "$flotsam_ini" ]; then
-                echo "Sichere bestehende Datei: $flotsam_ini -> $backup_ini"
-                mv "$flotsam_ini" "$backup_ini"
-            fi
-
-            # Ersetze den kompletten Inhalt mit der neuen Konfiguration
-            cat > "$flotsam_ini" << EOF
-[AssetCache]
-CacheDirectory = ./assetcache
-LogLevel = 0
-HitRateDisplay = 100
-MemoryCacheEnabled = false
-UpdateFileTimeOnCacheHit = false
-NegativeCacheEnabled = true
-NegativeCacheTimeout = 120
-NegativeCacheSliding = false
-FileCacheEnabled = true
-MemoryCacheTimeout = .016
-FileCacheTimeout = 48
-FileCleanupTimer = 1.0
-EOF
-
-            # Bereinige die Datei
-            clean_config "$flotsam_ini"
-
-            echo "Konfiguration von FlotsamCache.ini für $sim_dir abgeschlossen."
-        fi
-    done
-    blankline
-}
-
-# setwelcome - Sets the Welcome_Area.ini
-function setwelcome() {
-    local welcome_ini="${SCRIPT_DIR}/sim1/bin/Regions/Welcome_Area.ini"
-    region_uuid=$(uuidgen)
-    
-    cat > "$welcome_ini" << EOF
-[Welcome Area]
-RegionUUID = $region_uuid
-Location = 3000,3000
-SizeX = 256
-SizeY = 256
-SizeZ = 256
-InternalPort = 9010
-ExternalHostName = "$system_ip"
-MaxPrims = 15000
-MaxAgents = 40
-MaptileStaticUUID = $region_uuid
-InternalAddress = 0.0.0.0
-AllowAlternatePorts = False
-;NonPhysicalPrimMax = 512
-;PhysicalPrimMax = 128
-;MasterAvatarSandboxPassword = "$(openssl rand -base64 12)"
-;MasterAvatarLastName = Admin
-;MasterAvatarFirstName = System
-;RegionType = Estate
-EOF
-
-    clean_config "$welcome_ini"
-    echo "Welcome_Area.ini configuration completed"
-    blankline
-}
-
-function setosslenable() {
-    local base_dir="${SCRIPT_DIR}/"
-
-    for i in {1..999}; do
-        local sim_dir="${base_dir}sim$i/bin/config-include"
-        local osslenable_ini="$sim_dir/osslEnable.ini"
-        local backup_ini="$sim_dir/osslEnable.ini.bak"
-
-        # Prüfen, ob das Sim-Verzeichnis existiert
-        if [ -d "$sim_dir" ]; then
-            echo "Erstelle osslEnable.ini für $sim_dir"
-
-            # Falls die Datei existiert, sichere sie zuerst
-            if [ -f "$osslenable_ini" ]; then
-                echo "Sichere bestehende Datei: $osslenable_ini -> $backup_ini"
-                mv "$osslenable_ini" "$backup_ini"
-            fi
-
-            # Ersetze den kompletten Inhalt mit der neuen Konfiguration
-            cat > "$osslenable_ini" << EOF
-[OSSL]
-AllowOSFunctions = true
-AllowMODFunctions = true
-AllowLightShareFunctions = true
-PermissionErrorToOwner = false
-OSFunctionThreatLevel = High
-osslParcelO = "PARCEL_OWNER,"
-osslParcelOG = "PARCEL_GROUP_MEMBER,PARCEL_OWNER,"
-osslNPC = \${OSSL|osslParcelOG}ESTATE_MANAGER,ESTATE_OWNER
-EOF
-
-            echo "Konfiguration von osslEnable.ini für $sim_dir abgeschlossen."
-        fi
-    done
-    blankline
-}
-
-function clean_comments_and_empty_lines() {
-    echo -e "\e[33mBereinige Kommentare und Leerzeilen in allen Konfigurationsdateien...\e[0m"
-    
-    # Durch alle simX-Verzeichnisse iterieren
-    for ((i=999; i>=1; i--)); do
-        sim_dir="sim$i"
-        
-        if [ -d "$sim_dir" ]; then
-            echo -e "\e[36mVerarbeite $sim_dir...\e[0m"
-            
-            # Liste aller relevanten Konfigurationsdateien
-            config_files=(
-                "${sim_dir}/bin/Robust.ini.example"
-                "${sim_dir}/bin/Robust.HG.ini.example"
-                "${sim_dir}/bin/OpenSim.ini.example"
-                "${sim_dir}/bin/config-include/FlotsamCache.ini.example"
-                "${sim_dir}/bin/config-include/GridCommon.ini.example"
-                "${sim_dir}/bin/config-include/osslEnable.ini.example"
-                "${sim_dir}/bin/config-include/StandaloneCommon.ini.example"
-            )
-            
-            # Jede Konfigurationsdatei bearbeiten
-            for config_file in "${config_files[@]}"; do
-                if [[ -f "$config_file" ]]; then
-                    echo -e "\e[34mBearbeite $config_file\e[0m"
-                    
-                    # Vorher-Nachher-Vergleich
-                    original_lines=$(wc -l < "$config_file")
-                    
-                    # 1. Behalte nur Zeilen mit = oder gültigen Sektionen
-                    # 2. Entferne führende/trailing Whitespace
-                    # 3. Lösche leere Zeilen
-                    perl -i.bak -ne '
-                        if (/^\s*\[.+\]\s*$/ || /=/) {
-                            s/^\s+//;   # Entferne führende Leerzeichen/Tabs
-                            s/\s+$//;   # Entferne trailing Leerzeichen
-                            print "$_\n";
-                        }
-                    ' "$config_file"
-                    
-                    # Nachher-Zeilenanzahl
-                    cleaned_lines=$(wc -l < "$config_file")
-                    
-                    # Veränderungen anzeigen
-                    removed=$((original_lines - cleaned_lines))
-                    
-                    if [[ $removed -gt 0 ]]; then
-                        echo -e "\e[32m✓ Entfernt $removed Zeilen aus $config_file\e[0m"
-                        echo -e "\e[37mVorher/Nachher Beispiel:\e[0m"
-                        diff --unchanged-line-format= --old-line-format='- %L' --new-line-format='+ %L' \
-                            "${config_file}.bak" "$config_file" | head -5
-                    else
-                        echo -e "\e[35mℹ Keine Änderungen in $config_file\e[0m"
-                    fi
-                fi
-            done
-        fi
-    done
-    
-    echo -e "\e[32mBereinigung abgeschlossen!\e[0m"
-    blankline
-}
-
-function cleandoublecomments() {
-    echo -e "\e[33mBereinige doppelt kommentierte Zeilen in allen Konfigurationsdateien...\e[0m"
-    
-    # Durch alle simX-Verzeichnisse iterieren
-    for ((i=999; i>=1; i--)); do
-        sim_dir="sim$i"
-        
-        if [ -d "$sim_dir" ]; then
-            echo -e "\e[36mVerarbeite $sim_dir...\e[0m"
-            
-            # Liste aller relevanten Konfigurationsdateien
-            config_files=(
-                "${sim_dir}/bin/Robust.ini"
-                "${sim_dir}/bin/Robust.HG.ini"
-                "${sim_dir}/bin/OpenSim.ini"
-            )
-            
-            # Jede Konfigurationsdatei bearbeiten
-            for config_file in "${config_files[@]}"; do
-                if [[ -f "$config_file" ]]; then
-                    echo -e "\e[34mBearbeite $config_file\e[0m"
-                    
-                    # Vorher-Nachher-Vergleich
-                    original_lines=$(wc -l < "$config_file")
-                    
-                    # Doppelt kommentierte Zeilen mit führenden Leerzeichen/Tabs entfernen
-                    perl -i.bak -ne 'print unless /^\s*;;|^\s*;#/' "$config_file"
-                    
-                    # Nachher-Zeilenanzahl
-                    cleaned_lines=$(wc -l < "$config_file")
-                    
-                    # Veränderungen anzeigen
-                    removed=$((original_lines - cleaned_lines))
-                    
-                    if [[ $removed -gt 0 ]]; then
-                        echo -e "\e[32m✓ Entfernt $removed Zeilen aus $config_file\e[0m"
-                        echo -e "\e[37mErste entfernte Zeile:\e[0m"
-                        diff "${config_file}.bak" "$config_file" | grep '^<' | head -1
-                    else
-                        echo -e "\e[35mℹ Keine doppelt kommentierten Zeilen in $config_file gefunden\e[0m"
-                        # Debug-Ausgabe
-                        echo -e "\e[37mBeispielzeilen:\e[0m"
-                        grep -m 2 '^\s*[;#]' "$config_file" || echo "Keine kommentierten Zeilen gefunden"
-                    fi
-                fi
-            done
-        fi
-    done
-    
-    echo -e "\e[32mBereinigung abgeschlossen!\e[0m"
-    blankline
-}
-
+# cleanall - Removes OpenSim completely
 function cleanall() {
     echo "Möchtest du OpenSim komplett mit Konfigurationen entfernen? (ja/nein)"
     read -r answer
@@ -2242,67 +2165,19 @@ function cleanall() {
 # Standalone-Service-Neustart (ohne Logbereinigung)
 function standalonerestart() {
     standalonestop
-    sleep 30  # Wartezeit für sauberen Shutdown
+    sleep $Simulator_Stop_wait  # Wartezeit für sauberen Shutdown
     standalonestart
 }
 
 # Kompletter OpenSim-Neustart mit Logrotation
 function opensimrestart() {
     opensimstop
-    sleep 30  # Wartezeit für Dienst-Stopp
+    sleep $Simulator_Stop_wait  # Wartezeit für Dienst-Stopp
     logclean   # Logbereinigung
-    sleep 15  # Wartezeit vor Neustart
+    sleep $Simulator_Start_wait  # Wartezeit vor Neustart
     opensimstart
     echo -e "\033[36mAktive Screen-Sessions:\033[0m"
     screen -ls || echo "Keine Screen-Sessions gefunden"
-}
-
-# Basis-Konfiguration für alle Dienste ⚡ Vorsicht
-function configall() {
-    setrobusthg      # Hypergrid-Konfig
-    setopensim       # Regionsserver
-    setgridcommon    # Grid-weite Einstellungen
-    setflotsamcache  # Cache-System
-    setosslenable    # OSSL-Funktionen
-    setwelcome       # Startregion
-    echo -e "\033[32mAlle Konfigurationen wurden angewendet.\033[0m"
-}
-
-# Vollautomatische Installation ⚡ Vorsicht
-function autosetinstall() {
-    # Sicherheitsabfrage
-    echo -e "\033[1;33m⚠ WARNUNG: Komplette Serverinstallation!\033[0m"
-    read -rp "Fortfahren? (j/N): " antwort
-    
-    [[ "${antwort,,}" != "j" ]] && {
-        echo -e "\033[31m✖ Abbruch durch Benutzer\033[0m"
-        return 1
-    }
-
-    # Installationsphasen
-    echo -e "\033[1;34m\n[Phase 1] Systemchecks\033[0m"
-    servercheck || return $?
-
-    echo -e "\033[1;34m\n[Phase 2] Quellcode\033[0m"
-    opensimgitcopy && moneygitcopy || return $?
-
-    echo -e "\033[1;34m\n[Phase 3] Build-Prozess\033[0m"
-    opensimbuild || return $?
-
-    echo -e "\033[1;34m\n[Phase 4] Deployment\033[0m"
-    createdirectory
-    sqlsetup
-    opensimcopy
-
-    echo -e "\033[1;34m\n[Phase 5] Konfiguration\033[0m"
-    regionsconfig
-    setwelcome
-    configall  # Nutzt die oben definierte Gruppenfunktion
-
-    echo -e "\033[1;34m\n[Phase 6] Automatisierung\033[0m"
-    setcrontab
-
-    echo -e "\033[1;32m\n✔ Installation abgeschlossen! Auto-Start in 30 Min.\033[0m"
 }
 
 # Server-Reboot mit Vorbereitung
@@ -2310,7 +2185,7 @@ function reboot() {
     echo -e "\033[1;33m⚠ Server-Neustart wird eingeleitet...\033[0m"
 
     opensimstop
-    sleep 30
+    sleep $Simulator_Stop_wait
     shutdown -r now
 }
 
@@ -2367,11 +2242,11 @@ function help() {
 
     # Konfiguration
     #printf "%b\n" "${COLOR_SERVER}Konfigurationsmanagement:${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}configall${COLOR_RESET}" "Testkonfiguration ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+
     #printf "\t%-30b # %s\n" "${COLOR_WARNING}opensimconfig${COLOR_RESET}" "Konfiguration (in Entwicklung)"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}regionsconfig${COLOR_RESET}" "Regionen konfigurieren"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}cleandoublecomments${COLOR_RESET}" "Doppelte Kommentare bereinigen"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}clean_comments_and_empty_lines${COLOR_RESET}" "Kommentare/Leerzeilen löschen"
+    #printf "\t%-30b # %s\n" "${COLOR_OK}regionsiniconfig${COLOR_RESET}" "Regionen konfigurieren"
+
+
     #printf "\t%-30b # %s\n" "${COLOR_OK}generate_name${COLOR_RESET}" "Zufälligen Namen generieren"
     #printf "\t%-30b # %s\n" "${COLOR_OK}clean_config${COLOR_RESET}" "Konfigurationsdatei bereinigen"
     #echo " "
@@ -2394,14 +2269,21 @@ function help() {
     #echo " "
 
     # Autokonfiguration
-    #printf "%b\n" "${COLOR_SERVER}Automatische Konfiguration:${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}setrobusthg${COLOR_RESET}" "Robust-HG einstellen"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}setopensim${COLOR_RESET}" "OpenSim-Pfade einstellen"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}setgridcommon${COLOR_RESET}" "Grid-Konfiguration einstellen"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}setflotsamcache${COLOR_RESET}" "Flotsam-Cache konfigurieren"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}setosslenable${COLOR_RESET}" "OSSL-Funktionen aktivieren"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}setwelcome${COLOR_RESET}" "Willkommensregion setzen"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}autosetinstall${COLOR_RESET}" "Automatische Installation"
+    printf "%b\n" "${COLOR_SERVER}KONFIGURATIONS-MGMT AUTOKONFIGURATION:${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}moneyserveriniconfig${COLOR_RESET}           # Konfiguriert MoneyServer.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}opensiminiconfig${COLOR_RESET}               # Konfiguriert OpenSim.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}robusthginiconfig${COLOR_RESET}              # Konfiguriert Robust.HG.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}robustiniconfig${COLOR_RESET}                # Konfiguriert Robust.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}gridcommoniniconfig${COLOR_RESET}            # Erstellt GridCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}standalonecommoniniconfig${COLOR_RESET}      # Erstellt StandaloneCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}flotsaminiconfig${COLOR_RESET}               # Erstellt FlotsamCache.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}osslenableiniconfig${COLOR_RESET}            # Konfiguriert osslEnable.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}welcomeiniconfig${COLOR_RESET}               # Konfiguriert Begrüßungsregion ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}regionsiniconfig${COLOR_RESET}               # Startet neue Regionen-Konfigurationen ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    printf "%b\n" "\t${COLOR_WARNING}iniconfig${COLOR_RESET}                      # Startet ALLE Konfigurationen ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo " "
+
+
     #printf "\t%-30b # %s\n" "${COLOR_WARNING}configure_pbr_textures${COLOR_RESET}" "PBR-Texturen (experimentell)"
     #printf "\t%-30b # %s\n" "${COLOR_WARNING}configure_example_ini${COLOR_RESET}" "Beispiel-INI (experimentell)"
     #echo " "
@@ -2429,8 +2311,7 @@ function help() {
 
     # System
     printf "%b\n" "${COLOR_SERVER}Systembefehle:${COLOR_RESET}"
-    printf "\t%-30b # %s\n" "${COLOR_OK}reboot${COLOR_RESET}" "Server neustarten ${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}colortest${COLOR_RESET}" "Farbtest anzeigen"
+    printf "\t%-30b # %s\n" "${COLOR_OK}reboot${COLOR_RESET}" "Server neustarten"
     echo " "
 
     # Hilfe
@@ -2469,32 +2350,37 @@ case $KOMMANDO in
     opensimcopy)       opensimcopy ;;
     opensimupgrade)    opensimupgrade ;;
 
-    #  KONFIGURATIONS-MGMT    #
-    cleandoublecomments)        cleandoublecomments ;;
-    configclean|clean_comments_and_empty_lines) clean_comments_and_empty_lines ;;
-    regionsconfig)              regionsconfig ;;
+    #  KONFIGURATIONS-MGMT AUTOKONFIGURATION    #
+    configclean|clean_comments_and_empty_lines) clean_comments_and_empty_lines ;;    
+    # Neue Konfigurationen:
+    moneyserveriniconfig)       moneyserveriniconfig "$2" "$3" ;;
+    opensiminiconfig)           opensiminiconfig "$2" "$3" ;;
+    robusthginiconfig)          robusthginiconfig "$2" "$3" ;;
+    robustiniconfig)            robustiniconfig "$2" "$3" ;;
+    gridcommoniniconfig)        gridcommoniniconfig "$2" "$3" ;;
+    standalonecommoniniconfig)  standalonecommoniniconfig "$2" "$3" ;;
+    flotsaminiconfig)           flotsaminiconfig "$2" "$3" ;;
+    osslenableiniconfig)        osslenableiniconfig "$2" "$3" ;;
+    welcomeiniconfig)           welcomeiniconfig "$2" "$3" ;;
+    regionsiniconfig)           regionsiniconfig ;; # Alle neuen Konfigurationen starten.
+
     generatename|generate_name) generate_name ;;
     cleanconfig)                clean_config "$2" ;;
-    
-    #  AUTOKONFIGURATION      #
-    setrobusthg)       setrobusthg ;;
-    setopensim)        setopensim ;;
-    setgridcommon)     setgridcommon ;;
-    setflotsamcache)   setflotsamcache ;;
-    setosslenable)     setosslenable ;;
-    setwelcome)        setwelcome ;;
-    configall)         configall ;;
-    autosetinstall)    autosetinstall ;;
+
     #  Experimental            #
     configure_pbr_textures) configure_pbr_textures ;;
     configure_example_ini) configure_example_ini ;;
+
     #  INI-OPERATIONEN        #
     verify_ini_section)    verify_ini_section "$2" "$3" "$4" ;;
     verify_ini_key)        verify_ini_key "$2" "$3" "$4" ;;
     add_ini_section)       add_ini_section "$2" "$3" ;;
     set_ini_key)           set_ini_key "$2" "$3" "$4" "$5" ;;
+    add_ini_key)           add_ini_key "$2" "$3" "$4" "$5" ;;
     del_ini_section)       del_ini_section "$2" "$3" ;;
     uncomment_ini_line)    uncomment_ini_line "$2" "$3" ;;
+    iniconfig)             iniconfig ;;
+
     #  XML-OPERATIONEN        #
     verify_xml_section)    verify_xml_section "$2" "$3" ;;
     add_xml_section)       add_xml_section "$2" "$3" "$4" ;;
@@ -2523,6 +2409,7 @@ case $KOMMANDO in
     cleanall)          cleanall ;;
     renamefiles)       renamefiles ;;
     colortest)         colortest ;;
+    clean_linux_logs)  clean_linux_logs ;;
 
     #  HILFE & SONSTIGES      #
     h|help|hilfe|*)   help ;;
