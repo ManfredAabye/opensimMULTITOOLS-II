@@ -96,6 +96,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | `iniconfig` | Startet ALLE Konfigurationen (_Experimentelle Funktion_). |  
 | `generate_name` | Zufälligen Namen generieren (_Experimentelle Funktion_). |  
 | `clean_config` | Konfigurationsdatei bereinigen (_Experimentelle Funktion_). | 
+| `database_set_iniconfig` | Datenbanken einfügen (_Experimentelle Funktion_). | 
 | `configure_pbr_textures` | PBR-Texturen (_Experimentelle Funktion_). | 
 
 ---
@@ -164,7 +165,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## **📜 Lizenz & Nutzung**  
 - **Skriptname**: `osmtool.sh`  
-- **Version**: *V25.4.65.169*  
+- **Version**: *V25.4.61.179*  
 - **Autor**: *Manfred Aabye*  
 - **Lizenz**: *MIT*
 
