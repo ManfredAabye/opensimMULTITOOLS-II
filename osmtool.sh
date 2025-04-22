@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.65.169"
+VERSION="V25.4.61.179"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1252,6 +1252,62 @@ function add_ini_section() {
     fi
 }
 
+# function set_ini_key() {
+#     local file="$1" section="$2" key="$3" value="$4"
+#     local temp_file
+#     temp_file=$(mktemp) || {
+#         echo -e "${COLOR_BAD}Fehler beim Erstellen der temporären Datei${COLOR_RESET}" >&2
+#         return 1
+#     }
+
+#     awk -v section="[$section]" -v key="$key" -v value="$value" '
+#     BEGIN { in_section = 0; key_set = 0 }
+#     {
+#         if ($0 == section) {
+#             print
+#             in_section = 1
+#             next
+#         }
+
+#         if (in_section && /^\[/) {
+#             if (!key_set) {
+#                 printf "%s=%s\n", key, value
+#                 key_set = 1
+#             }
+#             in_section = 0
+#         }
+
+#         if (in_section && $0 ~ "^[[:blank:]]*" key "[[:blank:]]*=") {
+#             printf "%s=%s\n", key, value
+#             key_set = 1
+#             next
+#         }
+
+#         print
+#     }
+#     END {
+#         if (in_section && !key_set) {
+#             # Key fehlt, am Ende der Sektion einfügen
+#             printf "%s=%s\n", key, value
+#         } else if (!key_set) {
+#             # Sektion existiert nicht, am Ende anfügen
+#             printf "\n[%s]\n%s=%s\n", section, key, value
+#         }
+#     }' "$file" > "$temp_file" || {
+#         echo -e "${COLOR_BAD}AWK-Verarbeitung fehlgeschlagen${COLOR_RESET}" >&2
+#         rm -f "$temp_file"
+#         return 1
+#     }
+
+#     if ! mv "$temp_file" "$file"; then
+#         echo -e "${COLOR_BAD}Konnte Datei ${COLOR_FILE}${file}${COLOR_RESET} nicht aktualisieren" >&2
+#         return 1
+#     fi
+
+#     echo -e "${COLOR_OK}Gesetzt: ${COLOR_KEY}${key}=${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
+#     return 0
+# }
+
 function set_ini_key() {
     local file="$1" section="$2" key="$3" value="$4"
     local temp_file
@@ -1260,38 +1316,44 @@ function set_ini_key() {
         return 1
     }
 
-    awk -v section="[$section]" -v key="$key" -v value="$value" '
+    # Key für Regex absichern
+    local key_escaped
+    key_escaped=$(printf '%s\n' "$key" | sed 's/[]\/$*.^[]/\\&/g')
+
+    awk -v section="[$section]" -v key="$key" -v value="$value" -v key_re="$key_escaped" '
     BEGIN { in_section = 0; key_set = 0 }
+
     {
-        if ($0 == section) {
+        trimmed = $0
+        sub(/^[[:space:]]+/, "", trimmed)
+        if (trimmed == section) {
             print
             in_section = 1
             next
         }
 
-        if (in_section && /^\[/) {
+        if (in_section && trimmed ~ /^\[.*\]/) {
             if (!key_set) {
-                printf "%s=%s\n", key, value
+                printf "%s = %s\n\n", key, value
                 key_set = 1
             }
             in_section = 0
         }
 
-        if (in_section && $0 ~ "^[[:blank:]]*" key "[[:blank:]]*=") {
-            printf "%s=%s\n", key, value
+        if (in_section && $0 ~ "^[[:blank:]]*" key_re "[[:blank:]]*=") {
+            printf "%s = %s\n", key, value
             key_set = 1
             next
         }
 
         print
     }
+
     END {
         if (in_section && !key_set) {
-            # Key fehlt, am Ende der Sektion einfügen
-            printf "%s=%s\n", key, value
+            printf "%s = %s\n", key, value
         } else if (!key_set) {
-            # Sektion existiert nicht, am Ende anfügen
-            printf "\n[%s]\n%s=%s\n", section, key, value
+            printf "\n[%s]\n%s = %s\n", section, key, value
         }
     }' "$file" > "$temp_file" || {
         echo -e "${COLOR_BAD}AWK-Verarbeitung fehlgeschlagen${COLOR_RESET}" >&2
@@ -1301,15 +1363,68 @@ function set_ini_key() {
 
     if ! mv "$temp_file" "$file"; then
         echo -e "${COLOR_BAD}Konnte Datei ${COLOR_FILE}${file}${COLOR_RESET} nicht aktualisieren" >&2
+        rm -f "$temp_file"
         return 1
     fi
 
-    echo -e "${COLOR_OK}Gesetzt: ${COLOR_KEY}${key}=${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
+    echo -e "${COLOR_OK}Gesetzt: ${COLOR_KEY}${key} = ${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
     return 0
 }
 
+
+# function add_ini_key() {
+#     # todo: Vor und nach dem = Zeichen ein Leerzeichen einfügen.
+#     local file="$1" section="$2" key="$3" value="$4"
+#     local temp_file
+#     temp_file=$(mktemp) || { 
+#         echo -e "${COLOR_BAD}Failed to create temp file${COLOR_RESET}" >&2
+#         return 1
+#     }
+
+#     # Verarbeitung mit awk
+#     if ! awk -v section="[${section}]" -v key="$key" -v value="$value" '
+#         BEGIN { in_section = 0; modified = 0 }
+#         $0 == section { in_section = 1; print; next }
+#         in_section && /^\[/ { 
+#             # Neue Sektion beginnt, Key einfügen
+#             printf "%s=%s\n\n", key, value
+#             modified = 1
+#             in_section = 0
+#         }
+#         in_section && $0 ~ "^[[:blank:]]*" key "=" {
+#             # Existierenden Key ersetzen (ignoriert führende Leerzeichen/Tabs)
+#             printf "%s=%s\n", key, value
+#             modified = 1
+#             in_section = 0
+#             next
+#         }
+#         { print }
+#         END {
+#             if (!modified && in_section) {
+#                 # Am Ende der Sektion einfügen
+#                 printf "%s=%s\n", key, value
+#             } else if (!modified) {
+#                 # Neue Sektion am Dateiende
+#                 printf "\n[%s]\n%s=%s\n", section, key, value
+#             }
+#         }
+#     ' "$file" > "$temp_file"; then
+#         echo -e "${COLOR_BAD}AWK processing failed${COLOR_RESET}" >&2
+#         rm -f "$temp_file"
+#         return 1
+#     fi
+
+#     if ! mv "$temp_file" "$file"; then
+#         echo -e "${COLOR_BAD}Failed to update ${COLOR_FILE}${file}${COLOR_RESET}" >&2
+#         return 1
+#     fi
+
+#     echo -e "${COLOR_OK}Set ${COLOR_KEY}${key}=${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
+#     return 0
+# }
+
+# Datei, section [section], Key = Value
 function add_ini_key() {
-    # todo: Es werden keine einstellungen geändert sondern neue hinzugefügen.
     local file="$1" section="$2" key="$3" value="$4"
     local temp_file
     temp_file=$(mktemp) || { 
@@ -1322,14 +1437,14 @@ function add_ini_key() {
         BEGIN { in_section = 0; modified = 0 }
         $0 == section { in_section = 1; print; next }
         in_section && /^\[/ { 
-            # Neue Sektion beginnt, Key einfügen
-            printf "%s=%s\n\n", key, value
+            # Neue Sektion beginnt, Key einfügen (mit Leerzeichen um das =)
+            printf "%s = %s\n\n", key, value
             modified = 1
             in_section = 0
         }
-        in_section && $0 ~ "^[[:blank:]]*" key "=" {
-            # Existierenden Key ersetzen (ignoriert führende Leerzeichen/Tabs)
-            printf "%s=%s\n", key, value
+        in_section && $0 ~ "^[[:blank:]]*" key "[[:blank:]]*=" {
+            # Existierenden Key ersetzen (mit Leerzeichen um das =)
+            printf "%s = %s\n", key, value
             modified = 1
             in_section = 0
             next
@@ -1337,11 +1452,11 @@ function add_ini_key() {
         { print }
         END {
             if (!modified && in_section) {
-                # Am Ende der Sektion einfügen
-                printf "%s=%s\n", key, value
+                # Am Ende der Sektion einfügen (mit Leerzeichen um das =)
+                printf "%s = %s\n", key, value
             } else if (!modified) {
-                # Neue Sektion am Dateiende
-                printf "\n[%s]\n%s=%s\n", section, key, value
+                # Neue Sektion am Dateiende (mit Leerzeichen um das =)
+                printf "\n[%s]\n%s = %s\n", section, key, value
             }
         }
     ' "$file" > "$temp_file"; then
@@ -1355,7 +1470,7 @@ function add_ini_key() {
         return 1
     fi
 
-    echo -e "${COLOR_OK}Set ${COLOR_KEY}${key}=${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
+    echo -e "${COLOR_OK}Set ${COLOR_KEY}${key} = ${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
     return 0
 }
 
@@ -1432,33 +1547,56 @@ function uncomment_ini_line() {
 
 #* #################################################################################################
 
-# Hauptfunktion, fragt Benutzer nach IP & Gridnamen und ruft alle Teilfunktionen auf
-function iniconfig() {
-    echo "Wie ist Ihre IP oder DNS-Adresse?"
-    read -r ip
+function database_set_iniconfig() {
+    local password_file="${SCRIPT_DIR}/mariadb_passwords.txt"
+    local section="DatabaseService"
+    echo "Fehlersuche 1"
 
-    echo "Wie heißt Ihr Grid?"
-    read -r gridname
+    # Zugangsdaten auslesen
+    local db_user db_pass
+    db_user=$(grep -oP 'Benutzername:\s*\K\S+' "$password_file")
+    db_pass=$(grep -oP 'Passwort:\s*\K\S+' "$password_file")
 
-    # Konfigurationsfunktionen für verschiedene Komponenten aufrufen
-    moneyserveriniconfig "$ip" "$gridname"
-    opensiminiconfig "$ip" "$gridname"
-    robusthginiconfig "$ip" "$gridname"
-    robustiniconfig "$ip" "$gridname"
-    gridcommoniniconfig "$ip" "$gridname"
-    standalonecommoniniconfig "$ip" "$gridname"
-    flotsaminiconfig "$ip" "$gridname"
-    osslenableiniconfig "$ip" "$gridname"
-    welcomeiniconfig "$ip" "$gridname"
+    if [[ -z "$db_user" || -z "$db_pass" ]]; then
+        echo -e "${COLOR_BAD}Benutzername oder Passwort fehlt in mariadb_passwords.txt${COLOR_RESET}"
+        return 1
+    fi
+
+    # === Robust-Datenbanken ===
+    local db_database="robust"
+    local robust_conn="Data Source=localhost;Database=${db_database};User ID=${db_user};Password=${db_pass};Old Guids=true;SslMode=None;"
+
+    # Robust.HG.ini
+    local robust_hg_ini="robust/bin/Robust.HG.ini"
+    if [[ -f "$robust_hg_ini" ]]; then
+        add_ini_key "$robust_hg_ini" "$section" "ConnectionString" "\"$robust_conn\""
+    else
+        echo -e "${COLOR_WARNING}Datei nicht gefunden: $robust_hg_ini${COLOR_RESET}"
+    fi
+
+    # Robust.ini
+    local robust_ini="robust/bin/Robust.ini"
+    if [[ -f "$robust_ini" ]]; then
+        add_ini_key "$robust_ini" "$section" "ConnectionString" "\"$robust_conn\""
+    else
+        echo -e "${COLOR_WARNING}Datei nicht gefunden: $robust_ini${COLOR_RESET}"
+    fi
+
+    # === simX-Datenbanken ===
+    for ((i=1; i<=1000; i++)); do
+        local sim_ini="${SCRIPT_DIR}/sim${i}/bin/config-include/GridCommon.ini"
+        if [[ -f "$sim_ini" ]]; then
+            local sim_conn="Data Source=localhost;Database=sim${i};User ID=${db_user};Password=${db_pass};Old Guids=true;SslMode=None;"
+            add_ini_key "$sim_ini" "$section" "ConnectionString" "\"$sim_conn\""
+        fi
+    done
 }
 
 # welcomeiniconfig - Sets the Welcome_Area.ini
 function welcomeiniconfig() {
     ip="$1"
     local gridname="$2"
-
-    # todo: Namen in der Robust.HG.ini und Robust.ini einfügen.
-
+    
     local welcome_ini="${SCRIPT_DIR}/sim1/bin/Regions/$gridname.ini"
     region_uuid=$(uuidgen)
     
@@ -1484,6 +1622,10 @@ AllowAlternatePorts = False
 ;RegionType = Estate
 EOF
 
+    # Namen in der Robust.HG.ini und Robust.ini einfügen: Region_Welcome_Area = "DefaultRegion, DefaultHGRegion".
+    set_ini_key "robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "DefaultRegion, DefaultHGRegion"
+    set_ini_key "robust/bin/Robust.ini" "GridService" "Region_$gridname" "DefaultRegion"
+
     clean_config "$welcome_ini"
     echo "Welcome_Area.ini configuration completed"
     blankline
@@ -1493,12 +1635,20 @@ EOF
 function moneyserveriniconfig() {
     local ip="$1"
     local gridname="$2"
+    
+    # Passwort
+    local password_file="${SCRIPT_DIR}/mariadb_passwords.txt"
 
-    # echo "Möchten Sie die MoneyServer.ini erstellen? (ja/nein)"
-    # read -r create_moneyserver
-    # if [[ "$create_moneyserver" != "ja" ]]; then
-    #     return
-    # fi
+    # Benutzername und Passwort auslesen (vorausgesetzt die Datei ist im Format: Benutzername: <user> Passwort: <pass>)
+    local db_user db_pass
+    db_user=$(grep -oP 'Benutzername:\s*\K\S+' "$password_file")
+    db_pass=$(grep -oP 'Passwort:\s*\K\S+' "$password_file")
+
+    # Falls Werte nicht gelesen wurden, abbrechen
+    if [[ -z "$db_user" || -z "$db_pass" ]]; then
+        echo "Fehler: Benutzername oder Passwort konnten nicht ausgelesen werden."
+        return 1
+    fi
 
     local dir="$SCRIPT_DIR/robust/bin"
     local file="$dir/MoneyServer.ini"
@@ -1511,8 +1661,12 @@ function moneyserveriniconfig() {
     else
         touch "$file"
     fi
+    # [MySql]
+    set_ini_key "$file" "MySql" "database" "robust"
+    set_ini_key "$file" "MySql" "username" "$db_user"
+    set_ini_key "$file" "MySql" "password" "$db_pass"
 
-
+    # [MoneyServer]
     set_ini_key "$file" "MoneyServer" "MoneyServerIPaddress" "http://$ip:8008"
     set_ini_key "$file" "MoneyServer" "MoneyScriptIPaddress" "$ip"
 
@@ -1545,11 +1699,100 @@ function opensiminiconfig() {
             local public_port=$((base_port + (sim_counter - 1) * 100))
 
             # Werte setzen
+            # [Const]
             set_ini_key "$file" "Const" "BaseHostname" "$ip"
-            set_ini_key "$file" "Const" "BaseURL" "http://$ip:$public_port"
             set_ini_key "$file" "Const" "PublicPort" "$public_port"
-            set_ini_key "$file" "Const" "PrivatePort" "$((public_port + 3))"
-            set_ini_key "$file" "Const" "PrivURL" "http://$ip:$((public_port + 3))"
+            # [Startup]
+
+            # [Estates]
+            uncomment_ini_line "$file" "DefaultEstateOwnerUUID"
+
+            # [Network]
+            set_ini_key "$file" "Network" "http_listener_port" "$public_port"
+
+            # [SimulatorFeatures]
+            uncomment_ini_line "$file" "SearchServerURI"
+
+            # [ClientStack.LindenUDP] Begrenzt die Viewer damit sie die Server leistung nicht kippen können.
+            set_ini_key "$file" "ClientStack.LindenUDP" "DisableFacelights" "true"
+            set_ini_key "$file" "ClientStack.LindenUDP" "client_throttle_max_bps" "350000"
+            set_ini_key "$file" "ClientStack.LindenUDP" "scene_throttle_max_bps" "70000000"
+
+            # [SimulatorFeatures]
+            set_ini_key "$file" "SimulatorFeatures" "SearchServerURI" "\${Const|BaseURL}:\${Const|PublicPort}"
+            set_ini_key "$file" "SimulatorFeatures" "DestinationGuideURI" "\${Const|BaseURL}:\${Const|PublicPort}"
+
+            # [Messaging]
+            set_ini_key "$file" "Messaging" "OfflineMessageModule" "Offline Message Module V2"
+            set_ini_key "$file" "Messaging" "OfflineMessageURL" "\${Const|PrivURL}:\${Const|PrivatePort}"
+            set_ini_key "$file" "Messaging" "StorageProvider" "OpenSim.Data.MySQL.dll"
+            set_ini_key "$file" "Messaging" "MuteListModule" "MuteListModule"
+            set_ini_key "$file" "Messaging" "ForwardOfflineGroupMessages" "true"            
+
+            # [Materials]
+            set_ini_key "$file" "Materials" "MaxMaterialsPerTransaction" "250"
+
+            # [DataSnapshot]
+            set_ini_key "$file" "DataSnapshot" "gridname" "$gridname"
+
+            # [Economy]
+            set_ini_key "$file" "Economy" "SellEnabled" "true"
+            set_ini_key "$file" "Economy" "EconomyModule" "DTLNSLMoneyModule" 
+            set_ini_key "$file" "Economy" "CurrencyServer" "\${Const|BaseURL}:8008/" 
+            set_ini_key "$file" "Economy" "UserServer" "\${Const|BaseURL}:8002/" 
+            set_ini_key "$file" "Economy" "CheckServerCert" "false" 
+            set_ini_key "$file" "Economy" "PriceUpload" "0" 
+            set_ini_key "$file" "Economy" "MeshModelUploadCostFactor" "1.0" 
+            set_ini_key "$file" "Economy" "MeshModelUploadTextureCostFactor" "1.0" 
+            set_ini_key "$file" "Economy" "MeshModelMinCostFactor" "1.0" 
+            set_ini_key "$file" "Economy" "PriceGroupCreate" "0" 
+
+            # [Groups]
+            set_ini_key "$file" "Groups" "Enabled" "true"
+            set_ini_key "$file" "Groups" "LevelGroupCreate" "0"
+            set_ini_key "$file" "Groups" "Module" "\"Groups Module V2\""
+            set_ini_key "$file" "Groups" "StorageProvider" "OpenSim.Data.MySQL.dll"
+            set_ini_key "$file" "Groups" "ServicesConnectorModule" "\"Groups HG Service Connector\""
+            set_ini_key "$file" "Groups" "LocalService" "remote"
+            set_ini_key "$file" "Groups" "GroupsServerURI" "\${Const|BaseURL}:\${Const|PrivatePort}"
+            set_ini_key "$file" "Groups" "HomeURI" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+            set_ini_key "$file" "Groups" "MessagingEnabled" "true"
+            set_ini_key "$file" "Groups" "MessagingModule" "\"Groups Messaging Module V2\""
+            set_ini_key "$file" "Groups" "NoticesEnabled" "true"
+            set_ini_key "$file" "Groups" "MessageOnlineUsersOnly" "true"
+            set_ini_key "$file" "Groups" "XmlRpcServiceReadKey" "1234"
+            set_ini_key "$file" "Groups" "XmlRpcServiceWriteKey" "1234"
+
+            # [InterestManagement]
+            set_ini_key "$file" "InterestManagement" "UpdatePrioritizationScheme" "BestAvatarResponsiveness"
+            set_ini_key "$file" "InterestManagement" "ObjectsCullingByDistance" "true"
+
+            # [MediaOnAPrim]
+            set_ini_key "$file" "MediaOnAPrim" "Enabled" "true"
+
+            # [NPC]
+            set_ini_key "$file" "NPC" "Enabled" "true"
+            set_ini_key "$file" "NPC" "MaxNumberNPCsPerScene" "40"
+            set_ini_key "$file" "NPC" "AllowNotOwned" "true"
+            set_ini_key "$file" "NPC" "AllowSenseAsAvatar" "true"
+            set_ini_key "$file" "NPC" "AllowCloneOtherAvatars" "true"
+            set_ini_key "$file" "NPC" "NoNPCGroup" "true"
+
+            # [Terrain]
+            set_ini_key "$file" "Terrain" "InitialTerrain" "\"flat\""
+
+            # [LandManagement]
+            set_ini_key "$file" "LandManagement" "ShowParcelBansLines" "true"
+
+            # [UserProfiles]
+            set_ini_key "$file" "UserProfiles" "ProfileServiceURL" "\${Const|BaseURL}:\${Const|PublicPort}"
+            set_ini_key "$file" "UserProfiles" "AllowUserProfileWebURLs" "true"
+
+            # [XBakes]
+            set_ini_key "$file" "XBakes" "URL" "\${Const|PrivURL}:\${Const|PrivatePort}"
+
+            # [Architecture]
+            set_ini_key "$file" "Architecture" "Include-Architecture" "\"config-include/GridHypergrid.ini\""
 
             ((sim_counter++))
         fi
@@ -1562,6 +1805,7 @@ function robusthginiconfig() {
     local gridname="$2"
     local dir="$SCRIPT_DIR/robust/bin"
     local file="$dir/Robust.HG.ini"
+    # Pfad: /robust/bin/Robust.HG.ini  /robust/bin/Robust.ini und $SCRIPT_DIR/sim$i/bin/config-include/GridCommon.ini
 
     mkdir -p "$dir"
     #[[ -f "$file.example" ]] && cp "$file.example" "$file" || touch "$file"
@@ -1571,14 +1815,42 @@ function robusthginiconfig() {
         touch "$file"
     fi
 
+    # [Const]
     set_ini_key "$file" "Const" "BaseHostname" "$ip"
-    set_ini_key "$file" "Const" "BaseURL" "http://$ip:8002"
-    set_ini_key "$file" "Const" "PublicPort" "8002"
-    set_ini_key "$file" "Const" "PrivatePort" "8003"
-
+    # [ServiceList]
+    uncomment_ini_line "$file" "OfflineIMServiceConnector"
+    uncomment_ini_line "$file" "GroupsServiceConnector"
+    uncomment_ini_line "$file" "BakedTextureService"
+    uncomment_ini_line "$file" "UserProfilesServiceConnector"
+    uncomment_ini_line "$file" "HGGroupsServiceConnector"
     
-    #gridname = "the lost continent of hippo"
+    # [Hypergrid]
+    uncomment_ini_line "$file" "HomeURI"
+    uncomment_ini_line "$file" "GatekeeperURI"
+    
+    # [DatabaseService]
+    # ConnectionString = "Data Source=localhost;Database=opensim;User ID=opensim;Password=*****;Old Guids=true;SslMode=None;"
+    
+    # [GridService] für osWebinterface
+    # Der Regionsname wird von welcomeiniconfig geschrieben.
+    
+    # [LoginService] für osWebinterface etc.
+    # ; SearchURL = "${Const|BaseURL}:${Const|PublicPort}/";
+    # ; DestinationGuide = "${Const|BaseURL}/guide"
+    # ; AvatarPicker = "${Const|BaseURL}/avatars"
+    
+    # [GridInfoService]
     set_ini_key "$file" "GridInfoService" "gridname" "$gridname"
+    set_ini_key "$file" "GridInfoService" "gridnick" "$gridname"
+    #welcome = ${Const|BaseURL}/welcome
+    #economy = ${Const|BaseURL}/economy
+    #about = ${Const|BaseURL}/about
+    #register = ${Const|BaseURL}/register
+    #help = ${Const|BaseURL}/help
+    #password = ${Const|BaseURL}/password
+    #GridStatusRSS = ${Const|BaseURL}:${Const|PublicPort}/GridStatusRSS
+    #web_profile_url = http://webprofilesurl:ItsPort?name=[AGENT_NAME]
+
 }
 
 # Konfiguration von Robust.ini im robust/bin Verzeichnis
@@ -1596,13 +1868,37 @@ function robustiniconfig() {
         touch "$file"
     fi
 
+    # [Const]
     set_ini_key "$file" "Const" "BaseHostname" "$ip"
-    set_ini_key "$file" "Const" "BaseURL" "http://$ip:8002"
-    set_ini_key "$file" "Const" "PublicPort" "8002"
-    set_ini_key "$file" "Const" "PrivatePort" "8003"
-
-    #gridname = "the lost continent of hippo"
+    
+    # [ServiceList]
+    uncomment_ini_line "$file" "OfflineIMServiceConnector"
+    uncomment_ini_line "$file" "GroupsServiceConnector"
+    uncomment_ini_line "$file" "BakedTextureService"
+    uncomment_ini_line "$file" "UserProfilesServiceConnector"
+    
+    # [DatabaseService]
+    # ConnectionString = "Data Source=localhost;Database=opensim;User ID=opensim;Password=*****;Old Guids=true;SslMode=None;"
+    
+    # [GridService] für osWebinterface
+    # Der Regionsname wird von welcomeiniconfig geschrieben.
+    
+    # [LoginService] für osWebinterface etc.
+    # ; SearchURL = "${Const|BaseURL}:${Const|PublicPort}/";
+    # ; DestinationGuide = "${Const|BaseURL}/guide"
+    # ; AvatarPicker = "${Const|BaseURL}/avatars"
+    
+    # [GridInfoService]
     set_ini_key "$file" "GridInfoService" "gridname" "$gridname"
+    set_ini_key "$file" "GridInfoService" "gridnick" "$gridname"
+    #welcome = ${Const|BaseURL}/welcome
+    #economy = ${Const|BaseURL}/economy
+    #about = ${Const|BaseURL}/about
+    #register = ${Const|BaseURL}/register
+    #help = ${Const|BaseURL}/help
+    #password = ${Const|BaseURL}/password
+    #GridStatusRSS = ${Const|BaseURL}:${Const|PublicPort}/GridStatusRSS
+    #web_profile_url = http://webprofilesurl:ItsPort?name=[AGENT_NAME]
 }
 
 # Erstellt FlotsamCache.ini komplett neu in allen simX/config-include Verzeichnissen
@@ -1645,6 +1941,7 @@ function gridcommoniniconfig() {
         local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
         local file="$config_dir/GridCommon.ini"
         local example_file="$config_dir/GridCommon.ini.example"
+        # Pfad: $SCRIPT_DIR/sim$i/bin/config-include/GridCommon.ini
 
         if [[ -d "$config_dir" ]]; then
             mkdir -p "$config_dir"
@@ -1737,6 +2034,42 @@ EOF
     done
 }
 
+# Hauptfunktion, fragt Benutzer nach IP & Gridnamen und ruft alle Teilfunktionen auf
+function iniconfig() {
+    echo "Wie ist Ihre IP oder DNS-Adresse?"
+    read -r ip
+
+    echo "Wie heißt Ihr Grid?"
+    read -r gridname
+
+    #! ⚠️ **Wichtige Sicherheitsinformation!**
+    # Zur Kontrolle wird der Benutzername und das Passwort in der Datei:
+    # `mariadb_passwords.txt` gespeichert.
+    # Diese Konfiguration benötigt diese `mariadb_passwords.txt` Datei um die Datenbanken einzutragen.
+    # Diese Datei **solltet ihr danach unbedingt von eurem Server löschen** und stattdessen **sicher auf eurem PC aufbewahren**.
+    
+    # Konfigurationsfunktionen für verschiedene Komponenten aufrufen
+    echo "Starte moneyserveriniconfig ..."
+    moneyserveriniconfig "$ip" "$gridname"
+    echo "Starte opensiminiconfig ..."
+    opensiminiconfig "$ip" "$gridname"
+    echo "Starte robusthginiconfig ..."
+    robusthginiconfig "$ip" "$gridname"
+    echo "Starte robustiniconfig ..."
+    robustiniconfig "$ip" "$gridname"
+    echo "Starte gridcommoniniconfig ..."
+    gridcommoniniconfig "$ip" "$gridname"
+    echo "Starte standalonecommoniniconfig ..."
+    standalonecommoniniconfig "$ip" "$gridname"
+    echo "Starte flotsaminiconfig ..."
+    flotsaminiconfig "$ip" "$gridname"
+    echo "Starte osslenableiniconfig ..."
+    osslenableiniconfig "$ip" "$gridname"
+    echo "Starte welcomeiniconfig ..."
+    welcomeiniconfig "$ip" "$gridname"
+    echo "Starte database_set_iniconfig ..."
+    database_set_iniconfig
+}
 
 #* #################################################################################################
 
@@ -2243,7 +2576,6 @@ function help() {
     # Konfiguration
     #printf "%b\n" "${COLOR_SERVER}Konfigurationsmanagement:${COLOR_RESET}"
 
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}opensimconfig${COLOR_RESET}" "Konfiguration (in Entwicklung)"
     #printf "\t%-30b # %s\n" "${COLOR_OK}regionsiniconfig${COLOR_RESET}" "Regionen konfigurieren"
 
 
@@ -2351,7 +2683,6 @@ case $KOMMANDO in
     opensimupgrade)    opensimupgrade ;;
 
     #  KONFIGURATIONS-MGMT AUTOKONFIGURATION    #
-    configclean|clean_comments_and_empty_lines) clean_comments_and_empty_lines ;;    
     # Neue Konfigurationen:
     moneyserveriniconfig)       moneyserveriniconfig "$2" "$3" ;;
     opensiminiconfig)           opensiminiconfig "$2" "$3" ;;
@@ -2362,6 +2693,7 @@ case $KOMMANDO in
     flotsaminiconfig)           flotsaminiconfig "$2" "$3" ;;
     osslenableiniconfig)        osslenableiniconfig "$2" "$3" ;;
     welcomeiniconfig)           welcomeiniconfig "$2" "$3" ;;
+    database_set_iniconfig)     database_set_iniconfig ;;
     regionsiniconfig)           regionsiniconfig ;; # Alle neuen Konfigurationen starten.
 
     generatename|generate_name) generate_name ;;
