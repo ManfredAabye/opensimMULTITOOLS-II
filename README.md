@@ -36,11 +36,10 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 4. [Konfiguration](#-konfiguration)  
 5. [INI-Operationen](#-ini-operationen)  
 6. [XML-Operationen](#-xml-operationen)  
-7. [Autokonfiguration](#-autokonfiguration)  
-8. [Standalone-Modus](#-standalone-modus)  
-9. [OpenSim bereinigen](#-opensim-grid-bereinigen)  
-10. [Systembefehle](#-systembefehle)  
-11. [Hilfen](#-hilfen)  
+7. [Standalone-Modus](#-standalone-modus)  
+8. [OpenSim bereinigen](#-opensim-grid-bereinigen)  
+9. [Systembefehle](#-systembefehle)  
+10. [Hilfen](#-hilfen)  
 
 ---
 
@@ -81,16 +80,23 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ---
 
-## **⚙️ Konfiguration wird entfernt**  
+## **⚙️ Konfiguration** 
 | Befehl | Beschreibung |  
 |--------|-------------|  
-| `configall` | Testkonfiguration setzen (_Experimentelle Funktion_). |  
-| `opensimconfig` | OpenSim-Einstellungen setzen (_Experimentelle Funktion_). |  
-| `regionsconfig` | Automatische OpenSim-Regionenkonfiguration (_Experimentelle Funktion_). |  
-| `cleandoublecomments` | Doppelte Kommentare bereinigen (_Experimentelle Funktion_). |  
-| `clean_comments_and_empty_lines` | Kommentare und Leerzeilen löschen (_Experimentelle Funktion_). |  
+| `moneyserveriniconfig` | Konfiguriert MoneyServer.ini (_Experimentelle Funktion_). |  
+| `opensiminiconfig` | Konfiguriert OpenSim.ini (_Experimentelle Funktion_). |  
+| `robusthginiconfig` | Konfiguriert Robust.HG.ini (_Experimentelle Funktion_). |  
+| `robustiniconfig` | Konfiguriert Robust.ini (_Experimentelle Funktion_). |  
+| `gridcommoniniconfig` | Erstellt GridCommon.ini (_Experimentelle Funktion_). |  
+| `standalonecommoniniconfig` | Erstellt StandaloneCommon.ini (_Experimentelle Funktion_). |  
+| `flotsaminiconfig` | Erstellt FlotsamCache.ini (_Experimentelle Funktion_). |  
+| `osslenableiniconfig` | Konfiguriert osslEnable.ini (_Experimentelle Funktion_). |  
+| `welcomeiniconfig` | Konfiguriert Begrüßungsregion (_Experimentelle Funktion_). |  
+| `regionsiniconfig` | Startet neue Regionen-Konfigurationen (_Experimentelle Funktion_). |  
+| `iniconfig` | Startet ALLE Konfigurationen (_Experimentelle Funktion_). |  
 | `generate_name` | Zufälligen Namen generieren (_Experimentelle Funktion_). |  
-| `clean_config` | Konfigurationsdatei bereinigen (_Experimentelle Funktion_). |  
+| `clean_config` | Konfigurationsdatei bereinigen (_Experimentelle Funktion_). | 
+| `configure_pbr_textures` | PBR-Texturen (_Experimentelle Funktion_). | 
 
 ---
 
@@ -112,20 +118,6 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | `verify_xml_section` | XML-Abschnitt verifizieren (_Experimentelle Funktion_). |  
 | `add_xml_section` | XML-Abschnitt hinzufügen (_Experimentelle Funktion_). |  
 | `del_xml_section` | XML-Abschnitt löschen (_Experimentelle Funktion_). |  
-
----
-
-## **🔧 Autokonfiguration**  
-| Befehl | Beschreibung |  
-|--------|-------------|  
-| `setrobusthg` | Robust-HG einstellen (_Experimentelle Funktion_). |  
-| `setopensim` | OpenSim-Pfade einstellen (_Experimentelle Funktion_). |  
-| `setgridcommon` | Grid-Konfiguration einstellen (_Experimentelle Funktion_). |  
-| `setflotsamcache` | Flotsam-Cache konfigurieren (_Experimentelle Funktion_). |  
-| `setosslenable` | OSSL-Funktionen aktivieren (_Experimentelle Funktion_). |  
-| `setwelcome` | Willkommensregion setzen (_Experimentelle Funktion_). |  
-| `autosetinstall` | Automatische Installation (_Experimentelle Funktion_). |  
-| `configure_pbr_textures` | PBR-Texturen (_Experimentelle Funktion_). |  
 
 ---
 
