@@ -161,6 +161,8 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 |--------|-------------|  
 | `help` | Die Hilfeseite anzeigen. |  
 
+- [Wiki Dokumentation](autoallclean)
+
 ---
 
 ## **📜 Lizenz & Nutzung**  
