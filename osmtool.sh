@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.61.179"
+VERSION="V25.4.63.181"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -40,6 +40,19 @@ SYM_WAIT="${COLOR_VALUE}⏳${COLOR_RESET}"
 SYM_LOG="${COLOR_VALUE}📋${COLOR_RESET}"
 COLOR_SECTION='\e[0;35m'  # Magenta für Sektionsnamen
 COLOR_FILE='\e[0;33m'     # Gelb für Dateipfade
+
+SYM_SYNC="${COLOR_VALUE}🔄${COLOR_RESET}"        # Synchronisieren, Aktualisieren
+SYM_TOOLS="${COLOR_VALUE}🛠️${COLOR_RESET}"       # Werkzeuge, Einstellungen, Reparatur
+SYM_FOLDER="${COLOR_VALUE}📂${COLOR_RESET}"      # Verzeichnis, Dateien, Dokumente
+SYM_CONFIG="${COLOR_VALUE}⚙️${COLOR_RESET}"      # Einstellungen, System, Konfiguration
+SYM_SCRIPT="${COLOR_VALUE}📜${COLOR_RESET}"      # Skript, Dokument, Notizen
+# shellcheck disable=SC2034
+SYM_FILE="${COLOR_VALUE}📄${COLOR_RESET}"        # Datei, Bericht
+SYM_SERVER="${COLOR_VALUE}🖥️${COLOR_RESET}"      # Server, Computer
+SYM_CLEAN="${COLOR_VALUE}🧹${COLOR_RESET}"       # Bereinigung, Aufräumen, Löschen
+# shellcheck disable=SC2034
+SYM_WARNING="${COLOR_VALUE}⚠${COLOR_RESET}"     # Achtung, Gefahr, Hinweis
+
 
 #* WARTEZEITEN muessen leider sein damit der Server nicht überfordert wird.
 Simulator_Start_wait=15 # Sekunden
@@ -2542,131 +2555,158 @@ function downloadallgit() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 function help() {
-    # Überschriften
-    printf "%b\n" "${COLOR_SERVER}OpenSim Grid Starten Stoppen und Restarten:${COLOR_RESET}"
-    printf "\t%-30b # %s\n" "${COLOR_START}opensimstart${COLOR_RESET}" "OpenSim starten"
-    printf "\t%-30b # %s\n" "${COLOR_STOP}opensimstop${COLOR_RESET}" "OpenSim stoppen"
-    printf "\t%-30b # %s\n" "${COLOR_START}opensimrestart${COLOR_RESET}" "OpenSim neu starten"
-    printf "\t%-30b # %s\n" "${COLOR_OK}check_screens${COLOR_RESET}" "Laufende OpenSim Prozesse prüfen und restarten"
-    echo " "
+    # Allgemeine Befehle
+    echo -e "${COLOR_SECTION}${SYM_SERVER} OpenSim Grundbefehle:${COLOR_RESET}"
+    echo -e "\t${COLOR_START}opensimstart${COLOR_RESET}\t\t# Startet OpenSimulator Gridserver oder Regionsserver"
+    echo -e "\t${COLOR_STOP}opensimstop${COLOR_RESET}\t\t# Stoppt OpenSimulator komplett"
+    echo -e "\t${COLOR_START}opensimrestart${COLOR_RESET}\t\t# Startet den OpenSimulator neu"
+    echo -e "\t${COLOR_OK}check_screens${COLOR_RESET}\t\t# Prüft laufende Prozesse und handelt entsprechend"
+    echo ""
 
-    # Erstellung/Aktualisierung
-    printf "%b\n" "${COLOR_SERVER}Ein OpenSim Grid erstellen oder aktualisieren:${COLOR_RESET}"
-    printf "\t%-30b # %s\n" "${COLOR_OK}servercheck${COLOR_RESET}" "Serverbereitschaft prüfen und nachinstallieren"
-    printf "\t%-30b # %s\n" "${COLOR_OK}createdirectory${COLOR_RESET}" "Verzeichnisse erstellen (robust, sim1, sim2,...)"
-    printf "\t%-30b # %s\n" "${COLOR_OK}opensimbuild${COLOR_RESET}" "OpenSim Programm erstellen"
-    printf "\t%-30b # %s\n" "${COLOR_OK}opensimcopy${COLOR_RESET}" "OpenSim kopieren/upgraden"
-    printf "\t%-30b # %s\n" "${COLOR_OK}database_setup${COLOR_RESET}" "SQL Datenbanken erstellen"
-    printf "\t%-30b # %s\n" "${COLOR_OK}setcrontab${COLOR_RESET}" "Crontab Automatisierungen erstellen"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}opensimupgrade${COLOR_RESET}" "OpenSim aktualisieren"
-    echo " "
+    # System-Checks & Setup
+    echo -e "${COLOR_SECTION}${SYM_TOOLS} System-Checks & Setup:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}servercheck${COLOR_RESET}\t\t# Installiert und Prüft den Server"
+    echo -e "\t${COLOR_OK}createdirectory${COLOR_RESET}\t\t# Erstellt alle benötigten Verzeichnisse"
+    echo -e "\t${COLOR_OK}setcrontab${COLOR_RESET}\t\t# Richtet Crontab ein damit der Server wartungsfrei laeuft"
+    echo ""
 
-    # Git Downloads
-    printf "%b\n" "${COLOR_SERVER}Git Downloads:${COLOR_RESET}"
-    printf "\t%-30b # %s\n" "${COLOR_OK}opensimgitcopy${COLOR_RESET}" "OpenSim herunterladen"
-    printf "\t%-30b # %s\n" "${COLOR_OK}moneygitcopy${COLOR_RESET}" "MoneyServer herunterladen"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}ruthrothgit${COLOR_RESET}" "Ruth Roth als IAR ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}avatarassetsgit${COLOR_RESET}" "Ruth Roth Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    printf "\t%-30b # %s\n" "${COLOR_OK}osslscriptsgit${COLOR_RESET}" "OSSL Beispiel-Skripte ${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}pbrtexturesgit${COLOR_RESET}" "PBR Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}downloadallgit${COLOR_RESET}" "Alle Git-Repos herunterladen"
-    printf "\t%-30b # %s\n" "${COLOR_OK}versionrevision${COLOR_RESET}" "Versionsrevision auf Expanded setzen"
-    echo " "
+    # Git-Operationen
+    echo -e "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}opensimgitcopy${COLOR_RESET}\t\t# Klont den OpenSim Code"
+    echo -e "\t${COLOR_OK}moneygitcopy${COLOR_RESET}\t\t# Baut den MoneyServer in den OpenSimulator ein"
+    #echo -e "\t${COLOR_OK}osslscriptsgit${COLOR_RESET}\t\t# Klont OSSL-Skripte"
+    #echo -e "\t${COLOR_OK}versionrevision${COLOR_RESET}\t\t# Setzt Versionsrevision"
+    echo ""
 
-    # Konfiguration
-    #printf "%b\n" "${COLOR_SERVER}Konfigurationsmanagement:${COLOR_RESET}"
+    # OpenSim Build & Deploy
+    echo -e "${COLOR_SECTION}${SYM_FOLDER} OpenSim Build & Deploy:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}opensimbuild${COLOR_RESET}\t\t# Kompiliert OpenSim zu ausführbaren Dateien"
+    echo -e "\t${COLOR_OK}opensimcopy${COLOR_RESET}\t\t# Kopiert OpenSim in alle Verzeichnisse"
+    #echo -e "\t${COLOR_OK}opensimupgrade${COLOR_RESET}\t\t# Upgradet OpenSim"
+    echo -e "\t${COLOR_OK}database_setup${COLOR_RESET}\t\t# Erstellt alle Datenbanken"
+    echo ""
 
-    #printf "\t%-30b # %s\n" "${COLOR_OK}regionsiniconfig${COLOR_RESET}" "Regionen konfigurieren"
+    # Konfigurationsmanagement
+    #echo -e "${COLOR_SECTION}${SYM_CONFIG} Konfigurationsmanagement:${COLOR_RESET}"
+    #echo -e "\t${COLOR_WARNING}moneyserveriniconfig${COLOR_RESET}\t# Konfiguriert MoneyServer.ini (experimentell)"
+    #echo -e "\t${COLOR_WARNING}opensiminiconfig${COLOR_RESET}\t# Konfiguriert OpenSim.ini (experimentell)"
+    #echo -e "\t${COLOR_WARNING}regionsiniconfig${COLOR_RESET}\t# Konfiguriert Regionen (experimentell)"
+    #echo ""
 
-
-    #printf "\t%-30b # %s\n" "${COLOR_OK}generate_name${COLOR_RESET}" "Zufälligen Namen generieren"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}clean_config${COLOR_RESET}" "Konfigurationsdatei bereinigen"
-    #echo " "
-
-    # INI-Operationen
-    #printf "%b\n" "${COLOR_SERVER}INI-Datei Operationen:${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}verify_ini_section${COLOR_RESET}" "INI-Abschnitt verifizieren"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}verify_ini_key${COLOR_RESET}" "INI-Schlüssel verifizieren"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}add_ini_section${COLOR_RESET}" "INI-Abschnitt hinzufügen"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}set_ini_key${COLOR_RESET}" "INI-Schlüssel setzen"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}del_ini_section${COLOR_RESET}" "INI-Abschnitt löschen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}uncomment_ini_line${COLOR_RESET}" "INI-Zeile entkommentieren"
-    #echo " "
-
-    # XML-Operationen
-    #printf "%b\n" "${COLOR_SERVER}XML-Datei Operationen:${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}verify_xml_section${COLOR_RESET}" "XML-Abschnitt verifizieren"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}add_xml_section${COLOR_RESET}" "XML-Abschnitt hinzufügen"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}del_xml_section${COLOR_RESET}" "XML-Abschnitt löschen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    #echo " "
-
-    # Autokonfiguration
-    printf "%b\n" "${COLOR_SERVER}KONFIGURATIONS-MGMT AUTOKONFIGURATION:${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}moneyserveriniconfig${COLOR_RESET}           # Konfiguriert MoneyServer.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}opensiminiconfig${COLOR_RESET}               # Konfiguriert OpenSim.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}robusthginiconfig${COLOR_RESET}              # Konfiguriert Robust.HG.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}robustiniconfig${COLOR_RESET}                # Konfiguriert Robust.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}gridcommoniniconfig${COLOR_RESET}            # Erstellt GridCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}standalonecommoniniconfig${COLOR_RESET}      # Erstellt StandaloneCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}flotsaminiconfig${COLOR_RESET}               # Erstellt FlotsamCache.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}osslenableiniconfig${COLOR_RESET}            # Konfiguriert osslEnable.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}welcomeiniconfig${COLOR_RESET}               # Konfiguriert Begrüßungsregion ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}regionsiniconfig${COLOR_RESET}               # Startet neue Regionen-Konfigurationen ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    printf "%b\n" "\t${COLOR_WARNING}iniconfig${COLOR_RESET}                      # Startet ALLE Konfigurationen ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    echo " "
-
-
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}configure_pbr_textures${COLOR_RESET}" "PBR-Texturen (experimentell)"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}configure_example_ini${COLOR_RESET}" "Beispiel-INI (experimentell)"
-    #echo " "
-
-    # Standalone-Modus
-    #printf "%b\n" "${COLOR_SERVER}Standalone-Modus:${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}standalone${COLOR_RESET}" "Standalone-Menü"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}standalonestart${COLOR_RESET}" "Standalone starten"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}standalonestop${COLOR_RESET}" "Standalone stoppen"
-    #printf "\t%-30b # %s\n" "${COLOR_OK}standalonerestart${COLOR_RESET}" "Standalone neustarten"
-    #echo " "
-
-    # Bereinigung
-    printf "%b\n" "${COLOR_SERVER}OpenSim Grid Bereinigen:${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}dataclean${COLOR_RESET}" "Alte Dateien löschen ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}pathclean${COLOR_RESET}" "Alte Verzeichnisse löschen ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
-    printf "\t%-30b # %s\n" "${COLOR_OK}cacheclean${COLOR_RESET}" "Cache bereinigen"
-    printf "\t%-30b # %s\n" "${COLOR_OK}logclean${COLOR_RESET}" "Logs löschen"
-    printf "\t%-30b # %s\n" "${COLOR_OK}mapclean${COLOR_RESET}" "Maptiles löschen"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}autoallclean${COLOR_RESET}" "Komplettbereinigung ${COLOR_BAD}(⚡ Neuinstallation)${COLOR_RESET}"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}regionsclean${COLOR_RESET}" "Regionen löschen"
-    #printf "\t%-30b # %s\n" "${COLOR_WARNING}cleanall${COLOR_RESET}" "Alles bereinigen ${COLOR_BAD}(⚡ Gefährlich)${COLOR_RESET}"
-    printf "\t%-30b # %s\n" "${COLOR_OK}renamefiles${COLOR_RESET}" "Umbenennung aller *.example Dateien"
-    echo " "
-
-    # System
-    printf "%b\n" "${COLOR_SERVER}Systembefehle:${COLOR_RESET}"
-    printf "\t%-30b # %s\n" "${COLOR_OK}reboot${COLOR_RESET}" "Server neustarten"
-    echo " "
+    # Systembereinigung
+    echo -e "${COLOR_SECTION}${SYM_CLEAN} Systembereinigung:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}cacheclean${COLOR_RESET}\t\t# Bereinigt Cache"
+    echo -e "\t${COLOR_OK}logclean${COLOR_RESET}\t\t# Bereinigt Logs"
+    echo -e "\t${COLOR_OK}mapclean${COLOR_RESET}\t\t# Bereinigt Maptiles"
+    #echo -e "\t${COLOR_OK}clean_linux_logs${COLOR_RESET}\t# Bereinigt Systemlogs"
+    echo ""
 
     # Hilfe
-    printf "%b\n" "${COLOR_SERVER}Hilfen:${COLOR_RESET}"
-    printf "\t%-30b # %s\n" "${COLOR_OK}help${COLOR_RESET}" "Diese Hilfeseite"
-    echo " "
+    echo -e "${COLOR_SECTION}${SYM_INFO} Hilfe:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}help${COLOR_RESET}\t\t\t# Zeigt diese Hilfe"
+    echo -e "\t${COLOR_OK}prohelp${COLOR_RESET}\t\t\t# Zeigt die Pro Hilfe"
+    echo ""
 }
 
+function prohelp() {
+    #* OpenSim Grundbefehle
+    echo -e "${COLOR_SECTION}${SYM_SERVER} OpenSim Grundbefehle:${COLOR_RESET}"
+    echo -e "\t${COLOR_START}opensimstart${COLOR_RESET} \t\t\t # OpenSim starten"
+    echo -e "\t${COLOR_STOP}opensimstop${COLOR_RESET} \t\t\t # OpenSim stoppen"
+    echo -e "\t${COLOR_START}opensimrestart${COLOR_RESET} \t\t\t # OpenSim neu starten"
+    echo -e "\t${COLOR_OK}check_screens${COLOR_RESET} \t\t\t # Laufende OpenSim-Prozesse prüfen und neu starten"
+    echo " "
+
+    #* System-Checks & Setup
+    echo -e "${COLOR_SECTION}${SYM_TOOLS} System-Checks & Setup:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}servercheck${COLOR_RESET} \t\t\t # Serverbereitschaft prüfen und Abhängigkeiten installieren"
+    echo -e "\t${COLOR_OK}createdirectory${COLOR_RESET} \t\t # OpenSim-Verzeichnisse erstellen"
+    echo -e "\t${COLOR_OK}setcrontab${COLOR_RESET} \t\t\t # Crontab Automatisierungen einrichten"
+    echo " "
+
+    #* Git-Operationen
+    echo -e "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}opensimgitcopy${COLOR_RESET} \t\t\t # OpenSim aus Git herunterladen"
+    echo -e "\t${COLOR_OK}moneygitcopy${COLOR_RESET} \t\t\t # MoneyServer aus Git holen"
+    echo -e "\t${COLOR_WARNING}ruthrothgit${COLOR_RESET} \t\t\t # Ruth Roth IAR Dateien ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}avatarassetsgit${COLOR_RESET} \t\t # Avatar-Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}osslscriptsgit${COLOR_RESET} \t\t\t # OSSL Beispielskripte herunterladen"
+    echo -e "\t${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} \t\t\t # PBR-Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}downloadallgit${COLOR_RESET} \t\t\t # Alle Git-Repos herunterladen"
+    echo -e "\t${COLOR_OK}versionrevision${COLOR_RESET} \t\t # Versionsverwaltung aktivieren"
+    echo " "
+
+    #* OpenSim Build & Deployment
+    echo -e "${COLOR_SECTION}${SYM_FOLDER} OpenSim Build & Deploy:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}opensimbuild${COLOR_RESET} \t\t\t # OpenSim kompilieren"
+    echo -e "\t${COLOR_OK}opensimcopy${COLOR_RESET} \t\t\t # OpenSim Dateien kopieren"
+    echo -e "\t${COLOR_OK}opensimupgrade${COLOR_RESET} \t\t\t # OpenSim aktualisieren"
+    echo -e "\t${COLOR_OK}database_setup${COLOR_RESET} \t\t\t # Datenbank für OpenSim einrichten"
+    echo " "
+
+    #* Konfigurationsmanagement
+    echo -e "${COLOR_SECTION}${SYM_CONFIG} Konfigurationsmanagement:${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}moneyserveriniconfig${COLOR_RESET} \t\t # Konfiguriert MoneyServer.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}opensiminiconfig${COLOR_RESET} \t\t # Konfiguriert OpenSim.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}robusthginiconfig${COLOR_RESET} \t\t # Konfiguriert Robust.HG.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}robustiniconfig${COLOR_RESET} \t\t # Konfiguriert Robust.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}gridcommoniniconfig${COLOR_RESET} \t\t # Erstellt GridCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}standalonecommoniniconfig${COLOR_RESET} \t # Erstellt StandaloneCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}flotsaminiconfig${COLOR_RESET} \t\t # Erstellt FlotsamCache.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}osslenableiniconfig${COLOR_RESET} \t\t # Konfiguriert osslEnable.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}welcomeiniconfig${COLOR_RESET} \t\t # Konfiguriert Begrüßungsregion ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}regionsiniconfig${COLOR_RESET} \t\t # Startet neue Regionen-Konfigurationen ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}iniconfig${COLOR_RESET} \t\t\t # Startet ALLE Konfigurationen ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo " "
+
+    #* XML & INI-Operationen
+    echo -e "${COLOR_SECTION}${SYM_SCRIPT} INI-Operationen:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}verify_ini_section${COLOR_RESET} \t\t # INI-Abschnitt verifizieren"
+    echo -e "\t${COLOR_OK}verify_ini_key${COLOR_RESET} \t\t\t # INI-Schlüssel verifizieren"
+    echo -e "\t${COLOR_OK}add_ini_section${COLOR_RESET} \t\t # INI-Abschnitt hinzufügen"
+    echo -e "\t${COLOR_OK}set_ini_key${COLOR_RESET} \t\t\t # INI-Schlüssel setzen"
+    echo -e "\t${COLOR_WARNING}del_ini_section${COLOR_RESET} \t\t # INI-Abschnitt löschen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo " "
+
+    #* XML-Operationen
+    echo -e "${COLOR_SECTION}${SYM_SCRIPT} XML-Operationen:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}verify_xml_section${COLOR_RESET} \t\t # XML-Abschnitt verifizieren"
+    echo -e "\t${COLOR_OK}add_xml_section${COLOR_RESET} \t\t # XML-Abschnitt hinzufügen"
+    echo -e "\t${COLOR_WARNING}del_xml_section${COLOR_RESET} \t\t # XML-Abschnitt löschen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    echo " "
+
+    #* System-Bereinigung
+    echo -e "${COLOR_SECTION}${SYM_CLEAN} Systembereinigung:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}reboot${COLOR_RESET} \t\t\t\t # Server neu starten"
+    echo -e "\t${COLOR_OK}cacheclean${COLOR_RESET} \t\t\t # Cache bereinigen"
+    echo -e "\t${COLOR_OK}logclean${COLOR_RESET} \t\t\t # Logs bereinigen"
+    echo -e "\t${COLOR_OK}mapclean${COLOR_RESET} \t\t\t # Maptiles bereinigen"
+    echo -e "\t${COLOR_OK}renamefiles${COLOR_RESET} \t\t\t # Beispieldateien umbenennen"
+    echo -e "\t${COLOR_OK}clean_linux_logs${COLOR_RESET} \t\t # Linux-Logs bereinigen"
+    echo " "
+
+    #* Hilfe
+    echo -e "${COLOR_SECTION}${SYM_INFO} Hilfe:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}help${COLOR_RESET} \t\t\t\t # Diese Hilfeseite anzeigen"
+    echo " "
+}
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Eingabeauswertung
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 case $KOMMANDO in
+    # Allgemeine Befehle #
+    check_screens)             check_screens ;;
+    start|opensimstart)        opensimstart ;;
+    stop|opensimstop)          opensimstop ;;
+    osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
+
     #  SYSTEM-CHECKS & SETUP  #
     servercheck)       servercheck ;;
     createdirectory)   createdirectory ;;
     setcrontab)        setcrontab ;;
-    check_screens)     check_screens ;;
-
-    #  DATENBANK-MANAGEMENT   #
-    database_setup)    database_setup ;;
-
+   
     #  GIT-OPERATIONEN       #
     opensimgitcopy|opensimgit)  opensimgitcopy ;;
     moneygitcopy|moneygit)      moneygitcopy ;;
@@ -2681,9 +2721,9 @@ case $KOMMANDO in
     opensimbuild)      opensimbuild ;;
     opensimcopy)       opensimcopy ;;
     opensimupgrade)    opensimupgrade ;;
+    database_setup)    database_setup ;;
 
     #  KONFIGURATIONS-MGMT AUTOKONFIGURATION    #
-    # Neue Konfigurationen:
     moneyserveriniconfig)       moneyserveriniconfig "$2" "$3" ;;
     opensiminiconfig)           opensiminiconfig "$2" "$3" ;;
     robusthginiconfig)          robusthginiconfig "$2" "$3" ;;
@@ -2695,13 +2735,11 @@ case $KOMMANDO in
     welcomeiniconfig)           welcomeiniconfig "$2" "$3" ;;
     database_set_iniconfig)     database_set_iniconfig ;;
     regionsiniconfig)           regionsiniconfig ;; # Alle neuen Konfigurationen starten.
-
     generatename|generate_name) generate_name ;;
     cleanconfig)                clean_config "$2" ;;
 
     #  Experimental            #
     configure_pbr_textures) configure_pbr_textures ;;
-    configure_example_ini) configure_example_ini ;;
 
     #  INI-OPERATIONEN        #
     verify_ini_section)    verify_ini_section "$2" "$3" "$4" ;;
@@ -2716,12 +2754,7 @@ case $KOMMANDO in
     #  XML-OPERATIONEN        #
     verify_xml_section)    verify_xml_section "$2" "$3" ;;
     add_xml_section)       add_xml_section "$2" "$3" "$4" ;;
-    del_xml_section)       del_xml_section "$2" "$3" ;;
-    
-    #  OPENSIM-STEUERUNG      #
-    start|opensimstart)        opensimstart ;;
-    stop|opensimstop)          opensimstop ;;
-    osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
+    del_xml_section)       del_xml_section "$2" "$3" ;;  
 
     #  STANDALONE-MODUS       #
     standalone)        standalone ;;
@@ -2744,6 +2777,7 @@ case $KOMMANDO in
     clean_linux_logs)  clean_linux_logs ;;
 
     #  HILFE & SONSTIGES      #
+    prohelp)           prohelp ;;
     h|help|hilfe|*)   help ;;
 esac
 
