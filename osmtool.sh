@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.63.191"
+VERSION="V25.4.63.192"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1943,11 +1943,19 @@ function gridcommoniniconfig() {
             # Erstellt neue GridCommon.ini mit [Const]-Werten
             cat > "$file" <<EOF
 [Const]
+
     BaseHostname = "$ip"
     BaseURL = "http://$ip"
-    PublicPort = "8000"
+
+    ; The public port of the Robust server
+    PublicPort = "8002"
+
+    ; The private port of the Robust server
     PrivatePort = "8003"
+
     PrivURL = "http://$ip"
+
+
 EOF
 
             # Hängt Inhalt der .example-Datei an (wenn vorhanden)
