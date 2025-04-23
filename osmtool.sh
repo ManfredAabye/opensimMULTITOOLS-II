@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.63.181"
+VERSION="V25.4.63.191"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -219,6 +219,7 @@ function opensimstart() {
             sleep $Simulator_Start_wait
         fi
     done
+    echo "OpenSim starten abgeschlossen."
     blankline
 }
 
@@ -253,6 +254,7 @@ function opensimstop() {
     else
         echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
     fi
+     echo "OpenSim stoppen abgeschlossen."
     blankline
 }
 
@@ -1265,62 +1267,6 @@ function add_ini_section() {
     fi
 }
 
-# function set_ini_key() {
-#     local file="$1" section="$2" key="$3" value="$4"
-#     local temp_file
-#     temp_file=$(mktemp) || {
-#         echo -e "${COLOR_BAD}Fehler beim Erstellen der temporären Datei${COLOR_RESET}" >&2
-#         return 1
-#     }
-
-#     awk -v section="[$section]" -v key="$key" -v value="$value" '
-#     BEGIN { in_section = 0; key_set = 0 }
-#     {
-#         if ($0 == section) {
-#             print
-#             in_section = 1
-#             next
-#         }
-
-#         if (in_section && /^\[/) {
-#             if (!key_set) {
-#                 printf "%s=%s\n", key, value
-#                 key_set = 1
-#             }
-#             in_section = 0
-#         }
-
-#         if (in_section && $0 ~ "^[[:blank:]]*" key "[[:blank:]]*=") {
-#             printf "%s=%s\n", key, value
-#             key_set = 1
-#             next
-#         }
-
-#         print
-#     }
-#     END {
-#         if (in_section && !key_set) {
-#             # Key fehlt, am Ende der Sektion einfügen
-#             printf "%s=%s\n", key, value
-#         } else if (!key_set) {
-#             # Sektion existiert nicht, am Ende anfügen
-#             printf "\n[%s]\n%s=%s\n", section, key, value
-#         }
-#     }' "$file" > "$temp_file" || {
-#         echo -e "${COLOR_BAD}AWK-Verarbeitung fehlgeschlagen${COLOR_RESET}" >&2
-#         rm -f "$temp_file"
-#         return 1
-#     }
-
-#     if ! mv "$temp_file" "$file"; then
-#         echo -e "${COLOR_BAD}Konnte Datei ${COLOR_FILE}${file}${COLOR_RESET} nicht aktualisieren" >&2
-#         return 1
-#     fi
-
-#     echo -e "${COLOR_OK}Gesetzt: ${COLOR_KEY}${key}=${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
-#     return 0
-# }
-
 function set_ini_key() {
     local file="$1" section="$2" key="$3" value="$4"
     local temp_file
@@ -1383,58 +1329,6 @@ function set_ini_key() {
     echo -e "${COLOR_OK}Gesetzt: ${COLOR_KEY}${key} = ${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
     return 0
 }
-
-
-# function add_ini_key() {
-#     # todo: Vor und nach dem = Zeichen ein Leerzeichen einfügen.
-#     local file="$1" section="$2" key="$3" value="$4"
-#     local temp_file
-#     temp_file=$(mktemp) || { 
-#         echo -e "${COLOR_BAD}Failed to create temp file${COLOR_RESET}" >&2
-#         return 1
-#     }
-
-#     # Verarbeitung mit awk
-#     if ! awk -v section="[${section}]" -v key="$key" -v value="$value" '
-#         BEGIN { in_section = 0; modified = 0 }
-#         $0 == section { in_section = 1; print; next }
-#         in_section && /^\[/ { 
-#             # Neue Sektion beginnt, Key einfügen
-#             printf "%s=%s\n\n", key, value
-#             modified = 1
-#             in_section = 0
-#         }
-#         in_section && $0 ~ "^[[:blank:]]*" key "=" {
-#             # Existierenden Key ersetzen (ignoriert führende Leerzeichen/Tabs)
-#             printf "%s=%s\n", key, value
-#             modified = 1
-#             in_section = 0
-#             next
-#         }
-#         { print }
-#         END {
-#             if (!modified && in_section) {
-#                 # Am Ende der Sektion einfügen
-#                 printf "%s=%s\n", key, value
-#             } else if (!modified) {
-#                 # Neue Sektion am Dateiende
-#                 printf "\n[%s]\n%s=%s\n", section, key, value
-#             }
-#         }
-#     ' "$file" > "$temp_file"; then
-#         echo -e "${COLOR_BAD}AWK processing failed${COLOR_RESET}" >&2
-#         rm -f "$temp_file"
-#         return 1
-#     fi
-
-#     if ! mv "$temp_file" "$file"; then
-#         echo -e "${COLOR_BAD}Failed to update ${COLOR_FILE}${file}${COLOR_RESET}" >&2
-#         return 1
-#     fi
-
-#     echo -e "${COLOR_OK}Set ${COLOR_KEY}${key}=${COLOR_VALUE}${value}${COLOR_OK} in [${section}]${COLOR_RESET}"
-#     return 0
-# }
 
 # Datei, section [section], Key = Value
 function add_ini_key() {
@@ -1558,12 +1452,91 @@ function uncomment_ini_line() {
     fi
 }
 
+function uncomment_ini_section_line() {
+    local file="$1"
+    local section="$2"
+    local search_key="$3"
+
+    # Sicherheitsprüfungen
+    [ ! -f "$file" ] && { echo -e "${COLOR_BAD}Datei nicht gefunden: ${file}${COLOR_RESET}" >&2; return 1; }
+    [ -z "$section" ] && { echo -e "${COLOR_BAD}Sektion darf nicht leer sein${COLOR_RESET}" >&2; return 1; }
+    [ -z "$search_key" ] && { echo -e "${COLOR_BAD}Suchschlüssel darf nicht leer sein${COLOR_RESET}" >&2; return 1; }
+
+    # Temporäre Datei erstellen
+    local temp_file
+    temp_file=$(mktemp) || { echo -e "${COLOR_BAD}Temp-Datei konnte nicht erstellt werden${COLOR_RESET}" >&2; return 1; }
+
+    # Entkommentieren der Zeile in der richtigen Sektion
+    awk -v section="[$section]" -v key="$search_key" '
+    BEGIN { in_section = 0 }
+    $0 ~ "^\\[" section "\\]" { in_section = 1; print; next }
+    in_section && /^\[/ { in_section = 0 } # Sektion beendet
+    in_section && /^[[:space:]]*;[[:space:]]*"key"[[:space:]]*=[[:space:]]*/ {
+        sub(/^[[:space:]]*;/, "", $0)
+    }
+    { print }
+    ' "$file" > "$temp_file" || {
+        rm -f "$temp_file"
+        echo -e "${COLOR_BAD}AWK-Verarbeitung fehlgeschlagen${COLOR_RESET}" >&2
+        return 1
+    }
+
+    # Originaldatei ersetzen
+    if mv "$temp_file" "$file"; then
+        echo -e "${COLOR_OK}Zeile '${search_key}' in Sektion '${section}' erfolgreich entkommentiert${COLOR_RESET}"
+        return 0
+    else
+        echo -e "${COLOR_BAD}Datei konnte nicht aktualisiert werden${COLOR_RESET}" >&2
+        return 1
+    fi
+}
+
+function comment_ini_line() {
+    local file="$1"
+    local section="$2"
+    local search_key="$3"
+
+    # Sicherheitsprüfungen
+    [ ! -f "$file" ] && { echo -e "${COLOR_BAD}Datei nicht gefunden: ${file}${COLOR_RESET}" >&2; return 1; }
+    [ -z "$section" ] && { echo -e "${COLOR_BAD}Sektion darf nicht leer sein${COLOR_RESET}" >&2; return 1; }
+    [ -z "$search_key" ] && { echo -e "${COLOR_BAD}Suchschlüssel darf nicht leer sein${COLOR_RESET}" >&2; return 1; }
+
+    # Temporäre Datei erstellen
+    local temp_file
+    temp_file=$(mktemp) || { echo -e "${COLOR_BAD}Temp-Datei konnte nicht erstellt werden${COLOR_RESET}" >&2; return 1; }
+
+    # Zeile in der richtigen Sektion kommentieren
+    awk -v section="[$section]" -v key="$search_key" '
+    BEGIN { in_section = 0 }
+    $0 ~ "^\\[" section "\\]" { in_section = 1; print; next }
+    in_section && /^\[/ { in_section = 0 }
+    in_section && $0 ~ key {
+        # Einfach Semikolon vor die Zeile setzen
+        print ";" $0
+        next
+    }
+    { print }
+    ' "$file" > "$temp_file" || {
+        rm -f "$temp_file"
+        echo -e "${COLOR_BAD}AWK-Verarbeitung fehlgeschlagen${COLOR_RESET}" >&2
+        return 1
+    }
+
+    # Originaldatei ersetzen
+    if mv "$temp_file" "$file"; then
+        echo -e "${COLOR_OK}Zeile '${search_key}' in Sektion '${section}' erfolgreich kommentiert${COLOR_RESET}"
+        return 0
+    else
+        echo -e "${COLOR_BAD}Datei konnte nicht aktualisiert werden${COLOR_RESET}" >&2
+        return 1
+    fi
+}
+
 #* #################################################################################################
 
 function database_set_iniconfig() {
     local password_file="${SCRIPT_DIR}/mariadb_passwords.txt"
-    local section="DatabaseService"
-    echo "Fehlersuche 1"
+    local section="DatabaseService"    
 
     # Zugangsdaten auslesen
     local db_user db_pass
@@ -1688,9 +1661,10 @@ function moneyserveriniconfig() {
 
 # Konfiguriert OpenSim.ini für alle sim1 bis sim99-Verzeichnisse
 function opensiminiconfig() {
+    # 23.04.2025
     local ip="$1"
     local gridname="$2"
-    local base_port=9000
+    local base_port=9010
     local sim_counter=1
 
     # Iteration über alle sim1 bis sim99 Verzeichnisse
@@ -1713,14 +1687,16 @@ function opensiminiconfig() {
 
             # Werte setzen
             # [Const]
-            set_ini_key "$file" "Const" "BaseHostname" "$ip"
-            set_ini_key "$file" "Const" "PublicPort" "$public_port"
+            set_ini_key "$file" "Const" "BaseHostname" "$ip"            
+            set_ini_key "$file" "Const" "PublicPort" "8002"
             # [Startup]
 
             # [Estates]
             uncomment_ini_line "$file" "DefaultEstateOwnerUUID"
 
             # [Network]
+            # http_listener_port = 9010
+            uncomment_ini_section_line "$file" "Network" "http_listener_port"
             set_ini_key "$file" "Network" "http_listener_port" "$public_port"
 
             # [SimulatorFeatures]
@@ -1814,6 +1790,7 @@ function opensiminiconfig() {
 
 # Konfiguration von Robust.HG.ini im robust/bin Verzeichnis
 function robusthginiconfig() {
+    # 23.04.2025
     local ip="$1"
     local gridname="$2"
     local dir="$SCRIPT_DIR/robust/bin"
@@ -1846,8 +1823,11 @@ function robusthginiconfig() {
     
     # [GridService] für osWebinterface
     # Der Regionsname wird von welcomeiniconfig geschrieben.
+    uncomment_ini_line "$file" "MapTileDirectory"
+
     
     # [LoginService] für osWebinterface etc.
+    set_ini_key "$file" "LoginService" "Currency" "OS$"
     # ; SearchURL = "${Const|BaseURL}:${Const|PublicPort}/";
     # ; DestinationGuide = "${Const|BaseURL}/guide"
     # ; AvatarPicker = "${Const|BaseURL}/avatars"
@@ -1945,8 +1925,9 @@ EOF
     done
 }
 
-# Erstellt GridCommon.ini mit [Const]-Sektion zuerst, dann Inhalt aus .example-Datei
+Erstellt GridCommon.ini mit [Const]-Sektion zuerst, dann Inhalt aus .example-Datei
 function gridcommoniniconfig() {
+    # 23.04.2025
     local ip="$1"
     local gridname="$2"
 
@@ -1962,23 +1943,34 @@ function gridcommoniniconfig() {
             # Erstellt neue GridCommon.ini mit [Const]-Werten
             cat > "$file" <<EOF
 [Const]
-BaseHostname = "$ip"
-BaseURL = "http://$ip"
-PublicPort = "9000"
-PrivatePort = "9003"
-PrivURL = "http://$ip:9003"
+    BaseHostname = "$ip"
+    BaseURL = "http://$ip"
+    PublicPort = "8000"
+    PrivatePort = "8003"
+    PrivURL = "http://$ip"
 EOF
 
             # Hängt Inhalt der .example-Datei an (wenn vorhanden)
             if [[ -f "$example_file" ]]; then
-                echo -e "\n# --- Inhalte aus .example Datei ---\n" >> "$file"
+                #echo -e "\n# --- Inhalte aus .example Datei ---\n" >> "$file"
                 cat "$example_file" >> "$file"
             fi
 
-            echo -e "${COLOR_OK}→ GridCommon.ini erstellt in sim$i${COLOR_RESET}"
+            # Weitere Einstellungen:
+            #echo "Weitere Einstellungen: $file"
+            # [DatabaseService]
+            # comment_ini_line "$file" "DatabaseService" "Include-Storage"
+            sed -i '/^[[:space:]]*Include-Storage[[:space:]]*=.*/d' $file
+            set_ini_key "$file" "DatabaseService" "StorageProvider" "OpenSim.Data.MySQL.dll"
+
+            # [Hypergrid]
+            set_ini_key "$file" "Hypergrid" "GatekeeperURI" "\${Const|BaseURL}:\${Const|PublicPort}"
+
+            echo -e "${COLOR_OK}→ GridCommon.ini erstellt in sim$i${COLOR_RESET}"            
         fi
     done
 }
+
 
 # Erstellt osslEnable.ini komplett neu in allen simX/config-include Verzeichnissen
 function osslenableiniconfig() {
@@ -2049,11 +2041,26 @@ EOF
 
 # Hauptfunktion, fragt Benutzer nach IP & Gridnamen und ruft alle Teilfunktionen auf
 function iniconfig() {
-    echo "Wie ist Ihre IP oder DNS-Adresse?"
+    echo "Das Arbeitsverzeichnis ist: $SCRIPT_DIR"
+
+    echo "Wie ist Ihre IP oder DNS-Adresse? ($system_ip)"
     read -r ip
+
+    # Falls die IP leer bleibt, wird system_ip verwendet
+    if [[ -z "$ip" ]]; then
+        ip=$system_ip
+    fi
 
     echo "Wie heißt Ihr Grid?"
     read -r gridname
+
+    # Falls der Gridname leer bleibt, wird eine generierte Name verwendet
+    if [[ -z "$gridname" ]]; then
+        gridname=$(generate_name)
+    fi
+
+    echo "Verwendete IP: $ip"
+    echo "Gridname: $gridname"
 
     #! ⚠️ **Wichtige Sicherheitsinformation!**
     # Zur Kontrolle wird der Benutzername und das Passwort in der Datei:
@@ -2749,6 +2756,8 @@ case $KOMMANDO in
     add_ini_key)           add_ini_key "$2" "$3" "$4" "$5" ;;
     del_ini_section)       del_ini_section "$2" "$3" ;;
     uncomment_ini_line)    uncomment_ini_line "$2" "$3" ;;
+    uncomment_ini_section_line) uncomment_ini_section_line "$2" "$3" "$4" ;;
+    comment_ini_line)      comment_ini_line "$2" "$3" "$4" ;;
     iniconfig)             iniconfig ;;
 
     #  XML-OPERATIONEN        #
