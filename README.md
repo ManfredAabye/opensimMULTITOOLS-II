@@ -160,6 +160,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | Befehl | Beschreibung |  
 |--------|-------------|  
 | `help` | Die Hilfeseite anzeigen. |  
+| `prohelp` | Die Pro Hilfeseite anzeigen. | 
 
 ➔ [📖 Wiki Dokumentation](https://github.com/ManfredAabye/opensimMULTITOOLS-II/wiki)
 
@@ -167,7 +168,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## **📜 Lizenz & Nutzung**  
 - **Skriptname**: `osmtool.sh`  
-- **Version**: *V25.4.61.179*  
+- **Version**: *V25.4.63.181*  
 - **Autor**: *Manfred Aabye*  
 - **Lizenz**: *MIT*
 
