@@ -161,13 +161,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 |--------|-------------|  
 | `help` | Die Hilfeseite anzeigen. |  
 
-- [Wiki Dokumentation]([autoallclean](https://github.com/ManfredAabye/opensimMULTITOOLS-II/wiki))
-
-- [🔗 Zum Projekt-Wiki](https://github.com/ManfredAabye/opensimMULTITOOLS-II/wiki)
-
-- [Wiki](https://github.com/ManfredAabye/opensimMULTITOOLS-II/wiki)
-
-- [![Wiki](https://img.shields.io/badge/📖-Wiki-blue)](https://github.com/ManfredAabye/opensimMULTITOOLS-II/wiki)
+[![Wiki Dokumentation](https://img.shields.io/badge/📖-Wiki-blue)](https://github.com/ManfredAabye/opensimMULTITOOLS-II/wiki)
 
 ---
 
