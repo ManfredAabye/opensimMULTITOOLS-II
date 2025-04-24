@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.63.192"
+VERSION="V25.4.65.193"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1201,6 +1201,33 @@ function clean_linux_logs() {
     esac
 }
 
+function delete_opensim() {
+    echo -e "${COLOR_HEADING}🗺️ Das komplette löschen vom OpenSimulator wird durchgeführt...${COLOR_RESET}"
+
+    # Sicherheitsabfrage hinzufügen
+    read -rp "Sind Sie sicher, dass Sie ALLE OpenSimulator-Daten löschen möchten? (j/N) " answer
+    [[ ${answer,,} != "j" ]] && { echo "Abbruch."; return 1; }
+
+    # Robust-Verzeichnis sicher löschen
+    if [[ -d "robust" ]]; then
+        rm -rf -- "robust"  # Keine Wildcard mehr
+        echo -e "${SYM_OK} ${COLOR_ACTION}robust geleert${COLOR_RESET}"
+    fi
+
+    # Simulator-Verzeichnisse sicher löschen
+    for ((i=1; i<=999; i++)); do
+        local sim_dir="sim$i"
+        if [[ -d "$sim_dir" ]]; then
+            rm -rf -- "$sim_dir"  # Keine Wildcard mehr
+            echo -e "${SYM_OK} ${COLOR_ACTION}${COLOR_DIR}$sim_dir${COLOR_RESET} ${COLOR_ACTION}geleert${COLOR_RESET}"
+        fi
+    done
+
+    echo -e "${COLOR_HEADING}✅ Das komplette löschen vom OpenSimulator abgeschlossen${COLOR_RESET}"
+    blankline
+}
+
+
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Konfigurationen
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -1661,7 +1688,7 @@ function moneyserveriniconfig() {
 
 # Konfiguriert OpenSim.ini für alle sim1 bis sim99-Verzeichnisse
 function opensiminiconfig() {
-    # 23.04.2025
+    # 24.04.2025
     local ip="$1"
     local gridname="$2"
     local base_port=9010
@@ -1692,7 +1719,10 @@ function opensiminiconfig() {
             # [Startup]
 
             # [Estates]
+            set_ini_key "$file" "Estates" "DefaultEstateName" "$gridname Estate"
+            # DefaultEstateOwnerName = FirstName LastName
             uncomment_ini_line "$file" "DefaultEstateOwnerUUID"
+            # DefaultEstateOwnerPassword = password
 
             # [Network]
             # http_listener_port = 9010
@@ -1925,7 +1955,7 @@ EOF
     done
 }
 
-Erstellt GridCommon.ini mit [Const]-Sektion zuerst, dann Inhalt aus .example-Datei
+# Erstellt GridCommon.ini mit [Const]-Sektion zuerst, dann Inhalt aus .example-Datei
 function gridcommoniniconfig() {
     # 23.04.2025
     local ip="$1"
@@ -2232,7 +2262,6 @@ function generate_name() {
     echo "${adjectives[$RANDOM % 50]}${nouns[$RANDOM % 50]}$((RANDOM % 900 + 100))"
 }
 
-# Hauptfunktion
 function regionsiniconfig() {
     # Konstanten
     local center_x=4000
@@ -2254,12 +2283,6 @@ function regionsiniconfig() {
     local region_uuid
     local config_file
     declare -A used_locations  # Assoziatives Array für bereits verwendete Positionen
-
-    # Überprüfen, ob crudini installiert ist
-    if ! command -v crudini &> /dev/null; then
-        echo -e "\e[31mFehler: crudini ist nicht installiert. Bitte installieren Sie es zuerst.\e[0m" >&2
-        return 1
-    fi
 
     # Benutzereingabe
     echo "Wie viele Zufallsregionen sollen pro Simulator erstellt werden?"
@@ -2319,27 +2342,28 @@ function regionsiniconfig() {
                 region_uuid=$(generate_uuid)
                 config_file="${sim_dir}/${region_name}.ini"
                 
-                # Config-Datei mit crudini erstellen
-                crudini --set "$config_file" "$region_name" "RegionUUID" "$region_uuid"
-                crudini --set "$config_file" "$region_name" "Location" "$location"
-                crudini --set "$config_file" "$region_name" "SizeX" "256"
-                crudini --set "$config_file" "$region_name" "SizeY" "256"
-                crudini --set "$config_file" "$region_name" "SizeZ" "256"
-                crudini --set "$config_file" "$region_name" "InternalPort" "$port"
-                crudini --set "$config_file" "$region_name" "ExternalHostName" "$system_ip"
-                crudini --set "$config_file" "$region_name" "MaxPrims" "15000"
-                crudini --set "$config_file" "$region_name" "MaxAgents" "40"
-                crudini --set "$config_file" "$region_name" "MaptileStaticUUID" "$region_uuid"
-                crudini --set "$config_file" "$region_name" "InternalAddress" "0.0.0.0"
-                crudini --set "$config_file" "$region_name" "AllowAlternatePorts" "False"
-                crudini --set "$config_file" "$region_name" "NonPhysicalPrimMax" "512"
-                crudini --set "$config_file" "$region_name" "PhysicalPrimMax" "128"
-                
-                # Optionale Parameter als Kommentare
-                crudini --set "$config_file" "$region_name" ";RegionType" "Estate"
-                crudini --set "$config_file" "$region_name" ";MasterAvatarFirstName" "System"
-                crudini --set "$config_file" "$region_name" ";MasterAvatarLastName" "Admin"
-                crudini --set "$config_file" "$region_name" ";MasterAvatarSandboxPassword" "$(openssl rand -base64 12)"
+                # Komplette Config-Datei neu erstellen
+                cat > "$config_file" <<EOF
+[$region_name]
+RegionUUID = $region_uuid
+Location = $location
+SizeX = 256
+SizeY = 256
+SizeZ = 256
+InternalPort = $port
+ExternalHostName = $system_ip
+MaxPrims = 15000
+MaxAgents = 40
+MaptileStaticUUID = $region_uuid
+InternalAddress = 0.0.0.0
+AllowAlternatePorts = False
+NonPhysicalPrimMax = 512
+PhysicalPrimMax = 128
+;RegionType = Estate
+;MasterAvatarFirstName = System
+;MasterAvatarLastName = Admin
+;MasterAvatarSandboxPassword = $(openssl rand -base64 12)
+EOF
                 
                 echo -e "\e[36m ✓ ${region_name} (${location}, Port ${port})\e[0m" >&2
             done
@@ -2557,12 +2581,48 @@ function downloadallgit() {
     moneygitcopy
         #ruthrothgit        # Funktioniert nicht richtig.
         #avatarassetsgit    # Funktioniert nicht richtig.
-    osslscriptsgit
-    pbrtexturesgit
+    #osslscriptsgit
+    #pbrtexturesgit
     # Versionierung des OpenSimulators.
     versionrevision
     # OpenSimulator erstellen aus dem Source Code.
     opensimbuild
+}
+
+function autoinstall() {
+    # Server vorbereiten
+    servercheck
+
+    # Verzeichnisse erstellen
+    createdirectory
+
+    # mySQL installieren
+    database_setup
+
+    # Downloads aus dem Github hier OpenSim und Money.
+    opensimgitcopy
+    moneygitcopy
+
+    # Versionierung des OpenSimulators.
+    versionrevision
+
+    # OpenSimulator erstellen aus dem Source Code.
+    opensimbuild
+
+    # Kleine Pause
+    sleep $Simulator_Start_wait
+
+    # OpenSimulator kopieren
+    opensimcopy
+
+    # Alles konfigurieren
+    iniconfig
+
+    # Zufallsregionen erstellen
+    regionsiniconfig
+
+    # Alles starten
+    opensimrestart
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -2737,6 +2797,7 @@ case $KOMMANDO in
     opensimcopy)       opensimcopy ;;
     opensimupgrade)    opensimupgrade ;;
     database_setup)    database_setup ;;
+    autoinstall) autoinstall ;;
 
     #  KONFIGURATIONS-MGMT AUTOKONFIGURATION    #
     moneyserveriniconfig)       moneyserveriniconfig "$2" "$3" ;;
@@ -2792,6 +2853,7 @@ case $KOMMANDO in
     renamefiles)       renamefiles ;;
     colortest)         colortest ;;
     clean_linux_logs)  clean_linux_logs ;;
+    delete_opensim)    delete_opensim ;;
 
     #  HILFE & SONSTIGES      #
     prohelp)           prohelp ;;
