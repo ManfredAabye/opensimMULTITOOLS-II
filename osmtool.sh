@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.66.197"
+VERSION="V25.4.66.219"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1227,13 +1227,8 @@ function delete_opensim() {
     blankline
 }
 
-
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Konfigurationen
-#?──────────────────────────────────────────────────────────────────────────────────────────
-
-#?──────────────────────────────────────────────────────────────────────────────────────────
-#* Verifizierung von INI-Dateien
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 # [Abschnitt]
@@ -1355,9 +1350,7 @@ function add_ini_before_section() {
 }
 
 # Setzt den Wert des Keys in der gegebenen Sektion
-#
 #     bash osmtool.sh set_ini_key "test.ini" "Const" "GridSize" "256"
-#
 #     [Const]
 #     GridSize = 256
 #
@@ -1375,14 +1368,7 @@ function set_ini_key() {
     local key_escaped
     key_escaped=$(printf '%s\n' "$key" | sed 's/[]\/$*.^[]/\\&/g')
 
-    # awk-Script:
-    #   - BEGIN: in_section und key_set auf 0 setzen
-    #   - Wenn Sektion gefunden wird, in_section auf 1 setzen
-    #   - Wenn Sektion vorbei ist, in_section auf 0 setzen
-    #   - Wenn Key in der Sektion gefunden wird, key_set auf 1 setzen
-    #   - Wenn Key nicht gefunden, aber in_section == 1 ist, Key hinzufügen
-    #   - Wenn Key nicht gefunden und in_section == 0 ist, Sektion & Key hinzufügen
-    #   - Wenn Key_set == 0 ist, Key hinzufügen
+    # Verarbeitung mit awk
     awk -v section="[$section]" -v key="$key" -v value="$value" -v key_re="$key_escaped" '
     BEGIN { in_section = 0; key_set = 0 }
 
@@ -1638,9 +1624,20 @@ function comment_ini_line() {
     fi
 }
 
-#* #################################################################################################
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#* Konfigurationen der einzelnen Dienste
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
+# [Abschnitt]
+# 	Schlüssel = Wert
+# 	; Kommentar
+# [Section]
+# 	Key = Value
+# 	; Comment
+
+# Alle Datenbanken konfigurieren.
 function database_set_iniconfig() {
+    # 24.04.2025
     local password_file="${SCRIPT_DIR}/mariadb_passwords.txt"
     local section="DatabaseService"    
 
@@ -1684,47 +1681,56 @@ function database_set_iniconfig() {
     done
 }
 
-# welcomeiniconfig - Sets the Welcome_Area.ini
+# Welcome-Region konfigurieren wenn sie noch nicht existiert.
 function welcomeiniconfig() {
-    ip="$1"
+    # 25.04.2025
+    local ip="$1"
     local gridname="$2"
     
     local welcome_ini="${SCRIPT_DIR}/sim1/bin/Regions/$gridname.ini"
+    
+    # Überprüfen ob die Welcome-Region bereits existiert
+    if [[ -f "$welcome_ini" ]]; then
+        echo -e "${COLOR_INFO}Überspringe Erstellung der Welcome-Region: '$gridname.ini' existiert bereits${COLOR_RESET}"
+        # Vorsichtshalber Region in Robust-Konfigurationen eintragen.
+        set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "DefaultRegion, DefaultHGRegion"
+        set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.ini" "GridService" "Region_$gridname" "DefaultRegion"
+        return
+    fi
+    
     region_uuid=$(uuidgen)
     
-    cat > "$welcome_ini" << EOF
-[$gridname]
-RegionUUID = $region_uuid
-Location = 3000,3000
-SizeX = 256
-SizeY = 256
-SizeZ = 256
-InternalPort = 9010
-ExternalHostName = "$ip"
-MaxPrims = 15000
-MaxAgents = 40
-MaptileStaticUUID = $region_uuid
-InternalAddress = 0.0.0.0
-AllowAlternatePorts = False
-;NonPhysicalPrimMax = 512
-;PhysicalPrimMax = 128
-;MasterAvatarSandboxPassword = "$(openssl rand -base64 12)"
-;MasterAvatarLastName = Admin
-;MasterAvatarFirstName = System
-;RegionType = Estate
-EOF
+    # 1. Datei erstellen
+    touch "$welcome_ini"
+    
+    # 2. Sektion hinzufügen
+    add_ini_section "$welcome_ini" "$gridname"
+    
+    # 3. Alle Key-Value Paare setzen
+    set_ini_key "$welcome_ini" "$gridname" "RegionUUID" "$region_uuid"
+    set_ini_key "$welcome_ini" "$gridname" "Location" "3000,3000"
+    set_ini_key "$welcome_ini" "$gridname" "SizeX" "256"
+    set_ini_key "$welcome_ini" "$gridname" "SizeY" "256"
+    set_ini_key "$welcome_ini" "$gridname" "SizeZ" "256"
+    set_ini_key "$welcome_ini" "$gridname" "InternalPort" "9015"
+    set_ini_key "$welcome_ini" "$gridname" "ExternalHostName" "\"$ip\""
+    set_ini_key "$welcome_ini" "$gridname" "MaxPrims" "15000"
+    set_ini_key "$welcome_ini" "$gridname" "MaxAgents" "40"
+    set_ini_key "$welcome_ini" "$gridname" "MaptileStaticUUID" "$region_uuid"
+    set_ini_key "$welcome_ini" "$gridname" "InternalAddress" "0.0.0.0"
+    set_ini_key "$welcome_ini" "$gridname" "AllowAlternatePorts" "False"
 
-    # Namen in der Robust.HG.ini und Robust.ini einfügen: Region_Welcome_Area = "DefaultRegion, DefaultHGRegion".
-    set_ini_key "robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "DefaultRegion, DefaultHGRegion"
-    set_ini_key "robust/bin/Robust.ini" "GridService" "Region_$gridname" "DefaultRegion"
+    # 4. Region in Robust-Konfigurationen eintragen
+    set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "DefaultRegion, DefaultHGRegion"
+    set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.ini" "GridService" "Region_$gridname" "DefaultRegion"
 
-    clean_config "$welcome_ini"
-    echo "Welcome_Area.ini configuration completed"
+    echo -e "${COLOR_OK}Welcome_Area.ini Konfiguration abgeschlossen für $gridname${COLOR_RESET}"
     blankline
 }
 
 # Konfiguriert MoneyServer.ini im robust/bin Verzeichnis
 function moneyserveriniconfig() {
+    # 24.04.2025
     local ip="$1"
     local gridname="$2"
     
@@ -1993,32 +1999,39 @@ function robustiniconfig() {
     #web_profile_url = http://webprofilesurl:ItsPort?name=[AGENT_NAME]
 }
 
-# Erstellt FlotsamCache.ini komplett neu in allen simX/config-include Verzeichnissen
+# Konfiguriert die FlotsamCache.ini Dateien
+# - Erstellt die Dateien in den Ordner der Simulatoren
+# - Setzt die Parameter der FlotsamCache.ini Dateien
 function flotsaminiconfig() {
+    # 25.04.2025
     for i in $(seq 1 99); do
         local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
         local file="$config_dir/FlotsamCache.ini"
 
         if [[ -d "$config_dir" ]]; then
             echo -e "${COLOR_FILE}Erstelle $file${COLOR_RESET}"
-
             mkdir -p "$config_dir"
+            
+            # 1. Datei erstellen
+            touch "$file"
+            
+            # 2. Sektion hinzufügen
+            add_ini_section "$file" "AssetCache"
+            
+            # 3. Alle Key-Value Paare setzen
+            set_ini_key "$file" "AssetCache" "CacheDirectory" "./assetcache"
+            set_ini_key "$file" "AssetCache" "LogLevel" "0"
+            set_ini_key "$file" "AssetCache" "HitRateDisplay" "100"
+            set_ini_key "$file" "AssetCache" "MemoryCacheEnabled" "false"
+            set_ini_key "$file" "AssetCache" "UpdateFileTimeOnCacheHit" "false"
+            set_ini_key "$file" "AssetCache" "NegativeCacheEnabled" "true"
+            set_ini_key "$file" "AssetCache" "NegativeCacheTimeout" "120"
+            set_ini_key "$file" "AssetCache" "NegativeCacheSliding" "false"
+            set_ini_key "$file" "AssetCache" "FileCacheEnabled" "true"
+            set_ini_key "$file" "AssetCache" "MemoryCacheTimeout" ".016"
+            set_ini_key "$file" "AssetCache" "FileCacheTimeout" "48"
+            set_ini_key "$file" "AssetCache" "FileCleanupTimer" "1.0"
 
-            cat > "$file" <<EOF
-[AssetCache]
-CacheDirectory = ./assetcache
-LogLevel = 0
-HitRateDisplay = 100
-MemoryCacheEnabled = false
-UpdateFileTimeOnCacheHit = false
-NegativeCacheEnabled = true
-NegativeCacheTimeout = 120
-NegativeCacheSliding = false
-FileCacheEnabled = true
-MemoryCacheTimeout = .016
-FileCacheTimeout = 48
-FileCleanupTimer = 1.0
-EOF
             echo -e "${COLOR_OK}→ FlotsamCache.ini neu geschrieben für sim$i${COLOR_RESET}"
         fi
     done
@@ -2071,72 +2084,200 @@ function gridcommoniniconfig() {
     return 0
 }
 
-
 # Erstellt osslEnable.ini komplett neu in allen simX/config-include Verzeichnissen
 function osslenableiniconfig() {
+    # 25.04.2025
     for i in $(seq 1 99); do
         local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
         local file="$config_dir/osslEnable.ini"
 
         if [[ -d "$config_dir" ]]; then
             echo -e "${COLOR_FILE}Erstelle $file${COLOR_RESET}"
-
             mkdir -p "$config_dir"
+            
+            # 1. Datei erstellen
+            touch "$file"
+            
+            # 2. Sektion hinzufügen
+            add_ini_section "$file" "OSSL"
+            
+            # 3. Alle Key-Value Paare setzen
+            set_ini_key "$file" "OSSL" "AllowOSFunctions" "true"
+            set_ini_key "$file" "OSSL" "AllowMODFunctions" "true"
+            set_ini_key "$file" "OSSL" "AllowLightShareFunctions" "true"
+            set_ini_key "$file" "OSSL" "PermissionErrorToOwner" "false"
+            set_ini_key "$file" "OSSL" "OSFunctionThreatLevel" "VeryHigh"
+            set_ini_key "$file" "OSSL" "osslParcelO" "\"PARCEL_OWNER,\""
+            set_ini_key "$file" "OSSL" "osslParcelOG" "\"PARCEL_GROUP_MEMBER,PARCEL_OWNER,\""
+            set_ini_key "$file" "OSSL" "osslNPC" "\${OSSL|osslParcelOG}ESTATE_MANAGER,ESTATE_OWNER"
 
-            cat > "$file" <<EOF
-[OSSL]
-AllowOSFunctions = true
-AllowMODFunctions = true
-AllowLightShareFunctions = true
-PermissionErrorToOwner = false
-OSFunctionThreatLevel = High
-osslParcelO = "PARCEL_OWNER,"
-osslParcelOG = "PARCEL_GROUP_MEMBER,PARCEL_OWNER,"
-osslNPC = \${OSSL|osslParcelOG}ESTATE_MANAGER,ESTATE_OWNER
-EOF
+            # Einzeleinstellungen
+            set_ini_key "$file" "OSSL" "Allow_osSetDynamicTextureData" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetProjectionParams" "true"
+            set_ini_key "$file" "OSSL" "Allow_osTeleportOwner" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetSpeed" "true"
+            set_ini_key "$file" "OSSL" "Allow_osNpcCreate" "GROUP_UUID,ESTATE_MANAGER"
+            set_ini_key "$file" "OSSL" "Allow_osAvatarPlayAnimation" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osAvatarStopAnimation" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osForceDetachFromAvatar" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osForceOtherSit" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetRot" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+
             echo -e "${COLOR_OK}→ osslEnable.ini neu geschrieben für sim$i${COLOR_RESET}"
         fi
     done
 }
 
-# Erstellt StandaloneCommon.ini mit [Const] zuerst, dann .example-Inhalte, dann HG-Settings
+# Erstellt eine StandaloneCommon.ini
 function standalonecommoniniconfig() {
     local ip="$1"
     local gridname="$2"
 
-    for i in $(seq 1 99); do
-        local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
-        local file="$config_dir/StandaloneCommon.ini"
-        local example_file="$config_dir/StandaloneCommon.ini.example"
+    local config_dir="$SCRIPT_DIR/opensim/bin/config-include"
+    local file="$config_dir/StandaloneCommon.ini"
+    local example_file="$config_dir/StandaloneCommon.ini.example"
 
-        if [[ -d "$config_dir" ]]; then
-            mkdir -p "$config_dir"
+    echo -e "${COLOR_FILE}Erstelle StandaloneCommon.ini in opensim/bin${COLOR_RESET}"
+    mkdir -p "$config_dir"
 
-            # Erstellt neue StandaloneCommon.ini mit [Const]-Sektion
-            cat > "$file" <<EOF
-[Const]
-BaseHostname = "$ip"
-BaseURL = "http://$ip"
-PublicPort = "9000"
-PrivatePort = "9003"
-PrivURL = "http://$ip:9003"
-EOF
+    # 1. Datei erstellen
+    touch "$file"
 
-            # Hängt .example-Inhalte an, falls vorhanden
-            if [[ -f "$example_file" ]]; then
-                echo -e "\n# --- Inhalte aus .example Datei ---\n" >> "$file"
-                cat "$example_file" >> "$file"
-            fi
+    # 2. Const-Sektion hinzufügen
+    add_ini_section "$file" "Const"
 
-            # Fügt Hypergrid- und GridInfo-Werte danach ein
-            set_ini_key "$file" "Hypergrid" "GatekeeperURI" "http://$ip:8002"
-            set_ini_key "$file" "Hypergrid" "HomeURI" "http://$ip:8002"
-            set_ini_key "$file" "GridInfoService" "GridName" "$gridname"
-            set_ini_key "$file" "GridInfoService" "GridLoginURI" "http://$ip:8002"
+    # 3. Werte für Const-Sektion setzen
+    set_ini_key "$file" "Const" "BaseHostname" "\"$ip\""
+    set_ini_key "$file" "Const" "BaseURL" "http://\${Const|BaseHostname}"
+    set_ini_key "$file" "Const" "PublicPort" "\"9000\""
+    set_ini_key "$file" "Const" "PrivatePort" "\"9003\""
+    set_ini_key "$file" "Const" "PrivURL" "http://\${Const|BaseHostname}:\${Const|PrivatePort}"
 
-            echo -e "${COLOR_OK}→ StandaloneCommon.ini erstellt in sim$i${COLOR_RESET}"
+    # 4. Hypergrid- und GridInfo-Werte setzen
+    set_ini_key "$file" "Hypergrid" "GatekeeperURI" "\"http://$ip:8002\""
+    set_ini_key "$file" "Hypergrid" "HomeURI" "\"http://$ip:8002\""
+    set_ini_key "$file" "GridInfoService" "GridName" "\"$gridname\""
+    set_ini_key "$file" "GridInfoService" "GridLoginURI" "\"http://$ip:8002\""
+
+    echo -e "${COLOR_OK}→ StandaloneCommon.ini erfolgreich erstellt${COLOR_RESET}"
+    blankline
+}
+
+# Erstellt automatisch Regionen in allen Simulator-Instanzen (sim2 bis sim999)
+# Jede Instanz erhält die vom Benutzer gewünschte Anzahl an Regionen
+# Die Regionen werden mit zufälligen Positionen und automatischen Ports angelegt
+# Warum sim1 ausgelassen wird:
+#     Performance-Optimierung:
+#         sim1 dient als "Welcome-Region" (Eingangsbereich des Grids)
+#         Diese Region hat oft mehr Besucherverkehr
+#         Durch Isolation auf einen Simulator bleibt sie performant
+function regionsiniconfig() {
+    # Konstanten
+    local center_x=4000
+    local center_y=4000
+    local base_port=9000
+    
+    # Variablen
+    local regions_per_sim
+    local system_ip
+    local sim_num
+    local region_num
+    local sim_dir
+    local offset
+    local pos_x
+    local pos_y
+    local location
+    local port
+    local region_name
+    local region_uuid
+    local config_file
+    declare -A used_locations
+
+    # Benutzereingabe mit Symbol und Farbe
+    echo -e "${SYM_INFO}${COLOR_LABEL} Wie viele Zufallsregionen sollen pro Simulator erstellt werden?${COLOR_RESET}"
+    read -r regions_per_sim
+
+    # Eingabeprüfung
+    if ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
+        echo -e "${SYM_BAD} ${COLOR_BAD}Ungültige Eingabe: Bitte eine positive Zahl eingeben${COLOR_RESET}" >&2
+        return 1
+    fi
+
+    system_ip=$(hostname -I | awk '{print $1}')
+
+    echo -e "\n${SYM_SERVER}${COLOR_HEADING}  Starte Regionserstellung...${COLOR_RESET}"
+
+    # Simulatoren durchlaufen (beginnt bei 2 um sim1 für Welcome-Region freizuhalten)
+    for ((sim_num=2; sim_num<=999; sim_num++)); do
+        sim_dir="${SCRIPT_DIR}/sim${sim_num}/bin/Regions"
+        
+        if [[ -d "$sim_dir" ]]; then
+            echo -e "${SYM_FOLDER}${COLOR_SERVER} Simulator ${sim_num}:${COLOR_RESET} ${COLOR_ACTION}Erstelle ${regions_per_sim} Region(en)${COLOR_RESET}" >&2
+            
+            # Regionen erstellen
+            for ((region_num=1; region_num<=regions_per_sim; region_num++)); do
+                # Position berechnen (mit Kollisionsprüfung)
+                local attempts=0
+                local max_attempts=100
+                
+                while true; do
+                    offset=$(( (RANDOM % 2000) - 1000 ))
+                    pos_x=$((center_x + offset))
+                    offset=$(( (RANDOM % 2000) - 1000 ))
+                    pos_y=$((center_y + offset))
+                    location="$pos_x,$pos_y"
+                    
+                    if [[ -z "${used_locations[$location]}" ]]; then
+                        used_locations[$location]=1
+                        break
+                    fi
+                    
+                    attempts=$((attempts + 1))
+                    if (( attempts >= max_attempts )); then
+                        echo -e "${SYM_BAD} ${COLOR_WARNING}Fehler: Konnte nach ${max_attempts} Versuchen keine eindeutige Position finden${COLOR_RESET}" >&2
+                        return 1
+                    fi
+                done
+                
+                port=$((base_port + sim_num * 100 + region_num))
+                region_name=$(generate_name)
+                region_uuid=$(generate_uuid)
+                config_file="${sim_dir}/${region_name}.ini"
+                
+                # Prüfen ob Region existiert
+                if [[ -f "$config_file" ]]; then
+                    echo -e "${SYM_WAIT} ${COLOR_WARNING}Überspringe ${COLOR_VALUE}${region_name}${COLOR_RESET}${COLOR_WARNING} - existiert bereits${COLOR_RESET}" >&2
+                    continue
+                fi
+
+                # Config-Datei erstellen
+                touch "$config_file"
+                add_ini_section "$config_file" "$region_name"
+                
+                # Regionseinstellungen setzen
+                set_ini_key "$config_file" "$region_name" "RegionUUID" "$region_uuid"
+                set_ini_key "$config_file" "$region_name" "Location" "$location"
+                set_ini_key "$config_file" "$region_name" "SizeX" "256"
+                set_ini_key "$config_file" "$region_name" "SizeY" "256"
+                set_ini_key "$config_file" "$region_name" "SizeZ" "256"
+                set_ini_key "$config_file" "$region_name" "InternalPort" "$port"
+                set_ini_key "$config_file" "$region_name" "ExternalHostName" "$system_ip"
+                set_ini_key "$config_file" "$region_name" "MaxPrims" "15000"
+                set_ini_key "$config_file" "$region_name" "MaxAgents" "40"
+                set_ini_key "$config_file" "$region_name" "MaptileStaticUUID" "$region_uuid"
+                set_ini_key "$config_file" "$region_name" "InternalAddress" "0.0.0.0"
+                set_ini_key "$config_file" "$region_name" "AllowAlternatePorts" "False"
+                set_ini_key "$config_file" "$region_name" "NonPhysicalPrimMax" "512"
+                set_ini_key "$config_file" "$region_name" "PhysicalPrimMax" "128"
+                
+                echo -e "${SYM_OK} ${COLOR_VALUE}${region_name} ${COLOR_DIR}(${location}, Port ${port})${COLOR_RESET}" >&2
+            done
         fi
     done
+
+    echo -e "${SYM_OK}${COLOR_OK} Regionserstellung abgeschlossen!${COLOR_RESET}"
+    blankline
+    return 0
 }
 
 # Hauptfunktion, fragt Benutzer nach IP & Gridnamen und ruft alle Teilfunktionen auf
@@ -2191,7 +2332,9 @@ function iniconfig() {
     database_set_iniconfig
 }
 
-#* #################################################################################################
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#* XML Konfigurationen für Addon Pakete wie Texturen, Avatare oder Skripte
+#?──────────────────────────────────────────────────────────────────────────────────────────
 
 # shellcheck disable=SC2317
 function verify_xml_section() {
@@ -2322,120 +2465,6 @@ function generate_name() {
         "Observatory" "Planetarium" "Orrery" "Reflectory" "Conservatory" "Atrium" "Rotunda" "Gazebo" "Pavilion" "Terrace"
     )    
     echo "${adjectives[$RANDOM % 50]}${nouns[$RANDOM % 50]}$((RANDOM % 900 + 100))"
-}
-
-function regionsiniconfig() {
-    # Konstanten
-    local center_x=4000
-    local center_y=4000
-    local base_port=9000
-    
-    # Variablen
-    local regions_per_sim
-    local system_ip
-    local sim_num
-    local region_num
-    local sim_dir
-    local offset
-    local pos_x
-    local pos_y
-    local location
-    local port
-    local region_name
-    local region_uuid
-    local config_file
-    declare -A used_locations  # Assoziatives Array für bereits verwendete Positionen
-
-    # Benutzereingabe
-    echo "Wie viele Zufallsregionen sollen pro Simulator erstellt werden?"
-    read -r regions_per_sim
-
-    # Eingabeprüfung
-    if ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
-        echo -e "\e[31mUngültige Eingabe: Bitte eine positive Zahl eingeben\e[0m" >&2
-        return 1
-    fi
-
-    system_ip=$(hostname -I | awk '{print $1}')
-
-    echo -e "\e[33mStarte Regionserstellung...\e[0m"
-    echo "--------------------------"
-
-    # Simulatoren durchlaufen
-    for ((sim_num=1; sim_num<=999; sim_num++)); do
-        sim_dir="sim${sim_num}/bin/Regions"
-        
-        if [[ -d "$sim_dir" ]]; then
-            echo -e "\e[33mSimulator $sim_num: Erstelle $regions_per_sim Region(en)\e[0m" >&2
-            
-            # Regionen erstellen
-            for ((region_num=1; region_num<=regions_per_sim; region_num++)); do
-                # Position berechnen und sicherstellen, dass sie eindeutig ist
-                local attempts=0
-                local max_attempts=100
-                
-                while true; do
-                    # Position berechnen
-                    offset=$(( (RANDOM % 2000) - 1000 ))  # Zufälliger Offset zwischen -1000 und +1000
-                    pos_x=$((center_x + offset))
-                    
-                    offset=$(( (RANDOM % 2000) - 1000 ))  # Unabhängiger Offset für Y
-                    pos_y=$((center_y + offset))
-                    
-                    location="$pos_x,$pos_y"
-                    
-                    # Prüfen, ob die Position bereits verwendet wurde
-                    if [[ -z "${used_locations[$location]}" ]]; then
-                        used_locations[$location]=1
-                        break
-                    fi
-                    
-                    attempts=$((attempts + 1))
-                    if (( attempts >= max_attempts )); then
-                        echo -e "\e[31mFehler: Konnte nach $max_attempts Versuchen keine eindeutige Position finden\e[0m" >&2
-                        return 1
-                    fi
-                done
-                
-                port=$((base_port + sim_num * 100 + region_num))
-                
-                # Eindeutige Werte
-                region_name=$(generate_name)
-                region_uuid=$(generate_uuid)
-                config_file="${sim_dir}/${region_name}.ini"
-                
-                # Komplette Config-Datei neu erstellen
-                cat > "$config_file" <<EOF
-[$region_name]
-RegionUUID = $region_uuid
-Location = $location
-SizeX = 256
-SizeY = 256
-SizeZ = 256
-InternalPort = $port
-ExternalHostName = $system_ip
-MaxPrims = 15000
-MaxAgents = 40
-MaptileStaticUUID = $region_uuid
-InternalAddress = 0.0.0.0
-AllowAlternatePorts = False
-NonPhysicalPrimMax = 512
-PhysicalPrimMax = 128
-;RegionType = Estate
-;MasterAvatarFirstName = System
-;MasterAvatarLastName = Admin
-;MasterAvatarSandboxPassword = $(openssl rand -base64 12)
-EOF
-                
-                echo -e "\e[36m ✓ ${region_name} (${location}, Port ${port})\e[0m" >&2
-            done
-        fi
-    done
-
-    echo "--------------------------"
-    echo -e "\e[32mRegionserstellung abgeschlossen!\e[0m"
-    blankline
-    return 0
 }
 
 function regionsclean() {
