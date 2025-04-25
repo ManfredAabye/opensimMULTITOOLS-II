@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.66.225"
+VERSION="V25.4.66.226"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -2319,6 +2319,21 @@ function regionsiniconfig() {
                 set_ini_key "$config_file" "$region_name" "AllowAlternatePorts" "False"
                 set_ini_key "$config_file" "$region_name" "NonPhysicalPrimMax" "512"
                 set_ini_key "$config_file" "$region_name" "PhysicalPrimMax" "128"
+                set_ini_key "$config_file" "$region_name" ";ClampPrimSize" "false"
+                set_ini_key "$config_file" "$region_name" ";MaxPrimsPerUser" "-1"
+                set_ini_key "$config_file" "$region_name" ";ScopeID" "$region_uuid"
+                set_ini_key "$config_file" "$region_name" ";RegionType" "Mainland"
+                set_ini_key "$config_file" "$region_name" ";RenderMinHeight" "-1"
+                set_ini_key "$config_file" "$region_name" ";RenderMaxHeight" "100"
+                set_ini_key "$config_file" "$region_name" ";MapImageModule" "Warp3DImageModule"
+                set_ini_key "$config_file" "$region_name" ";TextureOnMapTile" "true"
+                set_ini_key "$config_file" "$region_name" ";DrawPrimOnMapTile" "true"
+                set_ini_key "$config_file" "$region_name" ";GenerateMaptiles" "true"
+                set_ini_key "$config_file" "$region_name" ";MaptileRefresh" "0"
+                set_ini_key "$config_file" "$region_name" ";MaptileStaticFile" "path/to/SomeFile.png"
+                set_ini_key "$config_file" "$region_name" ";MasterAvatarFirstName" "John"
+                set_ini_key "$config_file" "$region_name" ";MasterAvatarLastName" "Doe"
+                set_ini_key "$config_file" "$region_name" ";MasterAvatarSandboxPassword" "passwd"
                 
                 echo -e "${SYM_OK} ${COLOR_VALUE}${region_name} ${COLOR_DIR}(${location}, Port ${port})${COLOR_RESET}" >&2
             done
