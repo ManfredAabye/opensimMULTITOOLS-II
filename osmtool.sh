@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.66.224"
+VERSION="V25.4.66.225"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1055,7 +1055,8 @@ function pathclean() {
 }
 
 function cacheclean() {
-    cache_dirs=("assetcache" "maptiles" "MeshCache" "j2kDecodeCache" "ScriptEngines")
+    #cache_dirs=("assetcache" "maptiles" "MeshCache" "j2kDecodeCache" "ScriptEngines")
+    cache_dirs=("assetcache" "MeshCache" "j2kDecodeCache" "ScriptEngines")
 
     echo -e "${COLOR_HEADING}♻️ Cache-Bereinigung wird durchgeführt...${COLOR_RESET}"
 
