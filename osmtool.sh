@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.66.219"
+VERSION="V25.4.66.224"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -17,6 +17,10 @@ echo " "
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Variablen setzen
 #?──────────────────────────────────────────────────────────────────────────────────────────
+
+# Soll im Hypergrid Modus gearbeitet werden oder in einem Geschlossenen Grid? 
+hypergrid=" -inifile=Robust.HG.ini"     # Ja
+# hypergrid=" -inifile=Robust.ini"      # Nein
 
 #* FARBDEFINITIONEN
 COLOR_OK='\e[32m'          # Grün (Haken)
@@ -52,7 +56,6 @@ SYM_SERVER="${COLOR_VALUE}🖥️${COLOR_RESET}"      # Server, Computer
 SYM_CLEAN="${COLOR_VALUE}🧹${COLOR_RESET}"       # Bereinigung, Aufräumen, Löschen
 # shellcheck disable=SC2034
 SYM_WARNING="${COLOR_VALUE}⚠${COLOR_RESET}"     # Achtung, Gefahr, Hinweis
-
 
 #* WARTEZEITEN muessen leider sein damit der Server nicht überfordert wird.
 Simulator_Start_wait=15 # Sekunden
@@ -184,12 +187,14 @@ function standalonestop() {
 #* OpenSim starten (robust → money → sim1 bis sim999)
 function opensimstart() {
     echo -e "${SYM_WAIT} ${COLOR_START}Starte das Grid!${COLOR_RESET}"
-
+    
     # RobustServer starten
     if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
         echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
         cd robust/bin || exit 1
-        screen -fa -S robustserver -d -U -m dotnet Robust.dll
+        #  -inifile=Robust.HG.ini
+
+        screen -fa -S robustserver -d -U -m dotnet Robust.dll "$hypergrid"
         cd - >/dev/null 2>&1 || exit 1
         sleep $RobustServer_Start_wait
     else
@@ -1679,6 +1684,9 @@ function database_set_iniconfig() {
             add_ini_key "$sim_ini" "$section" "ConnectionString" "\"$sim_conn\""
         fi
     done
+
+    echo -e "${COLOR_OK}Datenbanken erfolgreich konfiguriert${COLOR_RESET}"
+    blankline
 }
 
 # Welcome-Region konfigurieren wenn sie noch nicht existiert.
@@ -1762,10 +1770,11 @@ function moneyserveriniconfig() {
     set_ini_key "$file" "MySql" "password" "$db_pass"
 
     # [MoneyServer]
-    set_ini_key "$file" "MoneyServer" "MoneyServerIPaddress" "http://$ip:8008"
-    set_ini_key "$file" "MoneyServer" "MoneyScriptIPaddress" "$ip"
+    set_ini_key "$file" "MoneyServer" "MoneyServerIPaddress" "http://$system_ip:8008"
+    set_ini_key "$file" "MoneyServer" "MoneyScriptIPaddress" "$system_ip"
 
-    echo "Weitere Infos: https://github.com/ManfredAabye/opensimcurrencyserver-dotnet"
+    echo -e "${COLOR_OK}MoneyServer.ini Konfiguration abgeschlossen${COLOR_RESET}"
+    blankline
 }
 
 # Konfiguriert OpenSim.ini für alle sim1 bis sim99-Verzeichnisse
@@ -1788,6 +1797,8 @@ function opensiminiconfig() {
             else
                 touch "$file"
             fi
+
+            echo -e "${COLOR_INFO}Konfiguriere OpenSim.ini in $dir${COLOR_RESET}"
 
             # Portberechnung pro Instanz
             local public_port=$((base_port + (sim_counter - 1) * 100))
@@ -1814,7 +1825,9 @@ function opensiminiconfig() {
 
             # [ClientStack.LindenUDP] Begrenzt die Viewer damit sie die Server leistung nicht kippen können.
             set_ini_key "$file" "ClientStack.LindenUDP" "DisableFacelights" "true"
+            # 10.000.000 bps = 10 Mbit/s pro Client gute Einstellung ist "350.000" bis "500.000"
             set_ini_key "$file" "ClientStack.LindenUDP" "client_throttle_max_bps" "350000"
+            # 10.000.000 bps = 10 Mbit/s pro Region "70.000.000" gute Einstellung ist "70.000.000" bis "1.000.000.000"
             set_ini_key "$file" "ClientStack.LindenUDP" "scene_throttle_max_bps" "70000000"
 
             # [SimulatorFeatures]
@@ -1843,8 +1856,27 @@ function opensiminiconfig() {
             set_ini_key "$file" "Economy" "PriceUpload" "0" 
             set_ini_key "$file" "Economy" "MeshModelUploadCostFactor" "1.0" 
             set_ini_key "$file" "Economy" "MeshModelUploadTextureCostFactor" "1.0" 
-            set_ini_key "$file" "Economy" "MeshModelMinCostFactor" "1.0" 
-            set_ini_key "$file" "Economy" "PriceGroupCreate" "0" 
+            set_ini_key "$file" "Economy" "MeshModelMinCostFactor" "1.0"           
+            set_ini_key "$file" "Economy" "CheckServerCert" "false"
+            set_ini_key "$file" "Economy" "PriceUpload" "0"
+            set_ini_key "$file" "Economy" "MeshModelUploadCostFactor" "1.0"
+            set_ini_key "$file" "Economy" "MeshModelUploadTextureCostFactor" "1.0"
+            set_ini_key "$file" "Economy" "MeshModelMinCostFactor" "1.0"
+            set_ini_key "$file" "Economy" "PriceGroupCreate" "0"
+            set_ini_key "$file" "Economy" "ObjectCount" "0"
+            set_ini_key "$file" "Economy" "PriceEnergyUnit" "0"
+            set_ini_key "$file" "Economy" "PriceObjectClaim" "0"
+            set_ini_key "$file" "Economy" "PricePublicObjectDecay" "0"
+            set_ini_key "$file" "Economy" "PricePublicObjectDelete" "0"
+            set_ini_key "$file" "Economy" "PriceParcelClaim" "0"
+            set_ini_key "$file" "Economy" "PriceParcelClaimFactor" "1"
+            set_ini_key "$file" "Economy" "PriceRentLight" "0"
+            set_ini_key "$file" "Economy" "TeleportMinPrice" "0"
+            set_ini_key "$file" "Economy" "TeleportPriceExponent" "2"
+            set_ini_key "$file" "Economy" "EnergyEfficiency" "1"
+            set_ini_key "$file" "Economy" "PriceObjectRent" "0"
+            set_ini_key "$file" "Economy" "PriceObjectScaleFactor" "10"
+            set_ini_key "$file" "Economy" "PriceParcelRent" "0"
 
             # [Groups]
             set_ini_key "$file" "Groups" "Enabled" "true"
@@ -1896,6 +1928,9 @@ function opensiminiconfig() {
             ((sim_counter++))
         fi
     done
+
+    echo -e "${COLOR_OK}${sim_counter} Simulationen konfiguriert.${COLOR_RESET}"
+    blankline
 }
 
 # Konfiguration von Robust.HG.ini im robust/bin Verzeichnis
@@ -1925,7 +1960,7 @@ function robusthginiconfig() {
     uncomment_ini_line "$file" "HomeURI"
     uncomment_ini_line "$file" "GatekeeperURI"
     
-    # [DatabaseService]
+    # [DatabaseService] Nicht hier!
     # ConnectionString = "Data Source=localhost;Database=opensim;User ID=opensim;Password=*****;Old Guids=true;SslMode=None;"
     
     # [GridService] für osWebinterface
@@ -1933,24 +1968,27 @@ function robusthginiconfig() {
     uncomment_ini_line "$file" "MapTileDirectory"
 
     
-    # [LoginService] für osWebinterface etc.
+    # [LoginService] für osWebinterface etc. "\${Const|BaseURL}:\${Const|PublicPort}"
     set_ini_key "$file" "LoginService" "Currency" "OS$"
-    # ; SearchURL = "${Const|BaseURL}:${Const|PublicPort}/";
-    # ; DestinationGuide = "${Const|BaseURL}/guide"
-    # ; AvatarPicker = "${Const|BaseURL}/avatars"
+    set_ini_key "$file" "LoginService" "WelcomeMessage" "Willkommen im $gridname!"
+    set_ini_key "$file" "LoginService" "MapTileURL" "\${Const|BaseURL}:\${Const|PublicPort}/"
+    set_ini_key "$file" "LoginService" "SearchURL" "\${Const|BaseURL}:\${Const|PublicPort}/searchservice.php"
+	set_ini_key "$file" "LoginService" "DestinationGuide" "\${Const|BaseURL}/guide.php"
+	set_ini_key "$file" "LoginService" "AvatarPicker" "\${Const|BaseURL}/avatarpicker.php"
     
     # [GridInfoService]
     set_ini_key "$file" "GridInfoService" "gridname" "$gridname"
     set_ini_key "$file" "GridInfoService" "gridnick" "$gridname"
-    #welcome = ${Const|BaseURL}/welcome
-    #economy = ${Const|BaseURL}/economy
-    #about = ${Const|BaseURL}/about
-    #register = ${Const|BaseURL}/register
-    #help = ${Const|BaseURL}/help
-    #password = ${Const|BaseURL}/password
-    #GridStatusRSS = ${Const|BaseURL}:${Const|PublicPort}/GridStatusRSS
-    #web_profile_url = http://webprofilesurl:ItsPort?name=[AGENT_NAME]
+    set_ini_key "$file" "GridInfoService" "welcome" "\${Const|BaseURL}/welcome"
+    set_ini_key "$file" "GridInfoService" "economy" "\${Const|BaseURL}:8008/"
+    set_ini_key "$file" "GridInfoService" "about" "\${Const|BaseURL}/about"
+    set_ini_key "$file" "GridInfoService" "register" "\${Const|BaseURL}/register"
+    set_ini_key "$file" "GridInfoService" "help" "\${Const|BaseURL}/help"
+    set_ini_key "$file" "GridInfoService" "password" "\${Const|BaseURL}/password"
+    set_ini_key "$file" "GridInfoService" "GridStatusRSS" "\${Const|BaseURL}:\${Const|PublicPort}/GridStatusRSS"
 
+    echo -e "${COLOR_OK}Robust.HG.ini konfiguriert.${COLOR_RESET}"
+    blankline
 }
 
 # Konfiguration von Robust.ini im robust/bin Verzeichnis
@@ -1978,25 +2016,27 @@ function robustiniconfig() {
     # [DatabaseService]
     # ConnectionString = "Data Source=localhost;Database=opensim;User ID=opensim;Password=*****;Old Guids=true;SslMode=None;"
     
-    # [GridService] für osWebinterface
-    # Der Regionsname wird von welcomeiniconfig geschrieben.
-    
-    # [LoginService] für osWebinterface etc.
-    # ; SearchURL = "${Const|BaseURL}:${Const|PublicPort}/";
-    # ; DestinationGuide = "${Const|BaseURL}/guide"
-    # ; AvatarPicker = "${Const|BaseURL}/avatars"
+    # [LoginService] für osWebinterface etc. "\${Const|BaseURL}:\${Const|PublicPort}"
+    set_ini_key "$file" "LoginService" "Currency" "OS$"
+    set_ini_key "$file" "LoginService" "WelcomeMessage" "Willkommen im $gridname!"
+    set_ini_key "$file" "LoginService" "MapTileURL" "\${Const|BaseURL}:\${Const|PublicPort}/"
+    set_ini_key "$file" "LoginService" "SearchURL" "\${Const|BaseURL}:\${Const|PublicPort}/searchservice.php"
+	set_ini_key "$file" "LoginService" "DestinationGuide" "\${Const|BaseURL}/guide.php"
+	set_ini_key "$file" "LoginService" "AvatarPicker" "\${Const|BaseURL}/avatarpicker.php"
     
     # [GridInfoService]
     set_ini_key "$file" "GridInfoService" "gridname" "$gridname"
     set_ini_key "$file" "GridInfoService" "gridnick" "$gridname"
-    #welcome = ${Const|BaseURL}/welcome
-    #economy = ${Const|BaseURL}/economy
-    #about = ${Const|BaseURL}/about
-    #register = ${Const|BaseURL}/register
-    #help = ${Const|BaseURL}/help
-    #password = ${Const|BaseURL}/password
-    #GridStatusRSS = ${Const|BaseURL}:${Const|PublicPort}/GridStatusRSS
-    #web_profile_url = http://webprofilesurl:ItsPort?name=[AGENT_NAME]
+    set_ini_key "$file" "GridInfoService" "welcome" "\${Const|BaseURL}/welcome"
+    set_ini_key "$file" "GridInfoService" "economy" "\${Const|BaseURL}:8008/"
+    set_ini_key "$file" "GridInfoService" "about" "\${Const|BaseURL}/about"
+    set_ini_key "$file" "GridInfoService" "register" "\${Const|BaseURL}/register"
+    set_ini_key "$file" "GridInfoService" "help" "\${Const|BaseURL}/help"
+    set_ini_key "$file" "GridInfoService" "password" "\${Const|BaseURL}/password"
+    set_ini_key "$file" "GridInfoService" "GridStatusRSS" "\${Const|BaseURL}:\${Const|PublicPort}/GridStatusRSS"
+
+    echo -e "${COLOR_OK}Robust.ini konfiguriert.${COLOR_RESET}"
+    blankline
 }
 
 # Konfiguriert die FlotsamCache.ini Dateien
@@ -2035,8 +2075,12 @@ function flotsaminiconfig() {
             echo -e "${COLOR_OK}→ FlotsamCache.ini neu geschrieben für sim$i${COLOR_RESET}"
         fi
     done
+
+    echo -e "${COLOR_OK}FlotsamCache.ini konfiguriert.${COLOR_RESET}"
+    blankline    
 }
 
+# GridCommon.ini
 function gridcommoniniconfig() {
     # 25.04.2025
     local ip="$1"
@@ -2081,7 +2125,9 @@ function gridcommoniniconfig() {
 
         echo -e "${COLOR_OK}✓ sim$i: GridCommon.ini erfolgreich${COLOR_RESET}"
     done
-    return 0
+
+    echo -e "${COLOR_OK}GridCommon.ini konfiguriert.${COLOR_RESET}"
+    blankline
 }
 
 # Erstellt osslEnable.ini komplett neu in allen simX/config-include Verzeichnissen
@@ -2126,6 +2172,9 @@ function osslenableiniconfig() {
             echo -e "${COLOR_OK}→ osslEnable.ini neu geschrieben für sim$i${COLOR_RESET}"
         fi
     done
+
+    echo -e "${COLOR_OK}osslEnable.ini konfiguriert.${COLOR_RESET}"
+    blankline
 }
 
 # Erstellt eine StandaloneCommon.ini
