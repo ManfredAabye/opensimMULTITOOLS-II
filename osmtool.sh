@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.66.226"
+VERSION="V25.4.66.227"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1728,6 +1728,23 @@ function welcomeiniconfig() {
     set_ini_key "$welcome_ini" "$gridname" "MaptileStaticUUID" "$region_uuid"
     set_ini_key "$welcome_ini" "$gridname" "InternalAddress" "0.0.0.0"
     set_ini_key "$welcome_ini" "$gridname" "AllowAlternatePorts" "False"
+    set_ini_key "$welcome_ini" "$gridname" ";NonPhysicalPrimMax" "512"
+    set_ini_key "$welcome_ini" "$gridname" ";PhysicalPrimMax" "128"
+    set_ini_key "$welcome_ini" "$gridname" ";ClampPrimSize" "false"
+    set_ini_key "$welcome_ini" "$gridname" ";MaxPrimsPerUser" "-1"
+    set_ini_key "$welcome_ini" "$gridname" ";ScopeID" "$region_uuid"
+    set_ini_key "$welcome_ini" "$gridname" ";RegionType" "Mainland"
+    set_ini_key "$welcome_ini" "$gridname" ";RenderMinHeight" "-1"
+    set_ini_key "$welcome_ini" "$gridname" ";RenderMaxHeight" "100"
+    set_ini_key "$welcome_ini" "$gridname" ";MapImageModule" "Warp3DImageModule"
+    set_ini_key "$welcome_ini" "$gridname" ";TextureOnMapTile" "true"
+    set_ini_key "$welcome_ini" "$gridname" ";DrawPrimOnMapTile" "true"
+    set_ini_key "$welcome_ini" "$gridname" ";GenerateMaptiles" "true"
+    set_ini_key "$welcome_ini" "$gridname" ";MaptileRefresh" "0"
+    set_ini_key "$welcome_ini" "$gridname" ";MaptileStaticFile" "path/to/SomeFile.png"
+    set_ini_key "$welcome_ini" "$gridname" ";MasterAvatarFirstName" "John"
+    set_ini_key "$welcome_ini" "$gridname" ";MasterAvatarLastName" "Doe"
+    set_ini_key "$welcome_ini" "$gridname" ";MasterAvatarSandboxPassword" "passwd"
 
     # 4. Region in Robust-Konfigurationen eintragen
     set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "DefaultRegion, DefaultHGRegion"
