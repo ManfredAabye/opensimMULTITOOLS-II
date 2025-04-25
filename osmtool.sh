@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.65.193"
+VERSION="V25.4.66.197"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1232,6 +1232,20 @@ function delete_opensim() {
 #* Konfigurationen
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
+#?──────────────────────────────────────────────────────────────────────────────────────────
+#* Verifizierung von INI-Dateien
+#?──────────────────────────────────────────────────────────────────────────────────────────
+
+# [Abschnitt]
+# 	Schlüssel = Wert
+# 	; Kommentar
+# [Section]
+# 	Key = Value
+# 	; Comment
+
+# Überprüft, ob ein bestimmter Abschnitt (Section) in einer INI-Datei existiert, und gibt das Ergebnis als Exit-Code zurück.
+# Aufruf: bash osmtool.sh verify_ini_section "test.ini" "Const"
+# Letzte Prüfung am: 24.04.2025
 function verify_ini_section() {
     local file="$1"
     local section="$2"
@@ -1250,6 +1264,9 @@ function verify_ini_section() {
     fi
 }
 
+# Überprüft, ob ein bestimmten Wert (key) im Abschnitt (Section) in einer INI-Datei existiert, und gibt das Ergebnis als Exit-Code zurück.
+# Aufruf: bash osmtool.sh verify_ini_key "test.ini" "DatabaseService" "Include-Storage"
+# Letzte Prüfung am: 24.04.2025 Repariert: 24.04.2025
 function verify_ini_key() {
     local file="$1"
     local section="$2"
@@ -1260,20 +1277,20 @@ function verify_ini_key() {
         return 2
     fi
     
-    # Finde den Abschnitt und dann den Key darin
-    if awk -v section="[${section}]" -v key="^${key}=" '
-        $0 == section { in_section=1; next }
-        in_section && /^\[/ { in_section=0; next }
-        in_section && $0 ~ key { found=1; exit }
-        END { exit !found }' "$file"; then
-        echo -e "${SYM_OK} Key ${key} in section [${section}] exists in ${file}"
+    # Einfacher grep-Befehl, der Leerzeichen & Kommentare ignoriert
+    if grep -Eq "^[[:space:]]*\[${section}\][[:space:]]*$" "$file" && \
+       grep -Eq "^[[:space:]]*${key}[[:space:]]*=" "$file"; then
+        echo -e "${SYM_OK} Key '${key}' exists in section [${section}]"
         return 0
     else
-        echo -e "${SYM_BAD} Key ${key} in section [${section}] not found in ${file}"
+        echo -e "${SYM_BAD} Key '${key}' NOT FOUND in section [${section}]" >&2
         return 1
     fi
 }
 
+# Fügt einene Abschnitt hinzu, wenn es noch nicht vorhanden ist am ende der Datei.
+# Aufruf: bash osmtool.sh add_ini_section "test.ini" "Const"
+# Letzte Prüfung am: 24.04.2025 
 function add_ini_section() {
     local file="$1"
     local section="$2"
@@ -1294,6 +1311,58 @@ function add_ini_section() {
     fi
 }
 
+# Fügt einene Abschnitt, wenn es noch nicht vorhanden ist vor dem Zielabschnitt hinzu.
+# Also [Const] wird vor [DatabaseService] hinzugefügt.
+# Aufruf: bash osmtool.sh add_ini_before_section "test.ini" "Const" "DatabaseService"
+function add_ini_before_section() {
+    local file="$1"
+    local section="$2"
+    local target_section="$3"  # Neuer Parameter für den Zielabschnitt
+
+    if verify_ini_section "$file" "$section" >/dev/null; then
+        return 0
+    fi
+
+    #echo -e "${SYM_INFO} Adding section [${section}] to ${file} before [${target_section}]"
+
+    # Temporäre Datei erstellen
+    temp_file=$(mktemp)
+
+    # Zielabschnitt suchen und neuen Abschnitt davor einfügen
+    local found=0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^\[${target_section}\] ]]; then
+            printf "[%s]\n\n" "$section" >> "$temp_file"
+            found=1
+        fi
+        echo "$line" >> "$temp_file"
+    done < "$file"
+
+    # Falls Zielabschnitt nicht gefunden, am Ende einfügen (Fallback)
+    if [[ $found -eq 0 ]]; then
+        printf "\n[%s]\n" "$section" >> "$temp_file"
+        echo -e "${SYM_WARNING} Target section [${target_section}] not found, appended [${section}] at end of file"
+    fi
+
+    # Originaldatei ersetzen
+    if mv "$temp_file" "$file"; then
+        echo -e "${SYM_OK} Successfully added section [${section}] to ${file}"
+        return 0
+    else
+        echo -e "${SYM_BAD} Failed to update ${file}" >&2
+        return 1
+    fi
+}
+
+# Setzt den Wert des Keys in der gegebenen Sektion
+#
+#     bash osmtool.sh set_ini_key "test.ini" "Const" "GridSize" "256"
+#
+#     [Const]
+#     GridSize = 256
+#
+#     Wenn die Sektion oder der Key nicht vorhanden ist, wird er hinzugefügt.
+#     Falls der Key bereits vorhanden ist, wird der Wert aktualisiert.
 function set_ini_key() {
     local file="$1" section="$2" key="$3" value="$4"
     local temp_file
@@ -1306,6 +1375,14 @@ function set_ini_key() {
     local key_escaped
     key_escaped=$(printf '%s\n' "$key" | sed 's/[]\/$*.^[]/\\&/g')
 
+    # awk-Script:
+    #   - BEGIN: in_section und key_set auf 0 setzen
+    #   - Wenn Sektion gefunden wird, in_section auf 1 setzen
+    #   - Wenn Sektion vorbei ist, in_section auf 0 setzen
+    #   - Wenn Key in der Sektion gefunden wird, key_set auf 1 setzen
+    #   - Wenn Key nicht gefunden, aber in_section == 1 ist, Key hinzufügen
+    #   - Wenn Key nicht gefunden und in_section == 0 ist, Sektion & Key hinzufügen
+    #   - Wenn Key_set == 0 ist, Key hinzufügen
     awk -v section="[$section]" -v key="$key" -v value="$value" -v key_re="$key_escaped" '
     BEGIN { in_section = 0; key_set = 0 }
 
@@ -1357,7 +1434,9 @@ function set_ini_key() {
     return 0
 }
 
-# Datei, section [section], Key = Value
+# Setze einen Key in einer INI-Datei
+# Die INI-Datei wird nach dem Schlüssel durchsucht und der Key wird
+# am passenden Ort eingefügt.
 function add_ini_key() {
     local file="$1" section="$2" key="$3" value="$4"
     local temp_file
@@ -1666,9 +1745,6 @@ function moneyserveriniconfig() {
     local dir="$SCRIPT_DIR/robust/bin"
     local file="$dir/MoneyServer.ini"
 
-    mkdir -p "$dir"
-    #[[ -f "$file.example" ]] && cp "$file.example" "$file" || touch "$file"
-
     if [[ -f "$file.example" ]]; then
         cp "$file.example" "$file"
     else
@@ -1701,8 +1777,6 @@ function opensiminiconfig() {
             local dir="$sim_dir/bin"
             local file="$dir/OpenSim.ini"
 
-            mkdir -p "$dir"
-            #[[ -f "$file.example" ]] && cp "$file.example" "$file" || touch "$file"
             if [[ -f "$file.example" ]]; then
                 cp "$file.example" "$file"
             else
@@ -1825,10 +1899,7 @@ function robusthginiconfig() {
     local gridname="$2"
     local dir="$SCRIPT_DIR/robust/bin"
     local file="$dir/Robust.HG.ini"
-    # Pfad: /robust/bin/Robust.HG.ini  /robust/bin/Robust.ini und $SCRIPT_DIR/sim$i/bin/config-include/GridCommon.ini
 
-    mkdir -p "$dir"
-    #[[ -f "$file.example" ]] && cp "$file.example" "$file" || touch "$file"
     if [[ -f "$file.example" ]]; then
         cp "$file.example" "$file"
     else
@@ -1883,8 +1954,6 @@ function robustiniconfig() {
     local dir="$SCRIPT_DIR/robust/bin"
     local file="$dir/Robust.ini"
 
-    mkdir -p "$dir"
-    #[[ -f "$file.example" ]] && cp "$file.example" "$file" || touch "$file"
     if [[ -f "$file.example" ]]; then
         cp "$file.example" "$file"
     else
@@ -1955,9 +2024,8 @@ EOF
     done
 }
 
-# Erstellt GridCommon.ini mit [Const]-Sektion zuerst, dann Inhalt aus .example-Datei
 function gridcommoniniconfig() {
-    # 23.04.2025
+    # 25.04.2025
     local ip="$1"
     local gridname="$2"
 
@@ -1965,48 +2033,42 @@ function gridcommoniniconfig() {
         local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
         local file="$config_dir/GridCommon.ini"
         local example_file="$config_dir/GridCommon.ini.example"
-        # Pfad: $SCRIPT_DIR/sim$i/bin/config-include/GridCommon.ini
 
-        if [[ -d "$config_dir" ]]; then
-            mkdir -p "$config_dir"
-
-            # Erstellt neue GridCommon.ini mit [Const]-Werten
-            cat > "$file" <<EOF
-[Const]
-
-    BaseHostname = "$ip"
-    BaseURL = "http://$ip"
-
-    ; The public port of the Robust server
-    PublicPort = "8002"
-
-    ; The private port of the Robust server
-    PrivatePort = "8003"
-
-    PrivURL = "http://$ip"
-
-
-EOF
-
-            # Hängt Inhalt der .example-Datei an (wenn vorhanden)
-            if [[ -f "$example_file" ]]; then
-                #echo -e "\n# --- Inhalte aus .example Datei ---\n" >> "$file"
-                cat "$example_file" >> "$file"
-            fi
-
-            # Weitere Einstellungen:
-            #echo "Weitere Einstellungen: $file"
-            # [DatabaseService]
-            # comment_ini_line "$file" "DatabaseService" "Include-Storage"
-            sed -i '/^[[:space:]]*Include-Storage[[:space:]]*=.*/d' $file
-            set_ini_key "$file" "DatabaseService" "StorageProvider" "OpenSim.Data.MySQL.dll"
-
-            # [Hypergrid]
-            set_ini_key "$file" "Hypergrid" "GatekeeperURI" "\${Const|BaseURL}:\${Const|PublicPort}"
-
-            echo -e "${COLOR_OK}→ GridCommon.ini erstellt in sim$i${COLOR_RESET}"            
+        # Strikte Prüfung - Abbruch wenn etwas fehlt
+        if [[ ! -d "$config_dir" ]]; then
+            # echo -e "${COLOR_BAD}✗ KRITISCH: $config_dir fehlt${COLOR_RESET}" >&2
+            return 1
         fi
+
+        if [[ ! -f "$example_file" ]]; then
+            #echo -e "${COLOR_BAD}✗ KRITISCH: $example_file fehlt${COLOR_RESET}" >&2
+            return 1
+        fi
+
+        # 1. Vorlage kopieren (muss existieren)
+        cp "$example_file" "$file" || {
+            #echo -e "${COLOR_BAD}✗ Kopieren fehlgeschlagen${COLOR_RESET}" >&2
+            return 1
+        }
+
+        # 2. [Const] Sektion hinzufügen
+        add_ini_before_section "$file" "Const" "DatabaseService" || return 1
+        set_ini_key "$file" "Const" "BaseHostname" "$ip" || return 1
+        set_ini_key "$file" "Const" "BaseURL" "http://\${Const|BaseHostname}" || return 1
+        set_ini_key "$file" "Const" "PublicPort" "8002" || return 1
+        set_ini_key "$file" "Const" "PrivatePort" "8003" || return 1
+        set_ini_key "$file" "Const" "PrivURL" "http://\${Const|BaseHostname}" || return 1
+
+        # 3. Datenbank konfigurieren
+        sed -i '/^[[:space:]]*Include-Storage[[:space:]]*=.*/d' "$file"
+        set_ini_key "$file" "DatabaseService" "StorageProvider" "OpenSim.Data.MySQL.dll" || return 1
+
+        # 4. Hypergrid
+        set_ini_key "$file" "Hypergrid" "GatekeeperURI" "\${Const|BaseURL}:\${Const|PublicPort}" || return 1
+
+        echo -e "${COLOR_OK}✓ sim$i: GridCommon.ini erfolgreich${COLOR_RESET}"
     done
+    return 0
 }
 
 
@@ -2818,16 +2880,17 @@ case $KOMMANDO in
     configure_pbr_textures) configure_pbr_textures ;;
 
     #  INI-OPERATIONEN        #
-    verify_ini_section)    verify_ini_section "$2" "$3" "$4" ;;
-    verify_ini_key)        verify_ini_key "$2" "$3" "$4" ;;
-    add_ini_section)       add_ini_section "$2" "$3" ;;
-    set_ini_key)           set_ini_key "$2" "$3" "$4" "$5" ;;
-    add_ini_key)           add_ini_key "$2" "$3" "$4" "$5" ;;
-    del_ini_section)       del_ini_section "$2" "$3" ;;
-    uncomment_ini_line)    uncomment_ini_line "$2" "$3" ;;
+    verify_ini_section)         verify_ini_section "$2" "$3" "$4" ;;
+    verify_ini_key)             verify_ini_key "$2" "$3" "$4" ;;
+    add_ini_section)            add_ini_section "$2" "$3" ;;
+    add_ini_before_section)     add_ini_before_section "$2" "$3" "$4" ;;
+    set_ini_key)                set_ini_key "$2" "$3" "$4" "$5" ;;
+    add_ini_key)                add_ini_key "$2" "$3" "$4" "$5" ;;
+    del_ini_section)            del_ini_section "$2" "$3" ;;
+    uncomment_ini_line)         uncomment_ini_line "$2" "$3" ;;
     uncomment_ini_section_line) uncomment_ini_section_line "$2" "$3" "$4" ;;
-    comment_ini_line)      comment_ini_line "$2" "$3" "$4" ;;
-    iniconfig)             iniconfig ;;
+    comment_ini_line)           comment_ini_line "$2" "$3" "$4" ;;
+    iniconfig)                  iniconfig ;;
 
     #  XML-OPERATIONEN        #
     verify_xml_section)    verify_xml_section "$2" "$3" ;;
