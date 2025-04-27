@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.66.227"
+VERSION="V25.4.69.238"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -17,10 +17,6 @@ echo " "
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Variablen setzen
 #?──────────────────────────────────────────────────────────────────────────────────────────
-
-# Soll im Hypergrid Modus gearbeitet werden oder in einem Geschlossenen Grid? 
-hypergrid=" -inifile=Robust.HG.ini"     # Ja
-# hypergrid=" -inifile=Robust.ini"      # Nein
 
 #* FARBDEFINITIONEN
 COLOR_OK='\e[32m'          # Grün (Haken)
@@ -74,6 +70,47 @@ system_ip=$(hostname -I | awk '{print $1}')
 echo -e "${COLOR_LABEL}Das Arbeitsverzeichnis ist:${COLOR_RESET} ${COLOR_VALUE}$SCRIPT_DIR${COLOR_RESET}"
 echo -e "${COLOR_LABEL}Ihre IP Adresse ist:${COLOR_RESET} ${COLOR_VALUE}$system_ip${COLOR_RESET}"
 blankline
+
+# Soll im Hypergrid Modus gearbeitet werden oder in einem Geschlossenen Grid?
+function hypergrid() {
+    local modus="$1"
+    local robust_dir="$SCRIPT_DIR/robust/bin"  # Korrekter Pfad zu Robust-Dateien
+    
+    echo "Modus Einstellung"
+    
+    if [[ "$modus" == "hypergrid" ]]; then
+        echo "Hypergrid Modus aktiviert."
+        
+        # Prüfen ob Robust.HG.ini existiert
+        if [[ ! -f "$robust_dir/Robust.HG.ini" ]]; then
+            echo -e "${COLOR_BAD}FEHLER: Robust.HG.ini nicht gefunden in $robust_dir${COLOR_RESET}" >&2
+            return 1
+        fi
+        
+        cp "$robust_dir/Robust.HG.ini" "$robust_dir/Robust.ini" || {
+            echo -e "${COLOR_BAD}FEHLER: Konnte Robust.HG.ini nicht kopieren${COLOR_RESET}" >&2
+            return 1
+        }
+        
+    else
+        echo "Geschlossener Grid Modus aktiviert."
+        
+        # Prüfen ob Robust.local.ini existiert
+        if [[ ! -f "$robust_dir/Robust.local.ini" ]]; then
+            echo -e "${COLOR_BAD}FEHLER: Robust.local.ini nicht gefunden in $robust_dir${COLOR_RESET}" >&2
+            return 1
+        fi
+        
+        cp "$robust_dir/Robust.local.ini" "$robust_dir/Robust.ini" || {
+            echo -e "${COLOR_BAD}FEHLER: Konnte Robust.local.ini nicht kopieren${COLOR_RESET}" >&2
+            return 1
+        }
+    fi
+    
+    echo -e "${COLOR_OK}Modus erfolgreich auf $modus gesetzt${COLOR_RESET}"
+    return 0
+}
+
 
 KOMMANDO=$1 # Eingabeauswertung fuer Funktionen.
 
@@ -190,11 +227,11 @@ function opensimstart() {
     
     # RobustServer starten
     if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
-        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}RobustServer ${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
         cd robust/bin || exit 1
         #  -inifile=Robust.HG.ini
 
-        screen -fa -S robustserver -d -U -m dotnet Robust.dll "$hypergrid"
+        screen -fa -S robustserver -d -U -m dotnet Robust.dll
         cd - >/dev/null 2>&1 || exit 1
         sleep $RobustServer_Start_wait
     else
@@ -865,6 +902,102 @@ function database_setup() {
     # Zugangsdaten speichern
     echo -e "\n${SYM_LOG} ${COLOR_LABEL}Zugangsdaten gespeichert in: ${COLOR_FILE}${SCRIPT_DIR}/mariadb_passwords.txt${COLOR_RESET}"
     echo "Benutzername: ${db_user} Passwort: ${db_pass}" | sudo tee "${SCRIPT_DIR}/mariadb_passwords.txt" >/dev/null
+}
+
+# string array with parameters: firstname, lastname, password, locationX, locationY, email, userID, model name
+# bash osmtool.sh createmasteruser
+# oder
+# bash osmtool.sh createmasteruser "John" "Doe" "123456" "john@doe.com" "3a1c8128-908f-4455-8157-66c96a46f75e"
+# bash osmtool.sh createmasteruser "Manni" "Aabye" "manfred131063" "john@doe" "3a1c8128-908f-4455-8157-66c96a46f75e"
+function createmasteruser() {
+    # 24.04.2025
+    # Der Master User ist die zweithöchste Person nach System im Grid.
+    local VORNAME="${1:-John}"
+    local NACHNAME="${2:-Doe}"
+    local PASSWORT="${3:-123456}"
+    local EMAIL="${4:-john@doe.com}"
+    local userid="${5:-$(uuidgen)}"
+
+    # Interaktive Benutzerabfrage mit Fallback-Werten
+    echo -e "${COLOR_INFO}Master User Erstellung (Enter für Default-Werte)${COLOR_RESET}"
+    
+    echo -n "Vorname [${VORNAME}]: "
+    read -r input
+    VORNAME="${input:-$VORNAME}"
+    
+    echo -n "Nachname [${NACHNAME}]: "
+    read -r input
+    NACHNAME="${input:-$NACHNAME}"
+    
+    echo -n "Passwort [${PASSWORT}]: "
+    read -r input
+    PASSWORT="${input:-$PASSWORT}"
+    
+    echo -n "E-Mail [${EMAIL}]: "
+    read -r input
+    EMAIL="${input:-$EMAIL}"
+    
+    echo -n "UserID [automatisch generiert]: "
+    read -r input
+    userid="${input:-$(uuidgen)}"
+
+    # Überprüfe ob Robust läuft
+    if ! screen -list | grep -q "robustserver"; then
+        echo -e "${COLOR_BAD}CREATEUSER: Robust existiert nicht oder läuft nicht${COLOR_RESET}"
+        return 1
+    fi
+
+    # Bestätigungsabfrage
+    echo -e "\n${COLOR_INFO}Zusammenfassung:${COLOR_RESET}"
+    echo "Vorname: $VORNAME"
+    echo "Nachname: $NACHNAME"
+    echo "Passwort: $PASSWORT"
+    echo "E-Mail: $EMAIL"
+    echo "UserID: $userid"
+    echo -e "${COLOR_WARNING}Wollen Sie den Benutzer wirklich anlegen? [J/n]${COLOR_RESET}"
+    read -r -n 1 confirmation
+    echo ""
+
+    if [[ "$confirmation" =~ [nN] ]]; then
+        echo -e "${COLOR_INFO}Abgebrochen${COLOR_RESET}"
+        return 0
+    fi
+
+    # create user [<first> [<last> [<pass> [<email> [<user id> [<model>]]]]]]
+    # Create a new user
+    # Befehlskette zur Benutzererstellung:
+    screen -S robustserver -p 0 -X eval "stuff 'create user'^M"
+    screen -S robustserver -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
+    screen -S robustserver -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
+    screen -S robustserver -p 0 -X eval "stuff '$PASSWORT'^M"  # Passwort
+    #screen -S robustserver -p 0 -X eval "stuff '128'^M"        # locationX - Robust Fehler
+    #screen -S robustserver -p 0 -X eval "stuff '128'^M"        # locationY - Robust Fehler
+    screen -S robustserver -p 0 -X eval "stuff '$EMAIL'^M"     # E-Mail
+    screen -S robustserver -p 0 -X eval "stuff '$userid'^M"    # User ID
+    screen -S robustserver -p 0 -X eval "stuff 'Ruth'^M"    # Model name Ruth - Robust Fehler
+    #screen -S robustserver -p 0 -X eval "stuff 'set home'^M"   # Home setzen - Robust Fehler
+
+    echo -e "${COLOR_OK}Masteruser $VORNAME $NACHNAME wurde erstellt${COLOR_RESET}"
+    echo -e "${COLOR_INFO}UserID: $userid${COLOR_RESET}"
+    
+    echo -e "\n${SYM_LOG} ${COLOR_LABEL}Benutzerdaten gespeichert in: ${COLOR_FILE}${SCRIPT_DIR}/userinfo.txt${COLOR_RESET}"
+    echo "Vorname: ${VORNAME} Nachname: ${NACHNAME} Passwort: ${PASSWORT} E-Mail: ${EMAIL} UserID: ${userid}" | sudo tee "${SCRIPT_DIR}/userinfo.txt" >/dev/null
+
+    echo " Der Fehler: Unable to set home for account - Ist ein Fehler in Robust der innerhalb des C# Sourcecode behoben werden muss."
+    echo "Das was wir machen müssen um diesen Fehler zu beheben ist im Viewer bei der Anmeldung eine Regionsnamen eingeben einer vorhandenen Region und Inworld dann Hier als zuhause auswählen."
+    blankline
+}
+
+# Noch keine Funktion.
+function createlanduser() {
+    # shellcheck disable=SC2317
+    echo "erstellt Estate und Landuser"
+    # Bei sim1 muss der Estate Name und Owner angegeben werden.
+    # Benötigt wird: "$gridname $VORNAME $NACHNAME $estatename"
+
+    # Estate Default Estate has no owner set.
+    # Estate owner first name [Test]:
+    # Estate owner last name [User]:
 }
 
 function setcrontab() {
@@ -1588,7 +1721,6 @@ function uncomment_ini_section_line() {
         return 1
     fi
 }
-
 function comment_ini_line() {
     local file="$1"
     local section="$2"
@@ -1608,9 +1740,10 @@ function comment_ini_line() {
     BEGIN { in_section = 0 }
     $0 ~ "^\\[" section "\\]" { in_section = 1; print; next }
     in_section && /^\[/ { in_section = 0 }
-    in_section && $0 ~ key {
-        # Einfach Semikolon vor die Zeile setzen
-        print ";" $0
+    in_section && $0 ~ key && !/^[[:space:]]*;/ {
+        # Nur nicht bereits kommentierte Zeilen kommentieren
+        sub(/^[[:space:]]*/, "&;", $0)
+        print $0
         next
     }
     { print }
@@ -1630,6 +1763,51 @@ function comment_ini_line() {
     fi
 }
 
+function clear_ini_section() {
+    local file="$1"
+    local section="$2"
+
+    # Sicherheitsprüfungen
+    [ ! -f "$file" ] && { echo -e "${COLOR_BAD}Datei nicht gefunden: ${file}${COLOR_RESET}" >&2; return 1; }
+    [ -z "$section" ] && { echo -e "${COLOR_BAD}Sektion darf nicht leer sein${COLOR_RESET}" >&2; return 1; }
+
+    # Temporäre Datei erstellen
+    local temp_file
+    temp_file=$(mktemp) || { echo -e "${COLOR_BAD}Temp-Datei konnte nicht erstellt werden${COLOR_RESET}" >&2; return 1; }
+
+    # AWK zum Leeren der Sektion (behält Header)
+    awk -v section="$section" '
+    BEGIN { in_section = 0 }
+    
+    # Sektionsanfang erkennen
+    $0 ~ "^\\[" section "\\]" {
+        in_section = 1
+        print $0  # Header ausgeben
+        next
+    }
+    
+    # Sektionsende erkennen
+    in_section && /^\[/ {
+        in_section = 0
+    }
+    
+    # Innerhalb der Sektion: nichts ausgeben (löschen)
+    in_section { next }
+    
+    # Außerhalb der Sektion: normale Ausgabe
+    { print }
+    ' "$file" > "$temp_file"
+
+    # Originaldatei ersetzen
+    if mv "$temp_file" "$file"; then
+        echo -e "${COLOR_OK}Sektion '[${section}]' erfolgreich geleert${COLOR_RESET}"
+        return 0
+    else
+        echo -e "${COLOR_BAD}Datei konnte nicht aktualisiert werden${COLOR_RESET}" >&2
+        return 1
+    fi
+}
+
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Konfigurationen der einzelnen Dienste
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -1640,6 +1818,11 @@ function comment_ini_line() {
 # [Section]
 # 	Key = Value
 # 	; Comment
+
+# clean_gridname() {
+#     echo "$1" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/ß/ss/g' \
+#                    -e 's/[- &]/_/g' -e 's/__\+/_/g' -e 's/^_//' -e 's/_$//'
+# }
 
 # Alle Datenbanken konfigurieren.
 function database_set_iniconfig() {
@@ -1695,6 +1878,9 @@ function welcomeiniconfig() {
     # 25.04.2025
     local ip="$1"
     local gridname="$2"
+
+    # Gridname bereinigen
+    gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
     
     local welcome_ini="${SCRIPT_DIR}/sim1/bin/Regions/$gridname.ini"
     
@@ -1702,15 +1888,17 @@ function welcomeiniconfig() {
     if [[ -f "$welcome_ini" ]]; then
         echo -e "${COLOR_INFO}Überspringe Erstellung der Welcome-Region: '$gridname.ini' existiert bereits${COLOR_RESET}"
         # Vorsichtshalber Region in Robust-Konfigurationen eintragen.
-        set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "DefaultRegion, DefaultHGRegion"
-        set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.ini" "GridService" "Region_$gridname" "DefaultRegion"
+        set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "\"DefaultRegion, DefaultHGRegion, FallbackRegion\""
+        set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.ini" "GridService" "Region_$gridname" "\"DefaultRegion, FallbackRegion\""
         return
     fi
     
     region_uuid=$(uuidgen)
     
-    # 1. Datei erstellen
-    touch "$welcome_ini"
+    # Datei erstellen
+    #touch "$welcome_ini"
+    #touch "$welcome_ini" || echo "" > "$welcome_ini"
+    touch "$welcome_ini" 2>/dev/null || echo "" > "$welcome_ini"
     
     # 2. Sektion hinzufügen
     add_ini_section "$welcome_ini" "$gridname"
@@ -1722,12 +1910,13 @@ function welcomeiniconfig() {
     set_ini_key "$welcome_ini" "$gridname" "SizeY" "256"
     set_ini_key "$welcome_ini" "$gridname" "SizeZ" "256"
     set_ini_key "$welcome_ini" "$gridname" "InternalPort" "9015"
-    set_ini_key "$welcome_ini" "$gridname" "ExternalHostName" "\"$ip\""
+    set_ini_key "$welcome_ini" "$gridname" "ExternalHostName" "$system_ip"
     set_ini_key "$welcome_ini" "$gridname" "MaxPrims" "15000"
     set_ini_key "$welcome_ini" "$gridname" "MaxAgents" "40"
     set_ini_key "$welcome_ini" "$gridname" "MaptileStaticUUID" "$region_uuid"
     set_ini_key "$welcome_ini" "$gridname" "InternalAddress" "0.0.0.0"
     set_ini_key "$welcome_ini" "$gridname" "AllowAlternatePorts" "False"
+    
     set_ini_key "$welcome_ini" "$gridname" ";NonPhysicalPrimMax" "512"
     set_ini_key "$welcome_ini" "$gridname" ";PhysicalPrimMax" "128"
     set_ini_key "$welcome_ini" "$gridname" ";ClampPrimSize" "false"
@@ -1747,28 +1936,28 @@ function welcomeiniconfig() {
     set_ini_key "$welcome_ini" "$gridname" ";MasterAvatarSandboxPassword" "passwd"
 
     # 4. Region in Robust-Konfigurationen eintragen
-    set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "DefaultRegion, DefaultHGRegion"
-    set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.ini" "GridService" "Region_$gridname" "DefaultRegion"
+    # DefaultRegion, DefaultHGRegion, FallbackRegion, NoDirectLogin, Persistent, LockedOut, Reservation, NoMove, Authenticate
+    set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "\"DefaultRegion, DefaultHGRegion, FallbackRegion\""
+    set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.ini" "GridService" "Region_$gridname" "\"DefaultRegion, FallbackRegion\""
 
     echo -e "${COLOR_OK}Welcome_Area.ini Konfiguration abgeschlossen für $gridname${COLOR_RESET}"
     blankline
 }
 
-# Konfiguriert MoneyServer.ini im robust/bin Verzeichnis
 function moneyserveriniconfig() {
-    # 24.04.2025
     local ip="$1"
     local gridname="$2"
-    
-    # Passwort
-    local password_file="${SCRIPT_DIR}/mariadb_passwords.txt"
 
-    # Benutzername und Passwort auslesen (vorausgesetzt die Datei ist im Format: Benutzername: <user> Passwort: <pass>)
+    # Gridname bereinigen
+    gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
+    
+    # Passwort aus Datei laden
+    local password_file="${SCRIPT_DIR}/mariadb_passwords.txt"
     local db_user db_pass
     db_user=$(grep -oP 'Benutzername:\s*\K\S+' "$password_file")
     db_pass=$(grep -oP 'Passwort:\s*\K\S+' "$password_file")
 
-    # Falls Werte nicht gelesen wurden, abbrechen
+    # Falls keine Benutzer- und Passwortwerte gelesen wurden, abbrechen
     if [[ -z "$db_user" || -z "$db_pass" ]]; then
         echo "Fehler: Benutzername oder Passwort konnten nicht ausgelesen werden."
         return 1
@@ -1777,19 +1966,40 @@ function moneyserveriniconfig() {
     local dir="$SCRIPT_DIR/robust/bin"
     local file="$dir/MoneyServer.ini"
 
-    if [[ -f "$file.example" ]]; then
-        cp "$file.example" "$file"
-    else
-        touch "$file"
+    # Sicherstellen, dass die Vorlage existiert
+    if [[ ! -f "$file.example" ]]; then
+        echo "FEHLER: Konfigurationsvorlage '$file.example' fehlt!" >&2
+        exit 1  
     fi
+
+    # Kopieren der Vorlage
+    cp "$file.example" "$file" || {
+        echo "FEHLER: Konnte '$file' nicht erstellen" >&2
+        exit 1
+    }
+
+    # [Startup]
+    set_ini_key "$file" "Startup" "PIDFile" "\"/tmp/money.pid\""
+
     # [MySql]
-    set_ini_key "$file" "MySql" "database" "robust"
-    set_ini_key "$file" "MySql" "username" "$db_user"
-    set_ini_key "$file" "MySql" "password" "$db_pass"
+    set_ini_key "$file" "MySql" "hostname" "\"localhost\""
+    set_ini_key "$file" "MySql" "database" "\"robust\""
+    set_ini_key "$file" "MySql" "username" "\"$db_user\""
+    set_ini_key "$file" "MySql" "password" "\"$db_pass\""
+    set_ini_key "$file" "MySql" "pooling" "\"true\""
+    set_ini_key "$file" "MySql" "port" "\"3306\""
+    set_ini_key "$file" "MySql" "MaxConnection" "\"25\""
 
     # [MoneyServer]
-    set_ini_key "$file" "MoneyServer" "MoneyServerIPaddress" "http://$system_ip:8008"
-    set_ini_key "$file" "MoneyServer" "MoneyScriptIPaddress" "$system_ip"
+    set_ini_key "$file" "MoneyServer" "ServerPort" "\"8008\""
+    set_ini_key "$file" "MoneyServer" "CurrencyOnOff" "\"on\""
+    set_ini_key "$file" "MoneyServer" "CurrencyMaximum" "\"20000\""
+    set_ini_key "$file" "MoneyServer" "MoneyServerIPaddress" "\"http://$ip:8008\""
+    set_ini_key "$file" "MoneyServer" "DefaultBalance" "\"1000\""
+
+    # [Certificate]
+    set_ini_key "$file" "Certificate" "CheckClientCert" "\"false\""
+    set_ini_key "$file" "Certificate" "CheckServerCert" "\"false\""
 
     echo -e "${COLOR_OK}MoneyServer.ini Konfiguration abgeschlossen${COLOR_RESET}"
     blankline
@@ -1803,6 +2013,9 @@ function opensiminiconfig() {
     local base_port=9010
     local sim_counter=1
 
+    # Gridname bereinigen
+    gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
+
     # Iteration über alle sim1 bis sim99 Verzeichnisse
     for i in $(seq 1 99); do
         sim_dir="$SCRIPT_DIR/sim$i"
@@ -1810,11 +2023,17 @@ function opensiminiconfig() {
             local dir="$sim_dir/bin"
             local file="$dir/OpenSim.ini"
 
-            if [[ -f "$file.example" ]]; then
-                cp "$file.example" "$file"
-            else
-                touch "$file"
+            if [[ ! -f "$file.example" ]]; then
+                echo "FEHLER: Konfigurationsvorlage '$file.example' fehlt!" >&2
+                echo "Das Programm benötigt diese Datei zum Starten." >&2
+                exit 1  # Programm mit Fehlercode beenden
             fi
+
+            # Nur wenn Vorlage existiert: Kopieren
+            cp "$file.example" "$file" || {
+                echo "FEHLER: Konnte '$file' nicht erstellen" >&2
+                exit 1
+            }
 
             echo -e "${COLOR_INFO}Konfiguriere OpenSim.ini in $dir${COLOR_RESET}"
 
@@ -1959,101 +2178,153 @@ function robusthginiconfig() {
     local dir="$SCRIPT_DIR/robust/bin"
     local file="$dir/Robust.HG.ini"
 
-    if [[ -f "$file.example" ]]; then
-        cp "$file.example" "$file"
-    else
-        touch "$file"
+    # Gridname bereinigen
+    gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
+
+    if [[ ! -f "$file.example" ]]; then
+        echo "FEHLER: Konfigurationsvorlage '$file.example' fehlt!" >&2
+        echo "Das Programm benötigt diese Datei zum Starten." >&2
+        exit 1  # Programm mit Fehlercode beenden
     fi
+
+    # Nur wenn Vorlage existiert: Kopieren
+    cp "$file.example" "$file" || {
+        echo "FEHLER: Konnte '$file' nicht erstellen" >&2
+        exit 1
+    }
 
     # [Const]
     set_ini_key "$file" "Const" "BaseHostname" "$ip"
+
+    # [Startup]
+    # PID-Dateien gehören grundsätzlich in /tmp warum: tmp Wird beim Neustart automatisch geleert. Keine Berechtigungsprobleme (normalerweise schreibbar für alle).
+    uncomment_ini_line "$file" "PIDFile"
+
     # [ServiceList]
     uncomment_ini_line "$file" "OfflineIMServiceConnector"
     uncomment_ini_line "$file" "GroupsServiceConnector"
     uncomment_ini_line "$file" "BakedTextureService"
     uncomment_ini_line "$file" "UserProfilesServiceConnector"
     uncomment_ini_line "$file" "HGGroupsServiceConnector"
+
+    # [Network]
     
     # [Hypergrid]
     uncomment_ini_line "$file" "HomeURI"
     uncomment_ini_line "$file" "GatekeeperURI"
-    
-    # [DatabaseService] Nicht hier!
+        
+    # [DatabaseService] wird in database_set_iniconfig eingetragen.
     # ConnectionString = "Data Source=localhost;Database=opensim;User ID=opensim;Password=*****;Old Guids=true;SslMode=None;"
     
+    # [AssetService]
+    # FSAssetService und sqlite nutzen das filesystem und beanspruchen die Festplatte so das ich hier nichts machen werde.
+
     # [GridService] für osWebinterface
     # Der Regionsname wird von welcomeiniconfig geschrieben.
     uncomment_ini_line "$file" "MapTileDirectory"
 
+
+    # Key = "\"Value\""
     
-    # [LoginService] für osWebinterface etc. "\${Const|BaseURL}:\${Const|PublicPort}"
-    set_ini_key "$file" "LoginService" "Currency" "OS$"
-    set_ini_key "$file" "LoginService" "WelcomeMessage" "Willkommen im $gridname!"
-    set_ini_key "$file" "LoginService" "MapTileURL" "\${Const|BaseURL}:\${Const|PublicPort}/"
-    set_ini_key "$file" "LoginService" "SearchURL" "\${Const|BaseURL}:\${Const|PublicPort}/searchservice.php"
-	set_ini_key "$file" "LoginService" "DestinationGuide" "\${Const|BaseURL}/guide.php"
-	set_ini_key "$file" "LoginService" "AvatarPicker" "\${Const|BaseURL}/avatarpicker.php"
+    # [LoginService] für osWebinterface etc. "\${Const|BaseURL}:\${Const|PublicPort}"    
+    uncomment_ini_line "$file" "SearchURL"
+    uncomment_ini_line "$file" "DestinationGuide"
+    uncomment_ini_line "$file" "AvatarPicker"
+    uncomment_ini_line "$file" "MinLoginLevel"
+    uncomment_ini_line "$file" "Currency"
+    uncomment_ini_line "$file" "ClassifiedFee"
+
+    set_ini_key "$file" "LoginService" "WelcomeMessage" "\"Willkommen im $gridname!\""
+    set_ini_key "$file" "LoginService" "MapTileURL" "\"\${Const|BaseURL}:\${Const|PublicPort}/\""
+    set_ini_key "$file" "LoginService" "SearchURL" "\"\${Const|BaseURL}:\${Const|PublicPort}/searchservice.php\""
+	set_ini_key "$file" "LoginService" "DestinationGuide" "\"\${Const|BaseURL}/guide.php\""
+	set_ini_key "$file" "LoginService" "AvatarPicker" "\"\${Const|BaseURL}/avatarpicker.php\""    
+    set_ini_key "$file" "LoginService" "Currency" "\"OS$\""
+    
+    #! Testen ob local möglich ist.
+    #set_ini_key "$file" "LoginService" "DSTZone" "\"America/Los_Angeles\""
+    set_ini_key "$file" "LoginService" "DSTZone" "\"local\""
+
+    # [GatekeeperService]
+    uncomment_ini_line "$file" "ExternalName"
     
     # [GridInfoService]
-    set_ini_key "$file" "GridInfoService" "gridname" "$gridname"
-    set_ini_key "$file" "GridInfoService" "gridnick" "$gridname"
-    set_ini_key "$file" "GridInfoService" "welcome" "\${Const|BaseURL}/welcome"
-    set_ini_key "$file" "GridInfoService" "economy" "\${Const|BaseURL}:8008/"
-    set_ini_key "$file" "GridInfoService" "about" "\${Const|BaseURL}/about"
-    set_ini_key "$file" "GridInfoService" "register" "\${Const|BaseURL}/register"
-    set_ini_key "$file" "GridInfoService" "help" "\${Const|BaseURL}/help"
-    set_ini_key "$file" "GridInfoService" "password" "\${Const|BaseURL}/password"
-    set_ini_key "$file" "GridInfoService" "GridStatusRSS" "\${Const|BaseURL}:\${Const|PublicPort}/GridStatusRSS"
+    set_ini_key "$file" "GridInfoService" "gridname" "\"$gridname\""
+    set_ini_key "$file" "GridInfoService" "gridnick" "\"$gridname\""
+    set_ini_key "$file" "GridInfoService" "welcome" "\"\${Const|BaseURL}/welcomesplashpage.php\""
+    # Beim MoneyServer von mir werden keinerlei helpers gebraucht. BuyCurrency und LandBuy ist im MoneyServer enthalten.
+    set_ini_key "$file" "GridInfoService" "economy" "\"\${Const|BaseURL}:8008/\""
+    set_ini_key "$file" "GridInfoService" "about" "\"\${Const|BaseURL}/aboutinformation.php\""
+    set_ini_key "$file" "GridInfoService" "register" "\"\${Const|BaseURL}/createavatar.php\""
+    set_ini_key "$file" "GridInfoService" "help" "\"\${Const|BaseURL}/help.php\""
+    set_ini_key "$file" "GridInfoService" "password" "\"\${Const|BaseURL}/passwordreset.php\""
+    set_ini_key "$file" "GridInfoService" "GridStatusRSS" "\"\${Const|BaseURL}/gridstatusrss.php\""
+
+    # [UserAgentService]
+    uncomment_ini_line "$file" "LevelOutsideContacts"
+    uncomment_ini_line "$file" "ShowUserDetailsInHGProfile"
+
+    # [Messaging]
+    set_ini_key "$file" "Messaging" "MaxOfflineIMs" "250"
+
+    # [Groups]
+    set_ini_key "$file" "Groups" "MaxAgentGroups" "100"
 
     echo -e "${COLOR_OK}Robust.HG.ini konfiguriert.${COLOR_RESET}"
     blankline
 }
 
-# Konfiguration von Robust.ini im robust/bin Verzeichnis
 function robustiniconfig() {
     local ip="$1"
     local gridname="$2"
     local dir="$SCRIPT_DIR/robust/bin"
-    local file="$dir/Robust.ini"
+    local source_file="$dir/Robust.ini.example"
+    local target_file="$dir/Robust.local.ini"
 
-    if [[ -f "$file.example" ]]; then
-        cp "$file.example" "$file"
-    else
-        touch "$file"
+    # Gridname bereinigen
+    gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
+
+    if [[ ! -f "$source_file" ]]; then
+        echo -e "${COLOR_BAD}FEHLER: Konfigurationsvorlage '$source_file' fehlt!${COLOR_RESET}" >&2
+        echo -e "${COLOR_BAD}Das Programm benötigt diese Datei zum Starten.${COLOR_RESET}" >&2
+        exit 1
     fi
 
+    # Vorlage nach Robust.local.ini kopieren
+    cp "$source_file" "$target_file" || {
+        echo -e "${COLOR_BAD}FEHLER: Konnte '$target_file' nicht erstellen${COLOR_RESET}" >&2
+        exit 1
+    }
+
     # [Const]
-    set_ini_key "$file" "Const" "BaseHostname" "$ip"
+    set_ini_key "$target_file" "Const" "BaseHostname" "$ip"
     
     # [ServiceList]
-    uncomment_ini_line "$file" "OfflineIMServiceConnector"
-    uncomment_ini_line "$file" "GroupsServiceConnector"
-    uncomment_ini_line "$file" "BakedTextureService"
-    uncomment_ini_line "$file" "UserProfilesServiceConnector"
+    uncomment_ini_line "$target_file" "OfflineIMServiceConnector"
+    uncomment_ini_line "$target_file" "GroupsServiceConnector"
+    uncomment_ini_line "$target_file" "BakedTextureService"
+    uncomment_ini_line "$target_file" "UserProfilesServiceConnector"
     
-    # [DatabaseService]
-    # ConnectionString = "Data Source=localhost;Database=opensim;User ID=opensim;Password=*****;Old Guids=true;SslMode=None;"
-    
-    # [LoginService] für osWebinterface etc. "\${Const|BaseURL}:\${Const|PublicPort}"
-    set_ini_key "$file" "LoginService" "Currency" "OS$"
-    set_ini_key "$file" "LoginService" "WelcomeMessage" "Willkommen im $gridname!"
-    set_ini_key "$file" "LoginService" "MapTileURL" "\${Const|BaseURL}:\${Const|PublicPort}/"
-    set_ini_key "$file" "LoginService" "SearchURL" "\${Const|BaseURL}:\${Const|PublicPort}/searchservice.php"
-	set_ini_key "$file" "LoginService" "DestinationGuide" "\${Const|BaseURL}/guide.php"
-	set_ini_key "$file" "LoginService" "AvatarPicker" "\${Const|BaseURL}/avatarpicker.php"
+    # [LoginService] Konfiguration
+    set_ini_key "$target_file" "LoginService" "Currency" "\"OS$\""
+    set_ini_key "$target_file" "LoginService" "WelcomeMessage" "\"Willkommen im $gridname!\""
+    set_ini_key "$target_file" "LoginService" "MapTileURL" "\"\${Const|BaseURL}:\${Const|PublicPort}/\""
+    set_ini_key "$target_file" "LoginService" "SearchURL" "\"\${Const|BaseURL}/searchservice.php\""
+    set_ini_key "$target_file" "LoginService" "DestinationGuide" "\"\${Const|BaseURL}/guide.php\""
+    set_ini_key "$target_file" "LoginService" "AvatarPicker" "\"\${Const|BaseURL}/avatarpicker.php\""
     
     # [GridInfoService]
-    set_ini_key "$file" "GridInfoService" "gridname" "$gridname"
-    set_ini_key "$file" "GridInfoService" "gridnick" "$gridname"
-    set_ini_key "$file" "GridInfoService" "welcome" "\${Const|BaseURL}/welcome"
-    set_ini_key "$file" "GridInfoService" "economy" "\${Const|BaseURL}:8008/"
-    set_ini_key "$file" "GridInfoService" "about" "\${Const|BaseURL}/about"
-    set_ini_key "$file" "GridInfoService" "register" "\${Const|BaseURL}/register"
-    set_ini_key "$file" "GridInfoService" "help" "\${Const|BaseURL}/help"
-    set_ini_key "$file" "GridInfoService" "password" "\${Const|BaseURL}/password"
-    set_ini_key "$file" "GridInfoService" "GridStatusRSS" "\${Const|BaseURL}:\${Const|PublicPort}/GridStatusRSS"
+    set_ini_key "$target_file" "GridInfoService" "gridname" "\"$gridname\""
+    set_ini_key "$target_file" "GridInfoService" "gridnick" "\"$gridname\""
+    set_ini_key "$target_file" "GridInfoService" "welcome" "\"\${Const|BaseURL}/welcome\""
+    set_ini_key "$target_file" "GridInfoService" "economy" "\"\${Const|BaseURL}:8008/\""
+    set_ini_key "$target_file" "GridInfoService" "about" "\"\${Const|BaseURL}/about\""
+    set_ini_key "$target_file" "GridInfoService" "register" "\"\${Const|BaseURL}/register\""
+    set_ini_key "$target_file" "GridInfoService" "help" "\"\${Const|BaseURL}/help\""
+    set_ini_key "$target_file" "GridInfoService" "password" "\"\${Const|BaseURL}/password\""
+    set_ini_key "$target_file" "GridInfoService" "GridStatusRSS" "\"\${Const|BaseURL}:\${Const|PublicPort}/GridStatusRSS\""
 
-    echo -e "${COLOR_OK}Robust.ini konfiguriert.${COLOR_RESET}"
+    echo -e "${COLOR_OK}Robust.local.ini erfolgreich konfiguriert.${COLOR_RESET}"
     blankline
 }
 
@@ -2070,8 +2341,10 @@ function flotsaminiconfig() {
             echo -e "${COLOR_FILE}Erstelle $file${COLOR_RESET}"
             mkdir -p "$config_dir"
             
-            # 1. Datei erstellen
-            touch "$file"
+            # Datei erstellen
+            #touch "$welcome_ini"
+            #touch "$welcome_ini" || echo "" > "$welcome_ini"
+            touch "$file" 2>/dev/null || echo "" > "$file"
             
             # 2. Sektion hinzufügen
             add_ini_section "$file" "AssetCache"
@@ -2098,11 +2371,12 @@ function flotsaminiconfig() {
     blankline    
 }
 
-# GridCommon.ini
 function gridcommoniniconfig() {
-    # 25.04.2025
     local ip="$1"
     local gridname="$2"
+
+    # Gridname bereinigen
+    gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
 
     for i in $(seq 1 99); do
         local config_dir="$SCRIPT_DIR/sim$i/bin/config-include"
@@ -2110,36 +2384,96 @@ function gridcommoniniconfig() {
         local example_file="$config_dir/GridCommon.ini.example"
 
         # Strikte Prüfung - Abbruch wenn etwas fehlt
-        if [[ ! -d "$config_dir" ]]; then
-            # echo -e "${COLOR_BAD}✗ KRITISCH: $config_dir fehlt${COLOR_RESET}" >&2
+        if [[ ! -d "$config_dir" ]] || [[ ! -f "$example_file" ]]; then
             return 1
         fi
 
-        if [[ ! -f "$example_file" ]]; then
-            #echo -e "${COLOR_BAD}✗ KRITISCH: $example_file fehlt${COLOR_RESET}" >&2
-            return 1
-        fi
+        # Vorlage kopieren
+        cp "$example_file" "$file" || return 1
 
-        # 1. Vorlage kopieren (muss existieren)
-        cp "$example_file" "$file" || {
-            #echo -e "${COLOR_BAD}✗ Kopieren fehlgeschlagen${COLOR_RESET}" >&2
-            return 1
-        }
+        # [Const]
+        add_ini_before_section "$file" "Const" "DatabaseService"
+        set_ini_key "$file" "Const" "BaseHostname" "\"$ip\""
+        set_ini_key "$file" "Const" "BaseURL" "\"http://\${Const|BaseHostname}\""
+        set_ini_key "$file" "Const" "PublicPort" "\"8002\""
+        set_ini_key "$file" "Const" "PrivatePort" "\"8003\""
 
-        # 2. [Const] Sektion hinzufügen
-        add_ini_before_section "$file" "Const" "DatabaseService" || return 1
-        set_ini_key "$file" "Const" "BaseHostname" "$ip" || return 1
-        set_ini_key "$file" "Const" "BaseURL" "http://\${Const|BaseHostname}" || return 1
-        set_ini_key "$file" "Const" "PublicPort" "8002" || return 1
-        set_ini_key "$file" "Const" "PrivatePort" "8003" || return 1
-        set_ini_key "$file" "Const" "PrivURL" "http://\${Const|BaseHostname}" || return 1
+        # [DatabaseService] wird in database_set_iniconfig eingetragen.
+        #! löschen: Include-Storage = "config-include/storage/SQLiteStandalone.ini";
+        clear_ini_section "$file" "DatabaseService"
+        set_ini_key "$file" "DatabaseService" "StorageProvider" "\"OpenSim.Data.MySQL.dll\""
+        #!set_ini_key "$file" "DatabaseService" "ConnectionString" "\"Data Source=localhost;Database=Database;User ID=User;Password=Password;Old Guids=true;SslMode=None;\""
 
-        # 3. Datenbank konfigurieren
-        sed -i '/^[[:space:]]*Include-Storage[[:space:]]*=.*/d' "$file"
-        set_ini_key "$file" "DatabaseService" "StorageProvider" "OpenSim.Data.MySQL.dll" || return 1
+        # [Hypergrid]
+        set_ini_key "$file" "Hypergrid" "GatekeeperURI" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+        set_ini_key "$file" "Hypergrid" "HomeURI" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
 
-        # 4. Hypergrid
-        set_ini_key "$file" "Hypergrid" "GatekeeperURI" "\${Const|BaseURL}:\${Const|PublicPort}" || return 1
+        # [Modules]
+        set_ini_key "$file" "Modules" "AssetCaching" "\"FlotsamAssetCache\""
+        set_ini_key "$file" "Modules" "Include-FlotsamCache" "\"config-include/FlotsamCache.ini\""
+        set_ini_key "$file" "Modules" "AuthorizationServices" "\"RemoteAuthorizationServicesConnector\""
+
+        # [AssetService]
+        set_ini_key "$file" "AssetService" "DefaultAssetLoader" "\"OpenSim.Framework.AssetLoader.Filesystem.dll\""
+        set_ini_key "$file" "AssetService" "AssetLoaderArgs" "\"assets/AssetSets.xml\""
+        set_ini_key "$file" "AssetService" "AssetServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [InventoryService]
+        set_ini_key "$file" "InventoryService" "InventoryServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [GridInfo]
+        set_ini_key "$file" "GridInfo" "GridInfoURI" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+
+        # [GridService]
+        set_ini_key "$file" "GridService" "GridServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+        set_ini_key "$file" "GridService" "MapTileDirectory" "\"./maptiles\""
+        set_ini_key "$file" "GridService" "Gatekeeper" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+
+        # [EstateDataStore]
+        set_ini_key "$file" "EstateService" "EstateServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [Messaging]
+        set_ini_key "$file" "Messaging" "Gatekeeper" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+
+        # [AvatarService]
+        set_ini_key "$file" "AvatarService" "AvatarServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [AgentPreferencesService]
+        set_ini_key "$file" "AgentPreferencesService" "AgentPreferencesServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [PresenceService]
+        set_ini_key "$file" "PresenceService" "PresenceServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [UserAccountService]
+        set_ini_key "$file" "UserAccountService" "UserAccountServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [GridUserService]
+        set_ini_key "$file" "GridUserService" "GridUserServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [AuthenticationService]
+        set_ini_key "$file" "AuthenticationService" "AuthenticationServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [FriendsService]
+        set_ini_key "$file" "FriendsService" "FriendsServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [HGInventoryAccessModule]
+        set_ini_key "$file" "HGInventoryAccessModule" "HomeURI" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+        set_ini_key "$file" "HGInventoryAccessModule" "Gatekeeper" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+
+        # [HGAssetService]
+        set_ini_key "$file" "HGAssetService" "HomeURI" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
+
+        # [HGFriendsModule]
+        set_ini_key "$file" "HGFriendsModule" "LevelHGFriends" "0"
+
+        # [MapImageService]
+        set_ini_key "$file" "MapImageService" "MapImageServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
+
+        # [AuthorizationService]
+        set_ini_key "$file" "AuthorizationService" "AuthorizationServerURI" "\"\${Const|PrivURL}/hgauth.php\""
+
+        # [MuteListService]
+        set_ini_key "$file" "MuteListService" "MuteListServerURI" "\"\${Const|PrivURL}:\${Const|PrivatePort}\""
 
         echo -e "${COLOR_OK}✓ sim$i: GridCommon.ini erfolgreich${COLOR_RESET}"
     done
@@ -2148,7 +2482,6 @@ function gridcommoniniconfig() {
     blankline
 }
 
-# Erstellt osslEnable.ini komplett neu in allen simX/config-include Verzeichnissen
 function osslenableiniconfig() {
     # 25.04.2025
     for i in $(seq 1 99); do
@@ -2159,13 +2492,12 @@ function osslenableiniconfig() {
             echo -e "${COLOR_FILE}Erstelle $file${COLOR_RESET}"
             mkdir -p "$config_dir"
             
-            # 1. Datei erstellen
-            touch "$file"
+            touch "$file" 2>/dev/null || echo "" > "$file"
             
-            # 2. Sektion hinzufügen
+            # Sektion hinzufügen
             add_ini_section "$file" "OSSL"
             
-            # 3. Alle Key-Value Paare setzen
+            # Basis-Key-Value Paare
             set_ini_key "$file" "OSSL" "AllowOSFunctions" "true"
             set_ini_key "$file" "OSSL" "AllowMODFunctions" "true"
             set_ini_key "$file" "OSSL" "AllowLightShareFunctions" "true"
@@ -2175,17 +2507,123 @@ function osslenableiniconfig() {
             set_ini_key "$file" "OSSL" "osslParcelOG" "\"PARCEL_GROUP_MEMBER,PARCEL_OWNER,\""
             set_ini_key "$file" "OSSL" "osslNPC" "\${OSSL|osslParcelOG}ESTATE_MANAGER,ESTATE_OWNER"
 
-            # Einzeleinstellungen
-            set_ini_key "$file" "OSSL" "Allow_osSetDynamicTextureData" "true"
-            set_ini_key "$file" "OSSL" "Allow_osSetProjectionParams" "true"
+            # Alle Allow_* Einträge
+            set_ini_key "$file" "OSSL" "Allow_osGetAgents" "true"
+            set_ini_key "$file" "OSSL" "Allow_osGetAvatarList" "true"
+            set_ini_key "$file" "OSSL" "Allow_osGetNPCList" "true"
+            set_ini_key "$file" "OSSL" "Allow_osNpcGetOwner" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osSetSunParam" "ESTATE_MANAGER,ESTATE_OWNER"
             set_ini_key "$file" "OSSL" "Allow_osTeleportOwner" "true"
-            set_ini_key "$file" "OSSL" "Allow_osSetSpeed" "true"
-            set_ini_key "$file" "OSSL" "Allow_osNpcCreate" "GROUP_UUID,ESTATE_MANAGER"
-            set_ini_key "$file" "OSSL" "Allow_osAvatarPlayAnimation" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
-            set_ini_key "$file" "OSSL" "Allow_osAvatarStopAnimation" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
-            set_ini_key "$file" "OSSL" "Allow_osForceDetachFromAvatar" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
-            set_ini_key "$file" "OSSL" "Allow_osForceOtherSit" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
-            set_ini_key "$file" "OSSL" "Allow_osSetRot" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetEstateSunSettings" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetRegionSunSettings" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osEjectFromGroup" "true"
+            set_ini_key "$file" "OSSL" "Allow_osForceBreakAllLinks" "true"
+            set_ini_key "$file" "OSSL" "Allow_osForceBreakLink" "true"
+            set_ini_key "$file" "OSSL" "Allow_osGetWindParam" "true"
+            set_ini_key "$file" "OSSL" "Allow_osInviteToGroup" "true"
+            set_ini_key "$file" "OSSL" "Allow_osReplaceString" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetDynamicTextureData" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetDynamicTextureDataFace" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetDynamicTextureDataBlend" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetDynamicTextureDataBlendFace" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetParcelMediaURL" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetParcelMusicURL" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetParcelSIPAddress" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetPrimFloatOnWater" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetWindParam" "true"
+            set_ini_key "$file" "OSSL" "Allow_osTerrainFlush" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osAvatarName2Key" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osFormatString" "true"
+            set_ini_key "$file" "OSSL" "Allow_osKey2Name" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osListenRegex" "true"
+            set_ini_key "$file" "OSSL" "Allow_osLoadedCreationDate" "true"
+            set_ini_key "$file" "OSSL" "Allow_osLoadedCreationID" "true"
+            set_ini_key "$file" "OSSL" "Allow_osLoadedCreationTime" "true"
+            set_ini_key "$file" "OSSL" "Allow_osMessageObject" "true"
+            set_ini_key "$file" "OSSL" "Allow_osRegexIsMatch" "true"
+            set_ini_key "$file" "OSSL" "Allow_osGetAvatarHomeURI" "true"
+            set_ini_key "$file" "OSSL" "Allow_osNpcSetProfileAbout" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcSetProfileImage" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osDie" "true"
+            set_ini_key "$file" "OSSL" "Allow_osDetectedCountry" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osDropAttachment" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osDropAttachmentAt" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetAgentCountry" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetGridCustom" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetGridGatekeeperURI" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetGridHomeURI" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetGridLoginURI" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetGridName" "true"
+            set_ini_key "$file" "OSSL" "Allow_osGetGridNick" "true"
+            set_ini_key "$file" "OSSL" "Allow_osGetNumberOfAttachments" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetRegionStats" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetSimulatorMemory" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetSimulatorMemoryKB" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osMessageAttachments" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osReplaceAgentEnvironment" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetSpeed" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetOwnerSpeed" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osRequestURL" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osRequestSecureURL" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osCauseDamage" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osCauseHealing" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetHealth" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetHealRate" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osForceAttachToAvatar" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osForceAttachToAvatarFromInventory" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osForceCreateLink" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osForceDropAttachment" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osForceDropAttachmentAt" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetLinkPrimitiveParams" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetPhysicsEngineType" "true"
+            set_ini_key "$file" "OSSL" "Allow_osGetRegionMapTexture" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetScriptEngineName" "true"
+            set_ini_key "$file" "OSSL" "Allow_osGetSimulatorVersion" "true"
+            set_ini_key "$file" "OSSL" "Allow_osMakeNotecard" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osMatchString" "true"
+            set_ini_key "$file" "OSSL" "Allow_osNpcCreate" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcGetPos" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcGetRot" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcLoadAppearance" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcMoveTo" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcMoveToTarget" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcPlayAnimation" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcRemove" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcSaveAppearance" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcSay" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcSayTo" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcSetRot" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcShout" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcSit" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcStand" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcStopAnimation" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcStopMoveToTarget" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcTouch" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osNpcWhisper" "\${OSSL|osslNPC}"
+            set_ini_key "$file" "OSSL" "Allow_osOwnerSaveAppearance" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osParcelJoin" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osParcelSubdivide" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osRegionRestart" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osRegionNotice" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetProjectionParams" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetRegionWaterHeight" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetTerrainHeight" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetTerrainTexture" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetTerrainTextureHeight" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osAgentSaveAppearance" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osAvatarPlayAnimation" "true"
+            set_ini_key "$file" "OSSL" "Allow_osAvatarStopAnimation" "true"
+            set_ini_key "$file" "OSSL" "Allow_osForceAttachToOtherAvatarFromInventory" "true"
+            set_ini_key "$file" "OSSL" "Allow_osForceDetachFromAvatar" "true"
+            set_ini_key "$file" "OSSL" "Allow_osForceOtherSit" "true"
+            set_ini_key "$file" "OSSL" "Allow_osGetNotecard" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetNotecardLine" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osGetNumberOfNotecardLines" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetDynamicTextureURL" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetDynamicTextureURLBlend" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetDynamicTextureURLBlendFace" "ESTATE_MANAGER,ESTATE_OWNER"
+            set_ini_key "$file" "OSSL" "Allow_osSetRot" "true"
+            set_ini_key "$file" "OSSL" "Allow_osSetParcelDetails" "\${OSSL|osslParcelO}ESTATE_MANAGER,ESTATE_OWNER"
 
             echo -e "${COLOR_OK}→ osslEnable.ini neu geschrieben für sim$i${COLOR_RESET}"
         fi
@@ -2200,6 +2638,9 @@ function standalonecommoniniconfig() {
     local ip="$1"
     local gridname="$2"
 
+    # Gridname bereinigen
+    gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
+
     local config_dir="$SCRIPT_DIR/opensim/bin/config-include"
     local file="$config_dir/StandaloneCommon.ini"
     local example_file="$config_dir/StandaloneCommon.ini.example"
@@ -2207,8 +2648,10 @@ function standalonecommoniniconfig() {
     echo -e "${COLOR_FILE}Erstelle StandaloneCommon.ini in opensim/bin${COLOR_RESET}"
     mkdir -p "$config_dir"
 
-    # 1. Datei erstellen
-    touch "$file"
+    # Datei erstellen
+    #touch "$welcome_ini"
+    #touch "$welcome_ini" || echo "" > "$welcome_ini"
+    touch "$file" 2>/dev/null || echo "" > "$file"
 
     # 2. Const-Sektion hinzufügen
     add_ini_section "$file" "Const"
@@ -2317,8 +2760,12 @@ function regionsiniconfig() {
                     continue
                 fi
 
-                # Config-Datei erstellen
-                touch "$config_file"
+                # Datei erstellen
+                #touch "$welcome_ini"
+                #touch "$welcome_ini" || echo "" > "$welcome_ini"
+                touch "$config_file" 2>/dev/null || echo "" > "$config_file"
+                
+                # Regionseinstellungen hinzufügen
                 add_ini_section "$config_file" "$region_name"
                 
                 # Regionseinstellungen setzen
@@ -2411,7 +2858,10 @@ function iniconfig() {
     echo "Starte welcomeiniconfig ..."
     welcomeiniconfig "$ip" "$gridname"
     echo "Starte database_set_iniconfig ..."
-    database_set_iniconfig
+    database_set_iniconfig    
+    # Auswahl des Modus Hypergrid oder Geschlossener Grid.
+    hypergrid "hypergrid"
+    #hypergrid "closed"
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -2986,6 +3436,7 @@ case $KOMMANDO in
     regionsiniconfig)           regionsiniconfig ;; # Alle neuen Konfigurationen starten.
     generatename|generate_name) generate_name ;;
     cleanconfig)                clean_config "$2" ;;
+    createmasteruser)           createmasteruser "$2" "$3" "$4" "$5" "$6" ;;
 
     #  Experimental            #
     configure_pbr_textures) configure_pbr_textures ;;
