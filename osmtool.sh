@@ -1,5 +1,8 @@
 #!/bin/bash
-
+# todo: PID Dateien vereinheitlichen für OpenSim.dll, Robust.dll und MoneyServer.dll.
+# todo: Erststart Master Avatar in Robust anlegen.
+# todo: Erststart Estates in sim1 Master Avatar anlegen und Master Avatar als Besitzer angeben.
+# todo: Erststart Estates in sim2 bis sim99 anlegen.
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Informationen Kopfzeile
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -7,7 +10,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.70.249"
+VERSION="V25.4.70.256"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -249,8 +252,7 @@ function opensimstart() {
         echo -e "${SYM_BAD} ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}MoneyServer.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
     fi
 
-    # Sim-Regionen starten
-    
+    # Sim-Regionen starten    
     for ((i=1; i<=999; i++)); do
         sim_dir="sim$i/bin"
         if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
@@ -696,12 +698,14 @@ function opensimbuild() {
             dotnet build --configuration Release OpenSim.sln
             echo -e "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde erfolgreich erstellt.${COLOR_RESET}"
         else
-            echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
+            echo -e "${SYM_BAD} ${COLOR_ERROR}OpenSim Build Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
             return 1
         fi
     else
         echo -e "${SYM_BAD} ${COLOR_ERROR}Abbruch: OpenSimulator wird nicht erstellt.${COLOR_RESET}"
     fi
+    # Wer in ein Verzeichnis wechselt sollte auch wieder zur vorherigen Verzeichnis wechseln!
+    cd ..
     blankline
 }
 
@@ -756,13 +760,13 @@ function opensimcopy() {
     
     # Prüfen, ob das Verzeichnis "opensim" existiert
     if [[ ! -d "opensim" ]]; then
-        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}OpenSim Copy Fehler: Das Verzeichnis 'opensim' existiert nicht.${COLOR_RESET}"
         return 1
     fi
 
     # Prüfen, ob das Unterverzeichnis "opensim/bin" existiert
     if [[ ! -d "opensim/bin" ]]; then
-        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Das Verzeichnis 'opensim/bin' existiert nicht.${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_ERROR}OpenSim Copy Fehler: Das Verzeichnis 'opensim/bin' existiert nicht.${COLOR_RESET}"
         return 1
     fi
 
@@ -910,7 +914,7 @@ function database_setup() {
 # bash osmtool.sh createmasteruser "John" "Doe" "123456" "john@doe.com" "3a1c8128-908f-4455-8157-66c96a46f75e"
 # bash osmtool.sh createmasteruser "Manni" "Aabye" "manfred131063" "john@doe" "3a1c8128-908f-4455-8157-66c96a46f75e"
 function createmasteruser() {
-    # 24.04.2025
+    # 24.04.2025 Master Avatar MasterAvatar
     # Der Master User ist die zweithöchste Person nach System im Grid.
     local VORNAME="${1:-John}"
     local NACHNAME="${2:-Doe}"
@@ -989,18 +993,81 @@ function createmasteruser() {
 }
 
 # Noch keine Funktion.
-function createlanduser() {
-    # shellcheck disable=SC2317
-    echo "erstellt Estate und Landuser"
+function create_master_landuser() {
+    estatename=$gridname
+    echo "Erstelle $estatename Estate und Landeigentümer"
     # Bei sim1 muss der Estate Name und Owner angegeben werden.
     # Benötigt wird: "$gridname $VORNAME $NACHNAME $estatename"
-
+    
     # Estate Default Estate has no owner set.
     # Estate owner first name [Test]:
     # Estate owner last name [User]:
+    echo "Estate $estatename Estate has no owner set."
+    screen -S sim1 -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
+    screen -S sim1 -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
 }
 
+function create_estate() {
+    estatename=$gridname
+    echo "Erstelle $estatename Estate"
+    # Bei sim2 bis ... muss der Estate Name angegeben werden.
+    # Benötigt wird: "$estatename"
+    
+    # Estate Default Estate has no owner set.
+    # Estate owner first name [Test]:
+    # Estate owner last name [User]:
+    echo "Estate $estatename Estate has no owner set."
+    #screen -S sim1 -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
+    #screen -S sim1 -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
+}
 
+function firststart() {
+
+    # RobustServer starten
+    if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
+        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}RobustServer ${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
+        cd robust/bin || exit 1
+        #  -inifile=Robust.HG.ini
+
+        screen -fa -S robustserver -d -U -m dotnet Robust.dll
+        cd - >/dev/null 2>&1 || exit 1
+        sleep $RobustServer_Start_wait
+    else
+        echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Robust.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
+    fi
+
+	# Master Avatar Registrieren.
+	createmasteruser
+	
+	
+	# Sim1 Starten und Estate sowie Besitzer angeben.
+	cd sim1 || exit 1
+    screen -fa -S "sim1" -d -U -m dotnet OpenSim.dll
+	cd ..
+	
+	# Landuser und Estate erstellen.
+	create_master_landuser
+	
+	
+	# Sim-Regionen 2 dis ... starten und Estate angeben.
+    # for ((i=2; i<=999; i++)); do
+    #     sim_dir="sim$i/bin"
+    #     if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
+    #         echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
+    #         cd "$sim_dir" || continue
+    #         screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll
+    #         cd - >/dev/null 2>&1 || continue
+    #         sleep $Simulator_Start_wait
+    #     fi
+    # done
+	
+	# create_estate
+    # blankline
+
+    # opensimrestart    
+}
+
+# bash osmtool.sh setcrontab
 function setcrontab() {
     # Strict Mode: Fehler sofort erkennen
     set -euo pipefail
@@ -1451,7 +1518,7 @@ function delete_opensim() {
     # Robust-Verzeichnis sicher löschen
     if [[ -d "robust" ]]; then
         rm -rf -- "robust"  # Keine Wildcard mehr
-        echo -e "${SYM_OK} ${COLOR_ACTION}robust geleert${COLOR_RESET}"
+        echo -e "${SYM_OK} ${COLOR_ACTION}robust komplett entfernt${COLOR_RESET}"
     fi
 
     # Simulator-Verzeichnisse sicher löschen
@@ -1459,7 +1526,7 @@ function delete_opensim() {
         local sim_dir="sim$i"
         if [[ -d "$sim_dir" ]]; then
             rm -rf -- "$sim_dir"  # Keine Wildcard mehr
-            echo -e "${SYM_OK} ${COLOR_ACTION}${COLOR_DIR}$sim_dir${COLOR_RESET} ${COLOR_ACTION}geleert${COLOR_RESET}"
+            echo -e "${SYM_OK} ${COLOR_ACTION}${COLOR_DIR}$sim_dir${COLOR_RESET} ${COLOR_ACTION}komplett entfernt${COLOR_RESET}"
         fi
     done
 
@@ -1953,8 +2020,8 @@ function database_set_iniconfig() {
         echo -e "${COLOR_WARNING}Datei nicht gefunden: $robust_hg_ini${COLOR_RESET}"
     fi
 
-    # Robust.ini
-    local robust_ini="robust/bin/Robust.ini"
+    # Robust.local.ini
+    local robust_ini="robust/bin/Robust.local.ini"
     if [[ -f "$robust_ini" ]]; then
         add_ini_key "$robust_ini" "$section" "ConnectionString" "\"$robust_conn\""
     else
@@ -1990,7 +2057,7 @@ function welcomeiniconfig() {
         echo -e "${COLOR_INFO}Überspringe Erstellung der Welcome-Region: '$gridname.ini' existiert bereits${COLOR_RESET}"
         # Vorsichtshalber Region in Robust-Konfigurationen eintragen.
         set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "\"DefaultRegion, DefaultHGRegion, FallbackRegion\""
-        set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.ini" "GridService" "Region_$gridname" "\"DefaultRegion, FallbackRegion\""
+        set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.local.ini" "GridService" "Region_$gridname" "\"DefaultRegion, FallbackRegion\""
         return
     fi
     
@@ -2039,7 +2106,7 @@ function welcomeiniconfig() {
     # 4. Region in Robust-Konfigurationen eintragen
     # DefaultRegion, DefaultHGRegion, FallbackRegion, NoDirectLogin, Persistent, LockedOut, Reservation, NoMove, Authenticate
     set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.HG.ini" "GridService" "Region_$gridname" "\"DefaultRegion, DefaultHGRegion, FallbackRegion\""
-    set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.ini" "GridService" "Region_$gridname" "\"DefaultRegion, FallbackRegion\""
+    set_ini_key "${SCRIPT_DIR}/robust/bin/Robust.local.ini" "GridService" "Region_$gridname" "\"DefaultRegion, FallbackRegion\""
 
     echo -e "${COLOR_OK}Welcome_Area.ini Konfiguration abgeschlossen für $gridname${COLOR_RESET}"
     blankline
@@ -2315,17 +2382,9 @@ function robusthginiconfig() {
     uncomment_ini_line "$file" "GatekeeperURI"
         
     # [DatabaseService] wird in database_set_iniconfig eingetragen.
-    # ConnectionString = "Data Source=localhost;Database=opensim;User ID=opensim;Password=*****;Old Guids=true;SslMode=None;"
-    
-    # [AssetService]
-    # FSAssetService und sqlite nutzen das filesystem und beanspruchen die Festplatte so das ich hier nichts machen werde.
 
     # [GridService] für osWebinterface
-    # Der Regionsname wird von welcomeiniconfig geschrieben.
     uncomment_ini_line "$file" "MapTileDirectory"
-
-
-    # Key = "\"Value\""
     
     # [LoginService] für osWebinterface etc. "\${Const|BaseURL}:\${Const|PublicPort}"    
     uncomment_ini_line "$file" "SearchURL"
@@ -2341,9 +2400,6 @@ function robusthginiconfig() {
 	set_ini_key "$file" "LoginService" "DestinationGuide" "\"\${Const|BaseURL}/guide.php\""
 	set_ini_key "$file" "LoginService" "AvatarPicker" "\"\${Const|BaseURL}/avatarpicker.php\""    
     set_ini_key "$file" "LoginService" "Currency" "\"OS$\""
-    
-    #! Testen ob local möglich ist.
-    #set_ini_key "$file" "LoginService" "DSTZone" "\"America/Los_Angeles\""
     set_ini_key "$file" "LoginService" "DSTZone" "\"local\""
 
     # [GatekeeperService]
@@ -2353,7 +2409,6 @@ function robusthginiconfig() {
     set_ini_key "$file" "GridInfoService" "gridname" "\"$gridname\""
     set_ini_key "$file" "GridInfoService" "gridnick" "\"$gridname\""
     set_ini_key "$file" "GridInfoService" "welcome" "\"\${Const|BaseURL}/welcomesplashpage.php\""
-    # Beim MoneyServer von mir werden keinerlei helpers gebraucht. BuyCurrency und LandBuy ist im MoneyServer enthalten.
     set_ini_key "$file" "GridInfoService" "economy" "\"\${Const|BaseURL}:8008/\""
     set_ini_key "$file" "GridInfoService" "about" "\"\${Const|BaseURL}/aboutinformation.php\""
     set_ini_key "$file" "GridInfoService" "register" "\"\${Const|BaseURL}/createavatar.php\""
@@ -2430,8 +2485,8 @@ function robustiniconfig() {
 }
 
 # Konfiguriert die FlotsamCache.ini Dateien
-# - Erstellt die Dateien in den Ordner der Simulatoren
-# - Setzt die Parameter der FlotsamCache.ini Dateien
+# - Erstellt die Dateien in den bin/config-include Ordner der Simulatoren
+# - Setzt Optimierte Parameter den FlotsamCache.ini Dateien
 function flotsaminiconfig() {
     # 25.04.2025
     for i in $(seq 1 99); do
@@ -2500,10 +2555,8 @@ function gridcommoniniconfig() {
         set_ini_key "$file" "Const" "PrivatePort" "\"8003\""
 
         # [DatabaseService] wird in database_set_iniconfig eingetragen.
-        #! löschen: Include-Storage = "config-include/storage/SQLiteStandalone.ini";
         clear_ini_section "$file" "DatabaseService"
         set_ini_key "$file" "DatabaseService" "StorageProvider" "\"OpenSim.Data.MySQL.dll\""
-        #!set_ini_key "$file" "DatabaseService" "ConnectionString" "\"Data Source=localhost;Database=Database;User ID=User;Password=Password;Old Guids=true;SslMode=None;\""
 
         # [Hypergrid]
         set_ini_key "$file" "Hypergrid" "GatekeeperURI" "\"\${Const|BaseURL}:\${Const|PublicPort}\""
@@ -2935,9 +2988,9 @@ function iniconfig() {
 
     #! ⚠️ **Wichtige Sicherheitsinformation!**
     # Zur Kontrolle wird der Benutzername und das Passwort in der Datei:
-    # `mariadb_passwords.txt` gespeichert.
-    # Diese Konfiguration benötigt diese `mariadb_passwords.txt` Datei um die Datenbanken einzutragen.
-    # Diese Datei **solltet ihr danach unbedingt von eurem Server löschen** und stattdessen **sicher auf eurem PC aufbewahren**.
+    # `mariadb_passwords.txt` und `userinfo.txt` gespeichert.
+    # Diese Konfiguration benötigt diese `mariadb_passwords.txt` und `userinfo.txt` Datei um die Daten einzutragen.
+    # Diese Dateien **solltet ihr danach unbedingt von eurem Server löschen** und stattdessen **sicher auf eurem PC aufbewahren**.
     
     # Konfigurationsfunktionen für verschiedene Komponenten aufrufen
     echo "Starte moneyserveriniconfig ..."
@@ -3346,7 +3399,13 @@ function autoinstall() {
     regionsiniconfig
 
     # Alles starten
-    opensimrestart
+    #opensimrestart
+
+    #Start Robust
+    #createmasteruser
+    #Start Sim1
+    #createlanduser
+    firststart
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -3421,6 +3480,7 @@ function prohelp() {
     echo -e "\t${COLOR_OK}servercheck${COLOR_RESET} \t\t\t # Serverbereitschaft prüfen und Abhängigkeiten installieren"
     echo -e "\t${COLOR_OK}createdirectory${COLOR_RESET} \t\t # OpenSim-Verzeichnisse erstellen"
     echo -e "\t${COLOR_OK}setcrontab${COLOR_RESET} \t\t\t # Crontab Automatisierungen einrichten"
+    echo -e "\t${COLOR_OK}autoinstall${COLOR_RESET} \t\t\t # OpenSimulator Automatisiert installieren und einrichten"
     echo " "
 
     #* Git-Operationen
@@ -3448,7 +3508,7 @@ function prohelp() {
     echo -e "\t${COLOR_WARNING}moneyserveriniconfig${COLOR_RESET} \t\t # Konfiguriert MoneyServer.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
     echo -e "\t${COLOR_WARNING}opensiminiconfig${COLOR_RESET} \t\t # Konfiguriert OpenSim.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
     echo -e "\t${COLOR_WARNING}robusthginiconfig${COLOR_RESET} \t\t # Konfiguriert Robust.HG.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    echo -e "\t${COLOR_WARNING}robustiniconfig${COLOR_RESET} \t\t # Konfiguriert Robust.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    echo -e "\t${COLOR_WARNING}robustiniconfig${COLOR_RESET} \t\t # Konfiguriert Robust.local.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
     echo -e "\t${COLOR_WARNING}gridcommoniniconfig${COLOR_RESET} \t\t # Erstellt GridCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
     echo -e "\t${COLOR_WARNING}standalonecommoniniconfig${COLOR_RESET} \t # Erstellt StandaloneCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
     echo -e "\t${COLOR_WARNING}flotsaminiconfig${COLOR_RESET} \t\t # Erstellt FlotsamCache.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
@@ -3482,6 +3542,7 @@ function prohelp() {
     echo -e "\t${COLOR_OK}mapclean${COLOR_RESET} \t\t\t # Maptiles bereinigen"
     echo -e "\t${COLOR_OK}renamefiles${COLOR_RESET} \t\t\t # Beispieldateien umbenennen"
     echo -e "\t${COLOR_OK}clean_linux_logs${COLOR_RESET} \t\t # Linux-Logs bereinigen"
+    echo -e "\t${COLOR_OK}delete_opensim${COLOR_RESET} \t\t # OpenSimulator mit Verzeichnisse entfernen"
     echo " "
 
     #* Hilfe
@@ -3538,6 +3599,7 @@ case $KOMMANDO in
     generatename|generate_name) generate_name ;;
     cleanconfig)                clean_config "$2" ;;
     createmasteruser)           createmasteruser "$2" "$3" "$4" "$5" "$6" ;;
+    firststart)                 firststart ;;
 
     #  Experimental            #
     configure_pbr_textures) configure_pbr_textures ;;
