@@ -7,7 +7,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.69.238"
+VERSION="V25.4.70.249"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1000,11 +1000,12 @@ function createlanduser() {
     # Estate owner last name [User]:
 }
 
+
 function setcrontab() {
     # Strict Mode: Fehler sofort erkennen
     set -euo pipefail
 
-    echo -e "${COLOR_HEADING}⏰ Cron-Job Einrichtung${COLOR_RESET}"
+    echo -e "${COLOR_HEADING}⏰ Cron-Job-Einrichtung (Interaktiv)${COLOR_RESET}"
 
     # Sicherheitsabfrage: Nur als root/sudo ausführen
     if [ "$(id -u)" -ne 0 ]; then
@@ -1026,31 +1027,110 @@ function setcrontab() {
     # Temporäre Datei für neue Cron-Jobs
     local temp_cron
     temp_cron=$(mktemp) || {
-        echo -e "${SYM_BAD} ${COLOR_ERROR}FEHLER: Temp-Datei konnte nicht erstellt werden${COLOR_RESET}" >&2
+        echo -e "${SYM_BAD} ${COLOR_ERROR}FEHLER: Temp-Datei konnte nicht erstellt werden.${COLOR_RESET}" >&2
         return 1
     }
 
-    # Neue Cron-Jobs schreiben (ERSETZT alle alten)
-    cat << EOF > "$temp_cron"
-# === OpenSimGrid-Automatisierung ===
-# Minute Stunde Tag Monat Jahr Befehl
+    ### Interaktive Abfragen ###
+    echo -e "\n${COLOR_VALUE}=== Wartung am 1. des Monats ===${COLOR_RESET}"
+    echo -e "Welche Aktionen sollen ausgeführt werden? (Mehrfachauswahl möglich)"
+    echo -e "  ${SYM_INFO} 1) Nichts (deaktivieren)"
+    echo -e "  ${SYM_INFO} 2) cacheclean (inkl. automatischem stop vorher)"
+    echo -e "  ${SYM_INFO} 3) mapclean (inkl. automatischem stop vorher)"
+    echo -e "  ${SYM_INFO} 4) logclean (inkl. automatischem stop vorher)"
+    echo -e "  ${SYM_INFO} 5) Vollständiger Neustart (stop → cacheclean → mapclean → logclean → reboot)"
+    echo -e "  ${SYM_INFO} 6) Nur Server neustarten (reboot)"
+    read -r -p "Auswahl (z.B. '2 3' oder '5'): " -a monthly_actions
 
-# Server-Neustart am 1. jedes Monats
-40 4 1 * * bash '$SCRIPT_DIR/osmtool.sh' cacheclean
-45 4 1 * * bash '$SCRIPT_DIR/osmtool.sh' reboot
+    # Abfrage ob nach clean-Operationen ein reboot erfolgen soll
+    local needs_reboot=false
+    if [[ " ${monthly_actions[*]} " =~ [234] ]]; then
+        read -r -p "Soll nach den Clean-Operationen ein Neustart erfolgen? (j/n) " add_reboot
+        [[ "$add_reboot" =~ [jJ] ]] && needs_reboot=true
+    fi
 
-# Taegliche Wartung
-55 4 * * * bash '$SCRIPT_DIR/osmtool.sh' logclean
-0 5 * * * bash '$SCRIPT_DIR/osmtool.sh' autorestart
+    echo -e "\n${COLOR_VALUE}=== Tägliche Wartung ===${COLOR_RESET}"
+    read -r -p "Soll ein täglicher Restart durchgeführt werden? (j/n) " daily_restart
+    if [[ "$daily_restart" =~ [jJ] ]]; then
+        read -r -p "Uhrzeit (Stunde, 0-23): " daily_hour
+        daily_hour=${daily_hour:-5} # Default: 5 Uhr
+    fi
 
-# Ueberwachung alle 30 Minuten
-*/30 * * * * bash '$SCRIPT_DIR/osmtool.sh' check_screens
-EOF
+    echo -e "\n${COLOR_VALUE}=== Überwachung ===${COLOR_RESET}"
+    read -r -p "Soll die Überwachung aktiviert werden? (j/n) " enable_monitoring
+    if [[ "$enable_monitoring" =~ [jJ] ]]; then
+        read -r -p "Intervall in Minuten (Standard: 30): " monitor_interval
+        monitor_interval=${monitor_interval:-30}
+    fi
+
+    ### Cron-Job-Generierung ###
+    {
+        echo "# === OpenSimGrid-Automatisierung ==="
+        echo "# Bedeutung: Minute Stunde Tag Monat Jahr Befehlskette"
+        echo ""
+
+        # Monatliche Wartung (1. des Monats)
+        if [[ " ${monthly_actions[*]} " =~ "1" ]]; then
+            echo "# Deaktiviert: Monatliche Wartung"
+        else
+            echo "# Monatliche Wartung am 1. des Monats"
+            
+            # Berechnung der Minuten relativ zum täglichen Restart
+            local restart_hour=${daily_hour:-5}
+            local restart_minute=0
+            
+            # Stop 30 Minuten vor täglichem Restart
+            if [[ " ${monthly_actions[*]} " =~ [2345] ]]; then
+                stop_time=$(calculate_relative_time "$restart_hour" $restart_minute -30)
+                echo "$stop_time 1 * * bash '$SCRIPT_DIR/osmtool.sh' stop"
+            fi
+
+            # Cacheclean 25 Minuten vor täglichem Restart (Option 2 oder 5)
+            if [[ " ${monthly_actions[*]} " =~ [25] ]]; then
+                cacheclean_time=$(calculate_relative_time "$restart_hour" $restart_minute -25)
+                echo "$cacheclean_time 1 * * bash '$SCRIPT_DIR/osmtool.sh' cacheclean"
+            fi
+
+            # Mapclean 20 Minuten vor täglichem Restart (Option 3 oder 5)
+            if [[ " ${monthly_actions[*]} " =~ [35] ]]; then
+                mapclean_time=$(calculate_relative_time "$restart_hour" $restart_minute -20)
+                echo "$mapclean_time 1 * * bash '$SCRIPT_DIR/osmtool.sh' mapclean"
+            fi
+
+            # Logclean 15 Minuten vor täglichem Restart (Option 4 oder 5)
+            if [[ " ${monthly_actions[*]} " =~ [45] ]]; then
+                logclean_time=$(calculate_relative_time "$restart_hour" $restart_minute -15)
+                echo "$logclean_time 1 * * bash '$SCRIPT_DIR/osmtool.sh' logclean"
+            fi
+
+            # Reboot 10 Minuten vor täglichem Restart (Option 5 oder 6 oder manuelle Bestätigung)
+            if [[ " ${monthly_actions[*]} " =~ [56] ]] || $needs_reboot; then
+                reboot_time=$(calculate_relative_time "$restart_hour" $restart_minute -10)
+                echo "$reboot_time 1 * * bash '$SCRIPT_DIR/osmtool.sh' reboot"
+            fi
+        fi
+
+        # Tägliche Wartung
+        if [[ "$daily_restart" =~ [jJ] ]]; then
+            echo -e "\n# Täglicher Restart"
+            echo "0 ${daily_hour} * * * bash '$SCRIPT_DIR/osmtool.sh' restart"
+        else
+            echo -e "\n# Deaktiviert: Täglicher Restart"
+        fi
+
+        # Überwachung
+        if [[ "$enable_monitoring" =~ [jJ] ]]; then
+            echo -e "\n# Überwachung"
+            echo "*/${monitor_interval} * * * * bash '$SCRIPT_DIR/osmtool.sh' check_screens"
+        else
+            echo -e "\n# Deaktiviert: Überwachung"
+        fi
+    } > "$temp_cron"
 
     # Cron-Jobs installieren
     if crontab "$temp_cron"; then
         rm -f "$temp_cron"
-        echo -e "${SYM_OK} ${COLOR_ACTION}Cron-Jobs wurden ERFOLGREICH ersetzt:${COLOR_RESET}"
+        echo -e "\n${SYM_OK} ${COLOR_OK}Cron-Jobs wurden aktualisiert:${COLOR_RESET}"
         crontab -l | grep -v '^#' | sed '/^$/d' | while read -r line; do
             echo -e "${COLOR_DIR}$line${COLOR_RESET}"
         done
@@ -1059,6 +1139,27 @@ EOF
         echo -e "${SYM_BAD} ${COLOR_ERROR}FEHLER: Installation fehlgeschlagen. Prüfe $temp_cron manuell.${COLOR_RESET}" >&2
         return 1
     fi
+}
+
+# Hilfsfunktion zur Berechnung relativer Zeiten
+calculate_relative_time() {
+    local hour=$1
+    local minute=$2
+    local offset=$3  # in Minuten (kann negativ sein)
+    
+    # Gesamtminuten berechnen
+    local total_minutes=$((hour * 60 + minute + offset))
+    
+    # Handle negative Zeiten (vor Mitternacht)
+    while (( total_minutes < 0 )); do
+        total_minutes=$((total_minutes + 1440))  # 24 Stunden in Minuten
+    done
+    
+    # Zurück in Stunden und Minuten umrechnen
+    local new_hour=$((total_minutes / 60 % 24))
+    local new_minute=$((total_minutes % 60))
+    
+    echo "$new_minute $new_hour"
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
