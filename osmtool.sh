@@ -10,7 +10,7 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.70.256"
+VERSION="V25.4.72.259"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -981,6 +981,33 @@ function createmasteruser() {
     screen -S robustserver -p 0 -X eval "stuff 'Ruth'^M"    # Model name Ruth - Robust Fehler
     #screen -S robustserver -p 0 -X eval "stuff 'set home'^M"   # Home setzen - Robust Fehler
 
+    # [Estates]
+    #set_ini_key "$file" "Estates" "DefaultEstateName" "$gridname Estate"
+    #set_ini_key "$file" "Estates" "DefaultEstateOwnerName" "$VORNAME $NACHNAME"
+	#set_ini_key "$file" "Estates" "DefaultEstateOwnerUUID" "00000000-0000-0000-0000-000000000000"
+	#set_ini_key "$file" "Estates" "DefaultEstateOwnerEMail" "owner@domain.com"
+	#set_ini_key "$file" "Estates" "DefaultEstateOwnerPassword" "password"
+
+    # Setze DefaultEstateName, DefaultEstateOwnerName, DefaultEstateOwnerUUID, DefaultEstateOwnerEMail und DefaultEstateOwnerPassword in allen Simulatoren.
+    for ((i=1; i<=99; i++)); do
+        sim_dir="$SCRIPT_DIR/sim$i"
+        if [[ -d "$sim_dir/bin" ]]; then
+            local dir="$sim_dir/bin"
+            local file="$dir/OpenSim.ini"
+            
+            if [[ -f "$file" ]]; then
+                # [Estates]
+                set_ini_key "$file" "Estates" "DefaultEstateName" "$gridname Estate"
+                set_ini_key "$file" "Estates" "DefaultEstateOwnerName" "$VORNAME $NACHNAME"
+                set_ini_key "$file" "Estates" "DefaultEstateOwnerUUID" "$userid"
+                set_ini_key "$file" "Estates" "DefaultEstateOwnerEMail" "$EMAIL"
+                set_ini_key "$file" "Estates" "DefaultEstateOwnerPassword" "$PASSWORT"
+            else
+                echo "Warnung: $file nicht gefunden!" >&2
+            fi
+        fi
+    done
+
     echo -e "${COLOR_OK}Masteruser $VORNAME $NACHNAME wurde erstellt${COLOR_RESET}"
     echo -e "${COLOR_INFO}UserID: $userid${COLOR_RESET}"
     
@@ -993,33 +1020,33 @@ function createmasteruser() {
 }
 
 # Noch keine Funktion.
-function create_master_landuser() {
-    estatename=$gridname
-    echo "Erstelle $estatename Estate und Landeigentümer"
-    # Bei sim1 muss der Estate Name und Owner angegeben werden.
-    # Benötigt wird: "$gridname $VORNAME $NACHNAME $estatename"
+# function create_master_landuser() {
+#     estatename=$gridname
+#     echo "Erstelle $estatename Estate und Landeigentümer"
+#     # Bei sim1 muss der Estate Name und Owner angegeben werden.
+#     # Benötigt wird: "$gridname $VORNAME $NACHNAME $estatename"
     
-    # Estate Default Estate has no owner set.
-    # Estate owner first name [Test]:
-    # Estate owner last name [User]:
-    echo "Estate $estatename Estate has no owner set."
-    screen -S sim1 -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
-    screen -S sim1 -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
-}
+#     # Estate Default Estate has no owner set.
+#     # Estate owner first name [Test]:
+#     # Estate owner last name [User]:
+#     echo "Estate $estatename Estate has no owner set."
+#     screen -S sim1 -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
+#     screen -S sim1 -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
+# }
 
-function create_estate() {
-    estatename=$gridname
-    echo "Erstelle $estatename Estate"
-    # Bei sim2 bis ... muss der Estate Name angegeben werden.
-    # Benötigt wird: "$estatename"
+# function create_estate() {
+#     estatename=$gridname
+#     echo "Erstelle $estatename Estate"
+#     # Bei sim2 bis ... muss der Estate Name angegeben werden.
+#     # Benötigt wird: "$estatename"
     
-    # Estate Default Estate has no owner set.
-    # Estate owner first name [Test]:
-    # Estate owner last name [User]:
-    echo "Estate $estatename Estate has no owner set."
-    #screen -S sim1 -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
-    #screen -S sim1 -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
-}
+#     # Estate Default Estate has no owner set.
+#     # Estate owner first name [Test]:
+#     # Estate owner last name [User]:
+#     echo "Estate $estatename Estate has no owner set."
+#     #screen -S sim1 -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
+#     #screen -S sim1 -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
+# }
 
 function firststart() {
 
@@ -1041,12 +1068,12 @@ function firststart() {
 	
 	
 	# Sim1 Starten und Estate sowie Besitzer angeben.
-	cd sim1 || exit 1
-    screen -fa -S "sim1" -d -U -m dotnet OpenSim.dll
-	cd ..
+	# cd sim1 || exit 1
+    # screen -fa -S "sim1" -d -U -m dotnet OpenSim.dll
+	# cd ..
 	
 	# Landuser und Estate erstellen.
-	create_master_landuser
+	# create_master_landuser
 	
 	
 	# Sim-Regionen 2 dis ... starten und Estate angeben.
@@ -1064,7 +1091,15 @@ function firststart() {
 	# create_estate
     # blankline
 
-    # opensimrestart    
+    # opensimrestart
+    screen -S moneyserver -p 0 -X stuff "shutdown^M"
+    sleep $MoneyServer_Stop_wait
+    killall screen
+
+    blankline
+    opensimrestart
+    blankline
+
 }
 
 # bash osmtool.sh setcrontab
@@ -1512,8 +1547,8 @@ function delete_opensim() {
     echo -e "${COLOR_HEADING}🗺️ Das komplette löschen vom OpenSimulator wird durchgeführt...${COLOR_RESET}"
 
     # Sicherheitsabfrage hinzufügen
-    read -rp "Sind Sie sicher, dass Sie ALLE OpenSimulator-Daten löschen möchten? (j/N) " answer
-    [[ ${answer,,} != "j" ]] && { echo "Abbruch."; return 1; }
+    read -rp "Sind Sie sicher, dass Sie ALLE OpenSimulator-Daten löschen möchten? (ja/N) " answer
+    [[ ${answer,,} != "ja" ]] && { echo "Abbruch."; return 1; }
 
     # Robust-Verzeichnis sicher löschen
     if [[ -d "robust" ]]; then
@@ -2215,10 +2250,8 @@ function opensiminiconfig() {
             # [Startup]
 
             # [Estates]
-            set_ini_key "$file" "Estates" "DefaultEstateName" "$gridname Estate"
-            # DefaultEstateOwnerName = FirstName LastName
-            uncomment_ini_line "$file" "DefaultEstateOwnerUUID"
-            # DefaultEstateOwnerPassword = password
+            #set_ini_key "$file" "Estates" "DefaultEstateName" "$gridname Estate"
+            #set_ini_key "$file" "Estates" "DefaultEstateOwnerName" "$VORNAME $NACHNAME"
 
             # [Network]
             # http_listener_port = 9010
