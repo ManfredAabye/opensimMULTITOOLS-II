@@ -1,6 +1,5 @@
 #!/bin/bash
-# todo: PID Dateien vereinheitlichen für OpenSim.dll, Robust.dll und MoneyServer.dll.
-# todo: Anfängergerechter machen wenn Parameter übergeben wurden abfrage übergehen.
+
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Informationen Kopfzeile
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -9,7 +8,7 @@
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.4.70.265"
+VERSION="V25.4.72.267"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -205,7 +204,7 @@ function servercheck() {
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
-#* Start Stop Standalone
+#* Start Stop Standalone und einzelne Instanzen
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 function standalonestart() {
@@ -217,6 +216,22 @@ function standalonestart() {
 function standalonestop() {
     screen -S opensim -p 0 -X stuff "shutdown^M"
     blankline
+}
+
+function simstart() {
+    simstart=$1
+    echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}$ $simstart ${COLOR_RESET}"
+    sim_dir="$simstart/bin"
+    cd "$sim_dir"
+    screen -fa -S "$simstart" -d -U -m dotnet OpenSim.dll
+    cd "$SCRIPT_DIR"
+
+}
+
+function simstop() {
+    simstop=$1
+    echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER} $simstop${COLOR_RESET}"
+    screen -S "$simstop" -p 0 -X stuff "shutdown^M"
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -3646,6 +3661,14 @@ case $KOMMANDO in
     start|opensimstart)        opensimstart ;;
     stop|opensimstop)          opensimstop ;;
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
+    simstart)                  simstart "$2" ;;
+    simstop)                   simstop "$2" ;;
+    simrestart)                simrestart ;;
+    simstatus)                 simstatus ;;
+    simlist)                   simlist ;;
+    simrestartall)             simrestartall ;;
+    simstopall)                simstopall ;;
+    simstartall)               simstartall ;;
 
     #  SYSTEM-CHECKS & SETUP  #
     servercheck)       servercheck ;;
