@@ -1,8 +1,6 @@
 #!/bin/bash
 # todo: PID Dateien vereinheitlichen für OpenSim.dll, Robust.dll und MoneyServer.dll.
-# todo: Erststart Master Avatar in Robust anlegen.
-# todo: Erststart Estates in sim1 Master Avatar anlegen und Master Avatar als Besitzer angeben.
-# todo: Erststart Estates in sim2 bis sim99 anlegen.
+# todo: Anfängergerechter machen wenn Parameter übergeben wurden abfrage übergehen.
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Informationen Kopfzeile
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -10,7 +8,8 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
-VERSION="V25.4.72.259"
+# Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
+VERSION="V25.4.70.265"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -681,6 +680,70 @@ function versionrevision() {
     return 0
 }
 
+# Funktion zur Generierung von UUIDs
+function generate_uuid() {
+    uuidgen | tr '[:upper:]' '[:lower:]'
+}
+
+function generate_all_name() {
+    # Arrays mit Namensbestandteilen (alle einzigartig)
+    local firstnames=(
+        # Vornamen
+        "Mystic" "Arcane" "Eldritch" "Enigmatic" "Esoteric" "Occult" "Cryptic" "Celestial" "Astral" "Ethereal" 
+        "Luminous" "Radiant" "Prismatic" "Iridescent" "Phantasmal" "Spectral" "Otherworldly" "Transcendent" "Timeless" "Unearthly"
+        "Enchanted" "Charmed" "Bewitched" "Mythic" "Legendary"
+        "Verdant" "Sylvan" "Petrified" "Thundering" "Whispering" "Howling" "Roaring" "Rumbling" "Crystalline" "Obsidian"
+        "Amber" "Jade" "Sapphire" "Emerald" "Ruby" "Topaz" "Opaline" "Pearlescent" "Gilded" "Argent"
+        "Solar" "Lunar" "Stellar" "Nebular" "Galactic"
+        "Aether" "Runeweaver" "Dragonheart" "Moonshadow" "Spellbinder" "Witchbloom" "Grimoire" "Shadowalker" "Starborn" "Voidwhisper"
+        "Dreamwalker" "Fatesender" "Glyphborn" "Hollowveil" "Ivyroot" "Jadewhisper" "Kindlespark" "Lorekeeper" "Netherflame" "Oathbound"
+        "Pixieglen" "Quicksilver" "Ravenoak" "Silvershade" "Twilightthorn"
+        "Aerendyl" "Beltharion" "Celeborn" "Diorath" "Elrondar" "Faelivrin" "Galadhor" "Haldirion" "Ithilwen" "Jarathmel"
+        "Kelebrind" "Lothmiriel" "Melianthar" "Nimlothiel" "Oropherion" "Pelenor" "Quelamar" "Rivendell" "Silmarion" "Thranduvar"
+        "Ulmoen" "Vanyarion" "Windathar" "Xylanthir" "Yavanniel"
+        "Andromeda" "Beowulf" "Cybernova" "Deusex" "Eclipse" "Frostbyte" "Gigawatt" "Hyperion" "Io" "Jupiter"
+        "Krypton" "Lunarc" "Megatron" "Nebula" "Orion" "Pulsar" "Quantum" "Robodoc" "Starbuck" "Titan"
+        "Uranus" "Vortex" "Warpcore" "Xenon" "Zenith"
+    )
+    
+    local lastnames=(
+        # Nachnamen
+        "Forest" "Grove" "Copse" "Thicket" "Wildwood" "Jungle" "Rainforest" "Mangrove" "Taiga" "Tundra"
+        "Mountain" "Peak" "Summit" "Cliff" "Crag" "Bluff" "Mesa" "Plateau" "Canyon" "Ravine"
+        "Valley" "Dale" "Glen" "Hollow" "Basin"
+        "River" "Stream" "Brook" "Creek" "Fjord" "Lagoon" "Estuary" "Delta" "Bayou" "Wetland"
+        "Oasis" "Geyser" "Spring" "Well" "Aquifer"
+        "Observatory" "Planetarium" "Orrery" "Reflectory" "Conservatory" "Atrium" "Rotunda" "Gazebo" "Pavilion" "Terrace"
+        "Ashenwood" "Bramblethorn" "Cliffhaven" "Dewspark" "Emberglade" "Frostvein" "Goldleaf" "Hailstone" "Ironbark" "Jasperridge"
+        "Kelpstrand" "Lavafall" "Mossgrip" "Nettlebrook" "Oakenshield" "Pinecrest" "Quartzpeak" "Rimefrost" "Stormbreak" "Tidepool"
+        "Umbravale" "Vinecreep" "Willowshade" "Xylem" "Yewroot"
+        "Aranel" "Beleriand" "Cirdan" "Doriath" "Eregion" "Fangorn" "Gondolin" "Hithlum" "Imladris" "Jarngard"
+        "Kementari" "Lorien" "Mirkwood" "Nargothrond" "Osgiliath" "Pelargir" "Quendi" "Rhosgobel" "Sindar" "Tirion"
+        "Undomiel" "Valinor" "Westfold" "Xandoria" "Yavanna"
+        "Axiom" "Borg" "Coruscant" "Dyson" "Expanse" "Federation" "Genesis" "Horizon" "Infinity" "Jovian"
+        "Kessel" "Lazarus" "Matrix" "Nostromo" "Outland" "Prometheus" "Quadrant" "Rapture" "Serenity" "Trifid"
+        "Umbra" "Voyager" "Weyland" "Xenomorph" "Zodiac"
+    )
+    
+    # Namen für die Installation erstellen
+    # Benutzername Vorname Nachname
+    genFirstname="${firstnames[$RANDOM % ${#firstnames[@]}]}"
+    genLastname="${lastnames[$RANDOM % ${#lastnames[@]}]}"
+    # database_setup
+    genDatabaseUserName="${firstnames[$RANDOM % ${#firstnames[@]}]}${lastnames[$RANDOM % ${#lastnames[@]}]}$((RANDOM % 900 + 100))"
+    # Neue Region
+    genRegionName="${firstnames[$RANDOM % ${#firstnames[@]}]}${lastnames[$RANDOM % ${#lastnames[@]}]}$((RANDOM % 900 + 100))"
+    genGridName="${lastnames[$RANDOM % ${#lastnames[@]}]}Grid"
+    
+    # Test Ausgabe der Variablen
+    #echo "genFirstname='${genFirstname}'"
+    #echo "genLastname='${genLastname}'"
+    #echo "genDatabaseUserName='${genDatabaseUserName}'"
+    #echo "genRegionName='${genRegionName}'"
+    #echo "genGridName='${genGridName}'"
+}
+generate_all_name
+
 function opensimbuild() {
     echo -e "${COLOR_HEADING}🏗️  OpenSimulator Build-Prozess${COLOR_RESET}"
     
@@ -728,8 +791,11 @@ function createdirectory() {
         echo -e "${SYM_OK} ${COLOR_ACTION}Robust Verzeichnis wurde erstellt.${COLOR_RESET}"
 
         # Nach der Erstellung des Gridservers auch die Regionsserver erstellen lassen
-        echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie?${COLOR_RESET}"
+        echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie? (${COLOR_OK}[1]${COLOR_RESET})"
         read -r num_regions
+        # Standardmäßig 1 Region wählen, falls keine Eingabe erfolgt
+        num_regions=${num_regions:-1}
+
     elif [[ "$server_type" == "region" ]]; then
         echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie?${COLOR_RESET}"
         read -r num_regions
@@ -818,7 +884,9 @@ function database_setup() {
     # 3. Installation Check
     if ! command -v mariadb &> /dev/null && ! command -v mysql &> /dev/null; then
         echo -e "${SYM_WAIT} ${COLOR_WARNING}MariaDB/MySQL ist nicht installiert${COLOR_RESET}"
-        read -rp "$(echo -e "${COLOR_ACTION}MariaDB installieren? (j/n) ${COLOR_RESET}")" install_choice
+        echo -ne "${COLOR_ACTION}MariaDB installieren? (j/n) [j] ${COLOR_RESET}"
+        read -r install_choice
+        install_choice=${install_choice:-j}
         [[ "$install_choice" =~ ^[jJ] ]] || { echo -e "${SYM_BAD} Installation abgebrochen"; return 0; }
         
         case $current_distro in
@@ -839,14 +907,21 @@ function database_setup() {
 
     # 4. Benutzeranmeldedaten
     echo -e "\n${COLOR_SECTION}=== Datenbank-Zugangsdaten ===${COLOR_RESET}"
-    read -rp "$(echo -e "${COLOR_ACTION}Standard-Zugangsdaten verwenden? (j/n) ${COLOR_RESET}")" default_cred_choice
+    echo -ne "${COLOR_ACTION}Zufallszugangsdaten verwenden? (j/n) [j] ${COLOR_RESET}"
+    read -r default_cred_choice
+    default_cred_choice=${default_cred_choice:-j}
+    
     if [[ "$default_cred_choice" =~ ^[jJ] ]]; then
-        db_user="simuser"
+        # todo: Zufallsnamen erzeugen
+        #generate_all_name
+        db_user="${genDatabaseUserName}"
         db_pass=$(tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 16)
         echo -e "${SYM_INFO} ${COLOR_LABEL}Generiertes Passwort: ${COLOR_VALUE}${db_pass}${COLOR_RESET}"
     else
-        read -rp "$(echo -e "${COLOR_ACTION}Benutzername: ${COLOR_RESET}")" db_user
-        read -rsp "$(echo -e "${COLOR_ACTION}Passwort: ${COLOR_RESET}")" db_pass
+        echo -ne "${COLOR_ACTION}Benutzername: ${COLOR_RESET}"
+        read -r db_user
+        echo -ne "${COLOR_ACTION}Passwort: ${COLOR_RESET}"
+        read -rs db_pass
         echo
     fi
 
@@ -908,42 +983,41 @@ function database_setup() {
     echo "Benutzername: ${db_user} Passwort: ${db_pass}" | sudo tee "${SCRIPT_DIR}/mariadb_passwords.txt" >/dev/null
 }
 
-# string array with parameters: firstname, lastname, password, locationX, locationY, email, userID, model name
 # bash osmtool.sh createmasteruser
-# oder
-# bash osmtool.sh createmasteruser "John" "Doe" "123456" "john@doe.com" "3a1c8128-908f-4455-8157-66c96a46f75e"
-# bash osmtool.sh createmasteruser "Manni" "Aabye" "manfred131063" "john@doe" "3a1c8128-908f-4455-8157-66c96a46f75e"
 function createmasteruser() {
     # 24.04.2025 Master Avatar MasterAvatar
+
+    genPasswort=$(tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 16)
+    genUserid="${input:-$(uuidgen)}"
     # Der Master User ist die zweithöchste Person nach System im Grid.
-    local VORNAME="${1:-John}"
-    local NACHNAME="${2:-Doe}"
-    local PASSWORT="${3:-123456}"
-    local EMAIL="${4:-john@doe.com}"
+    local VORNAME="${genFirstname}"  # John → ${genFirstname}
+    local NACHNAME="${genLastname}"  # Doe → ${genLastname}
+    local PASSWORT="${genPasswort}"
+    local EMAIL="${4:-${genFirstname}@${genLastname}.com}"  # john@doe.com → ${genFirstname}@${genLastname}.com
     local userid="${5:-$(uuidgen)}"
 
-    # Interaktive Benutzerabfrage mit Fallback-Werten
-    echo -e "${COLOR_INFO}Master User Erstellung (Enter für Default-Werte)${COLOR_RESET}"
-    
+    # Interaktive Benutzerabfrage mit Fallback auf generierte Werte
+    echo -e "${COLOR_INFO}Master User Erstellung (Enter für generierte Werte)${COLOR_RESET}"
+
     echo -n "Vorname [${VORNAME}]: "
     read -r input
-    VORNAME="${input:-$VORNAME}"
-    
+    VORNAME="${input:-$VORNAME}"  # Fallback auf ${genFirstname}, wenn Eingabe leer
+
     echo -n "Nachname [${NACHNAME}]: "
     read -r input
-    NACHNAME="${input:-$NACHNAME}"
-    
+    NACHNAME="${input:-$NACHNAME}"  # Fallback auf ${genLastname}, wenn Eingabe leer
+
     echo -n "Passwort [${PASSWORT}]: "
     read -r input
-    PASSWORT="${input:-$PASSWORT}"
-    
-    echo -n "E-Mail [${EMAIL}]: "
+    PASSWORT="${input:-$PASSWORT}"  # Fallback auf ${genPasswort}, wenn Eingabe leer
+
+    echo -n "E-Mail [${EMAIL}]: "  # Fallback Fantasiename
     read -r input
     EMAIL="${input:-$EMAIL}"
-    
-    echo -n "UserID [automatisch generiert]: "
+
+    echo -n "UserID [${genUserid}]: "  # Fallback Generierte UserID.
     read -r input
-    userid="${input:-$(uuidgen)}"
+    userid="${input:-$genUserid}"
 
     # Überprüfe ob Robust läuft
     if ! screen -list | grep -q "robustserver"; then
@@ -1019,35 +1093,6 @@ function createmasteruser() {
     blankline
 }
 
-# Noch keine Funktion.
-# function create_master_landuser() {
-#     estatename=$gridname
-#     echo "Erstelle $estatename Estate und Landeigentümer"
-#     # Bei sim1 muss der Estate Name und Owner angegeben werden.
-#     # Benötigt wird: "$gridname $VORNAME $NACHNAME $estatename"
-    
-#     # Estate Default Estate has no owner set.
-#     # Estate owner first name [Test]:
-#     # Estate owner last name [User]:
-#     echo "Estate $estatename Estate has no owner set."
-#     screen -S sim1 -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
-#     screen -S sim1 -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
-# }
-
-# function create_estate() {
-#     estatename=$gridname
-#     echo "Erstelle $estatename Estate"
-#     # Bei sim2 bis ... muss der Estate Name angegeben werden.
-#     # Benötigt wird: "$estatename"
-    
-#     # Estate Default Estate has no owner set.
-#     # Estate owner first name [Test]:
-#     # Estate owner last name [User]:
-#     echo "Estate $estatename Estate has no owner set."
-#     #screen -S sim1 -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
-#     #screen -S sim1 -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
-# }
-
 function firststart() {
 
     # RobustServer starten
@@ -1066,39 +1111,14 @@ function firststart() {
 	# Master Avatar Registrieren.
 	createmasteruser
 	
-	
-	# Sim1 Starten und Estate sowie Besitzer angeben.
-	# cd sim1 || exit 1
-    # screen -fa -S "sim1" -d -U -m dotnet OpenSim.dll
-	# cd ..
-	
-	# Landuser und Estate erstellen.
-	# create_master_landuser
-	
-	
-	# Sim-Regionen 2 dis ... starten und Estate angeben.
-    # for ((i=2; i<=999; i++)); do
-    #     sim_dir="sim$i/bin"
-    #     if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
-    #         echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
-    #         cd "$sim_dir" || continue
-    #         screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll
-    #         cd - >/dev/null 2>&1 || continue
-    #         sleep $Simulator_Start_wait
-    #     fi
-    # done
-	
-	# create_estate
-    # blankline
-
-    # opensimrestart
+    # Robust Starten
     screen -S moneyserver -p 0 -X stuff "shutdown^M"
     sleep $MoneyServer_Stop_wait
     killall screen
 
     blankline
-    opensimrestart
-    blankline
+    #opensimrestart
+    #blankline
 
 }
 
@@ -2096,7 +2116,8 @@ function welcomeiniconfig() {
         return
     fi
     
-    region_uuid=$(uuidgen)
+    # region_uuid=$(uuidgen)
+    region_uuid=$(command -v uuidgen >/dev/null && uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
     
     # Datei erstellen
     #touch "$welcome_ini"
@@ -2182,7 +2203,8 @@ function moneyserveriniconfig() {
     }
 
     # [Startup]
-    set_ini_key "$file" "Startup" "PIDFile" "\"/tmp/money.pid\""
+    # /tmp/MoneyServer.exe.pid
+    set_ini_key "$file" "Startup" "PIDFile" "\"/tmp/MoneyServer.exe.pid\""
 
     # [MySql]
     set_ini_key "$file" "MySql" "hostname" "\"localhost\""
@@ -2247,7 +2269,10 @@ function opensiminiconfig() {
             # [Const]
             set_ini_key "$file" "Const" "BaseHostname" "$ip"            
             set_ini_key "$file" "Const" "PublicPort" "8002"
+
             # [Startup]
+            #uncomment_ini_section_line "$file" "Startup" "PIDFile"
+            set_ini_key "$file" "Startup" "PIDFile" "\"/tmp/OpenSim.$i.exe.pid\""
 
             # [Estates]
             #set_ini_key "$file" "Estates" "DefaultEstateName" "$gridname Estate"
@@ -2399,6 +2424,7 @@ function robusthginiconfig() {
 
     # [Startup]
     # PID-Dateien gehören grundsätzlich in /tmp warum: tmp Wird beim Neustart automatisch geleert. Keine Berechtigungsprobleme (normalerweise schreibbar für alle).
+    # Standard-PID-Datei: /tmp/Robust.exe.pid
     uncomment_ini_line "$file" "PIDFile"
 
     # [ServiceList]
@@ -2895,7 +2921,15 @@ function regionsiniconfig() {
     read -r regions_per_sim
 
     # Eingabeprüfung
-    if ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
+    # if ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
+    #     echo -e "${SYM_BAD} ${COLOR_BAD}Ungültige Eingabe: Bitte eine positive Zahl eingeben${COLOR_RESET}" >&2
+    #     return 1
+    # fi
+
+    # Eingabeprüfung - falls leer, 1 verwenden
+    if [[ -z "$regions_per_sim" ]]; then
+        regions_per_sim=1
+    elif ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
         echo -e "${SYM_BAD} ${COLOR_BAD}Ungültige Eingabe: Bitte eine positive Zahl eingeben${COLOR_RESET}" >&2
         return 1
     fi
@@ -2937,8 +2971,8 @@ function regionsiniconfig() {
                 done
                 
                 port=$((base_port + sim_num * 100 + region_num))
-                region_name=$(generate_name)
-                region_uuid=$(generate_uuid)
+                region_name=${genRegionName}
+                #region_uuid=$(generate_uuid)
                 config_file="${sim_dir}/${region_name}.ini"
                 
                 # Prüfen ob Region existiert
@@ -2946,6 +2980,9 @@ function regionsiniconfig() {
                     echo -e "${SYM_WAIT} ${COLOR_WARNING}Überspringe ${COLOR_VALUE}${region_name}${COLOR_RESET}${COLOR_WARNING} - existiert bereits${COLOR_RESET}" >&2
                     continue
                 fi
+
+                # region_uuid=$(uuidgen)
+                region_uuid=$(command -v uuidgen >/dev/null && uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
 
                 # Datei erstellen
                 #touch "$welcome_ini"
@@ -3013,7 +3050,7 @@ function iniconfig() {
 
     # Falls der Gridname leer bleibt, wird eine generierte Name verwendet
     if [[ -z "$gridname" ]]; then
-        gridname=$(generate_name)
+        gridname=${genGridName}
     fi
 
     echo "Verwendete IP: $ip"
@@ -3026,6 +3063,7 @@ function iniconfig() {
     # Diese Dateien **solltet ihr danach unbedingt von eurem Server löschen** und stattdessen **sicher auf eurem PC aufbewahren**.
     
     # Konfigurationsfunktionen für verschiedene Komponenten aufrufen
+    #generate_all_name
     echo "Starte moneyserveriniconfig ..."
     moneyserveriniconfig "$ip" "$gridname"
     echo "Starte opensiminiconfig ..."
@@ -3150,40 +3188,6 @@ function configure_pbr_textures() {
     
     echo -e "${SYM_OK} ${COLOR_OK}PBR Textures configuration completed successfully${COLOR_RESET}"
 
-}
-
-# Funktion zur Generierung von UUIDs
-function generate_uuid() {
-    uuidgen | tr '[:upper:]' '[:lower:]'
-}
-
-# Funktion zur Generierung von Zufallsnamen
-function generate_name() {
-    local adjectives=(
-        # Mystisch & Magisch (25)
-        "Mystic" "Arcane" "Eldritch" "Enigmatic" "Esoteric" "Occult" "Cryptic" "Celestial" "Astral" "Ethereal" 
-        "Luminous" "Radiant" "Prismatic" "Iridescent" "Phantasmal" "Spectral" "Otherworldly" "Transcendent" "Timeless" "Unearthly"
-        "Enchanted" "Charmed" "Bewitched" "Mythic" "Legendary"
-        
-        # Natürlich & Elementar (25)
-        "Verdant" "Sylvan" "Petrified" "Thundering" "Whispering" "Howling" "Roaring" "Rumbling" "Crystalline" "Obsidian"
-        "Amber" "Jade" "Sapphire" "Emerald" "Ruby" "Topaz" "Opaline" "Pearlescent" "Gilded" "Argent"
-        "Solar" "Lunar" "Stellar" "Nebular" "Galactic"
-    )    
-    local nouns=(
-        # Natürliche Orte (25)
-        "Forest" "Grove" "Copse" "Thicket" "Wildwood" "Jungle" "Rainforest" "Mangrove" "Taiga" "Tundra"
-        "Mountain" "Peak" "Summit" "Cliff" "Crag" "Bluff" "Mesa" "Plateau" "Canyon" "Ravine"
-        "Valley" "Dale" "Glen" "Hollow" "Basin"
-        
-        # Gewässer (15)
-        "River" "Stream" "Brook" "Creek" "Fjord" "Lagoon" "Estuary" "Delta" "Bayou" "Wetland"
-        "Oasis" "Geyser" "Spring" "Well" "Aquifer"
-        
-        # Künstliche Strukturen (10)
-        "Observatory" "Planetarium" "Orrery" "Reflectory" "Conservatory" "Atrium" "Rotunda" "Gazebo" "Pavilion" "Terrace"
-    )    
-    echo "${adjectives[$RANDOM % 50]}${nouns[$RANDOM % 50]}$((RANDOM % 900 + 100))"
 }
 
 function regionsclean() {
@@ -3403,20 +3407,20 @@ function autoinstall() {
     # Server vorbereiten
     servercheck
 
-    # Verzeichnisse erstellen
+    # Verzeichnisse erstellen. Standard: 1
     createdirectory
 
-    # mySQL installieren
+    # mySQL installieren. Standard: Benutzername wird generiert, dazu wird ein 16 stelliges Passwort erzeugt.
     database_setup
 
-    # Downloads aus dem Github hier OpenSim und Money.
+    # Downloads aus dem Github hier OpenSim und Money. einfach beises mit Enter bestätigen.
     opensimgitcopy
     moneygitcopy
 
-    # Versionierung des OpenSimulators.
+    # Versionierung des OpenSimulators. Keine eingabe erforderlich.
     versionrevision
 
-    # OpenSimulator erstellen aus dem Source Code.
+    # OpenSimulator erstellen aus dem Source Code. Standard: ja.
     opensimbuild
 
     # Kleine Pause
@@ -3434,11 +3438,59 @@ function autoinstall() {
     # Alles starten
     #opensimrestart
 
-    #Start Robust
-    #createmasteruser
-    #Start Sim1
-    #createlanduser
+    #Vor dem Start die letzten vorbereitungen.
     firststart
+
+    # todo: alles vereinfachen in einer Abfrage:
+    # 3.Schritt
+    # Standard-Zugangsdaten verwenden? (j/n)
+    # n
+
+    # Benutzername: MeinDatenbankBenutzername
+    # Passwort:MeinGeheimesDatenbankPawort123
+
+    # 4.Schritt
+    # ? OpenSimulator GitHub-Verwaltung
+    # Möchten Sie den OpenSimulator vom GitHub verwenden oder aktualisieren? ([upgrade]/new)
+    # new
+    # Möchten Sie diese Version mit .NET 6 oder .NET 8 betreiben? ([8]/6)
+    # 8
+
+    # 5.Schritt
+    # ? MoneyServer GitHub-Verwaltung
+    # Möchten Sie den MoneyServer vom GitHub verwenden oder aktualisieren? ([upgrade]/new)
+    # new
+
+    # 6.Schritt
+    # ?️ OpenSimulator Build-Prozess
+    # Möchten Sie den OpenSimulator jetzt erstellen? ([ja]/nein)
+    # ja
+
+    # 7.Schritt
+    # Das Arbeitsverzeichnis ist: /home
+    # Wie ist Ihre IP oder DNS-Adresse? (192.168.2.105)
+    # MeinOpenSimServer.de
+
+    # Wie heißt Ihr Grid?
+    # TeleTabiGrid
+
+    # 8.Schritt
+    # ☛ Wie viele Zufallsregionen sollen pro Simulator erstellt werden?
+    # 1
+
+    # 9.Schritt
+    # Master User Erstellung (Enter für Default-Werte)
+    # Vorname [John]:Tele
+    # Nachname [Doe]:Tabbi
+    # Passwort [123456]:GeheimesPasswort123
+    # E-Mail [john@doe.com]:purzel@baum.de
+    # UserID [automatisch generiert]:Enter drücken
+
+    # Zusammenfassung wird hier angezeigt.
+    # j
+
+    # Eure Informationen sind gespeichert in mariadb_passwords.txt und userinfo.txt bitte sicher verwahren.
+
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -3629,7 +3681,6 @@ case $KOMMANDO in
     welcomeiniconfig)           welcomeiniconfig "$2" "$3" ;;
     database_set_iniconfig)     database_set_iniconfig ;;
     regionsiniconfig)           regionsiniconfig ;; # Alle neuen Konfigurationen starten.
-    generatename|generate_name) generate_name ;;
     cleanconfig)                clean_config "$2" ;;
     createmasteruser)           createmasteruser "$2" "$3" "$4" "$5" "$6" ;;
     firststart)                 firststart ;;
@@ -3677,6 +3728,7 @@ case $KOMMANDO in
     delete_opensim)    delete_opensim ;;
 
     #  HILFE & SONSTIGES      #
+    generate_all_name) generate_all_name ;;
     prohelp)           prohelp ;;
     h|help|hilfe|*)   help ;;
 esac
