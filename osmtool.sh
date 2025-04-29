@@ -8,7 +8,7 @@
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.4.72.267"
+VERSION="V25.4.72.268"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -145,18 +145,36 @@ function servercheck() {
     echo -e "${COLOR_LABEL}Server läuft mit:${COLOR_RESET} ${COLOR_SERVER}$os_id $os_version${COLOR_RESET}"
 
     # Prüfen, welche .NET-Version installiert werden muss
+    # if [[ "$os_id" == "ubuntu" || "$os_id" == "linuxmint" || "$os_id" == "pop_os" ]]; then
+    #     if [[ "$os_version" == "22.04" || "$os_version" == "20.04" ]]; then
+    #         required_dotnet="dotnet-sdk-8.0"
+    #     elif [[ "$os_version" == "18.04" ]]; then
+    #         required_dotnet="dotnet-sdk-6.0"
+    #     fi
+    # elif [[ "$os_id" == "debian" && "$os_version" -ge "11" ]]; then
+    #     required_dotnet="dotnet-sdk-8.0"
+    # elif [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
+    #     required_dotnet="dotnet-sdk-8.0"
+    # else
+    #     echo -e "${SYM_BAD} ${COLOR_WARNING}Keine unterstützte Version für .NET gefunden!${COLOR_RESET}"
+    #     return 1
+    # fi
+
     if [[ "$os_id" == "ubuntu" || "$os_id" == "linuxmint" || "$os_id" == "pop_os" ]]; then
-        if [[ "$os_version" == "22.04" || "$os_version" == "20.04" ]]; then
-            required_dotnet="dotnet-sdk-8.0"
-        elif [[ "$os_version" == "18.04" ]]; then
+        if [[ "$os_version" == "18.04" ]]; then
             required_dotnet="dotnet-sdk-6.0"
+        elif dpkg --compare-versions "$os_version" ge "20.04"; then
+            required_dotnet="dotnet-sdk-8.0"
+        else
+            echo -e "${SYM_BAD} ${COLOR_WARNING}Nicht unterstützte Ubuntu-Version: $os_version!${COLOR_RESET}"
+            return 1
         fi
     elif [[ "$os_id" == "debian" && "$os_version" -ge "11" ]]; then
         required_dotnet="dotnet-sdk-8.0"
     elif [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
         required_dotnet="dotnet-sdk-8.0"
     else
-        echo -e "${SYM_BAD} ${COLOR_WARNING}Keine unterstützte Version für .NET gefunden!${COLOR_RESET}"
+        echo -e "${SYM_BAD} ${COLOR_WARNING}Keine unterstützte Distribution für .NET gefunden!${COLOR_RESET}"
         return 1
     fi
 
