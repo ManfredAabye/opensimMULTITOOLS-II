@@ -8,7 +8,7 @@
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.4.72.268"
+VERSION="V25.4.72.269"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -714,9 +714,11 @@ function versionrevision() {
 }
 
 # Funktion zur Generierung von UUIDs
-function generate_uuid() {
-    uuidgen | tr '[:upper:]' '[:lower:]'
-}
+# function generate_uuid() {
+#     uuidgen | tr '[:upper:]' '[:lower:]'
+#     # region_uuid=$(uuidgen)
+#     #region_uuid=$(command -v uuidgen >/dev/null && uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
+# }
 
 function generate_all_name() {
     # Arrays mit Namensbestandteilen (alle einzigartig)
@@ -1021,7 +1023,10 @@ function createmasteruser() {
     # 24.04.2025 Master Avatar MasterAvatar
 
     genPasswort=$(tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 16)
-    genUserid="${input:-$(uuidgen)}"
+    #genUserid="${input:-$(uuidgen)}"
+    # region_uuid=$(uuidgen)
+    genUserid=$(command -v uuidgen >/dev/null && uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
+    
     # Der Master User ist die zweithöchste Person nach System im Grid.
     local VORNAME="${genFirstname}"  # John → ${genFirstname}
     local NACHNAME="${genLastname}"  # Doe → ${genLastname}
