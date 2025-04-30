@@ -8,7 +8,7 @@
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.4.72.273"
+VERSION="V25.4.72.276"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -119,11 +119,10 @@ KOMMANDO=$1 # Eingabeauswertung fuer Funktionen.
 #* Abhängigkeiten installieren
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-# Fehlende Abhängigkeiten installieren
 function servercheck() {
     # Direkt kompatible Distributionen:
     # Debian 11+ (Bullseye, Bookworm) – Offiziell unterstützt für .NET 8
-    # Ubuntu 18.04, 20.04, 22.04 – Microsoft bietet direkt kompatible Pakete
+    # Ubuntu 20.04, 22.04, 24.04 – Microsoft bietet direkt kompatible Pakete
     # Linux Mint (basierend auf Ubuntu 20.04 oder 22.04)
     # Pop!_OS (System76, basiert auf Ubuntu)
     # MX Linux (Debian-basiert, integriert Ubuntu-Funktionen)
@@ -141,38 +140,64 @@ function servercheck() {
     # Ermitteln der Distribution und Version
     os_id=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
     os_version=$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+    os_codename=$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '"')
 
-    echo -e "${COLOR_LABEL}Server läuft mit:${COLOR_RESET} ${COLOR_SERVER}$os_id $os_version${COLOR_RESET}"
+    echo -e "${COLOR_LABEL}Server läuft mit:${COLOR_RESET} ${COLOR_SERVER}$os_id $os_version ($os_codename)${COLOR_RESET}"
+
+    # Paketnamen für verschiedene Distributionen definieren
+    declare -A dotnet_pkg=(
+        ["ubuntu"]="dotnet-sdk-8.0"
+        ["debian"]="dotnet-sdk-8.0"
+        ["linuxmint"]="dotnet-sdk-8.0"
+        ["pop_os"]="dotnet-sdk-8.0"
+        ["arch"]="dotnet-sdk"
+        ["manjaro"]="dotnet-sdk"
+        ["raspbian"]="dotnet-sdk-8.0"
+    )
+
+    # Abhängigkeiten für verschiedene Distributionen
+    declare -A required_packages=(
+        ["ubuntu"]="git libc6 libgcc-s1 libgssapi-krb5-2 libicu70 liblttng-ust1 libssl3 libstdc++6 libunwind8 zlib1g libgdiplus zip screen"
+        ["debian"]="git libc6 libgcc1 libgssapi-krb5-2 libicu67 liblttng-ust1 libssl3 libstdc++6 libunwind8 zlib1g libgdiplus zip screen"
+        ["linuxmint"]="git libc6 libgcc-s1 libgssapi-krb5-2 libicu70 liblttng-ust1 libssl3 libstdc++6 libunwind8 zlib1g libgdiplus zip screen"
+        ["pop_os"]="git libc6 libgcc-s1 libgssapi-krb5-2 libicu70 liblttng-ust1 libssl3 libstdc++6 libunwind8 zlib1g libgdiplus zip screen"
+        ["arch"]="git glibc gcc-libs krb5 icu lttng-ust openssl libunwind zlib gdiplus zip screen"
+        ["manjaro"]="git glibc gcc-libs krb5 icu lttng-ust openssl libunwind zlib gdiplus zip screen"
+        ["raspbian"]="git libc6 libgcc1 libgssapi-krb5-2 libicu67 liblttng-ust0 libssl1.1 libstdc++6 libunwind8 zlib1g libgdiplus zip screen"
+    )
 
     # Prüfen, welche .NET-Version installiert werden muss
-    # if [[ "$os_id" == "ubuntu" || "$os_id" == "linuxmint" || "$os_id" == "pop_os" ]]; then
-    #     if [[ "$os_version" == "22.04" || "$os_version" == "20.04" ]]; then
-    #         required_dotnet="dotnet-sdk-8.0"
-    #     elif [[ "$os_version" == "18.04" ]]; then
-    #         required_dotnet="dotnet-sdk-6.0"
-    #     fi
-    # elif [[ "$os_id" == "debian" && "$os_version" -ge "11" ]]; then
-    #     required_dotnet="dotnet-sdk-8.0"
-    # elif [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
-    #     required_dotnet="dotnet-sdk-8.0"
-    # else
-    #     echo -e "${SYM_BAD} ${COLOR_WARNING}Keine unterstützte Version für .NET gefunden!${COLOR_RESET}"
-    #     return 1
-    # fi
-
     if [[ "$os_id" == "ubuntu" || "$os_id" == "linuxmint" || "$os_id" == "pop_os" ]]; then
         if [[ "$os_version" == "18.04" ]]; then
             required_dotnet="dotnet-sdk-6.0"
         elif dpkg --compare-versions "$os_version" ge "20.04"; then
-            required_dotnet="dotnet-sdk-8.0"
+            required_dotnet=${dotnet_pkg[$os_id]}
+            
+            # Spezialfall Ubuntu 24.04 (verwendet jammy Repository)
+            if [[ "$os_version" == "24.04" ]]; then
+                echo -e "${SYM_INFO} Ubuntu 24.04 verwendet das .NET Repository für Ubuntu 22.04 (jammy)"
+            fi
         else
             echo -e "${SYM_BAD} ${COLOR_WARNING}Nicht unterstützte Ubuntu-Version: $os_version!${COLOR_RESET}"
             return 1
         fi
-    elif [[ "$os_id" == "debian" && "$os_version" -ge "11" ]]; then
-        required_dotnet="dotnet-sdk-8.0"
+    elif [[ "$os_id" == "debian" ]]; then
+        if [[ "$os_version" -ge "11" ]]; then
+            required_dotnet=${dotnet_pkg[$os_id]}
+        else
+            echo -e "${SYM_BAD} ${COLOR_WARNING}Debian Version $os_version wird nicht unterstützt (mindestens Debian 11 erforderlich)!${COLOR_RESET}"
+            return 1
+        fi
     elif [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
-        required_dotnet="dotnet-sdk-8.0"
+        required_dotnet=${dotnet_pkg[$os_id]}
+    elif [[ "$os_id" == "raspbian" ]]; then
+        if [[ "$os_version" -ge "11" ]]; then
+            required_dotnet=${dotnet_pkg[$os_id]}
+            echo -e "${SYM_INFO} Raspberry Pi OS erfordert möglicherweise manuelle Anpassungen für .NET 8.0"
+        else
+            echo -e "${SYM_BAD} ${COLOR_WARNING}Raspberry Pi OS Version $os_version wird nicht unterstützt!${COLOR_RESET}"
+            return 1
+        fi
     else
         echo -e "${SYM_BAD} ${COLOR_WARNING}Keine unterstützte Distribution für .NET gefunden!${COLOR_RESET}"
         return 1
@@ -190,8 +215,20 @@ function servercheck() {
             echo -e "${SYM_OK} ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}ist bereits installiert.${COLOR_RESET}"
         fi
     else
-        if ! dpkg -s "$required_dotnet" >/dev/null 2>&1; then
+        #if ! dpkg -s "$required_dotnet" >/dev/null 2>&1; then
+        # dpkg-query -W hat eine bessere Fehlerabfrage
+        if ! dpkg-query -W "$required_dotnet" >/dev/null 2>&1; then
             echo -e "${SYM_OK} ${COLOR_ACTION}Installiere ${COLOR_SERVER}$required_dotnet${COLOR_RESET}..."
+            
+            # Microsoft Repository hinzufügen für Debian/Ubuntu-basierte Systeme
+            if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" || "$os_id" == "linuxmint" || "$os_id" == "pop_os" || "$os_id" == "raspbian" ]]; then
+                echo -e "${SYM_INFO} Füge Microsoft Repository hinzu..."
+                wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+                sudo dpkg -i packages-microsoft-prod.deb
+                rm packages-microsoft-prod.deb
+                sudo apt-get update
+            fi
+            
             sudo apt-get install -y "$required_dotnet"
             echo -e "${SYM_OK} ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}wurde erfolgreich installiert.${COLOR_RESET}"
         else
@@ -200,17 +237,26 @@ function servercheck() {
     fi
 
     # Fehlende Pakete prüfen und installieren
-    required_packages=("git" "libc6" "libgcc-s1" "libgssapi-krb5-2" "libicu70" "liblttng-ust1" "libssl3" "libstdc++6" "libunwind8" "zlib1g" "libgdiplus" "zip" "screen")
-
     echo -e "${COLOR_HEADING}📦 Überprüfe fehlende Pakete...${COLOR_RESET}"
-    for package in "${required_packages[@]}"; do
+    
+    # Paketliste basierend auf Distribution auswählen
+    if [[ -n "${required_packages[$os_id]}" ]]; then
+        IFS=' ' read -r -a pkg_list <<< "${required_packages[$os_id]}"
+    else
+        # Fallback für nicht aufgeführte Distributionen
+        pkg_list=("git" "libc6" "libgcc-s1" "libgssapi-krb5-2" "libicu70" "libssl3" "libstdc++6" "zlib1g" "zip" "screen")
+    fi
+
+    for package in "${pkg_list[@]}"; do
         if [[ "$os_id" == "arch" || "$os_id" == "manjaro" ]]; then
             if ! pacman -Qi "$package" >/dev/null 2>&1; then
                 echo -e "${SYM_OK} ${COLOR_ACTION}Installiere ${COLOR_SERVER}$package${COLOR_RESET}..."
                 sudo pacman -S --noconfirm "$package"
             fi
         else
-            if ! dpkg -s "$package" >/dev/null 2>&1; then
+            #if ! dpkg -s "$package" >/dev/null 2>&1; then
+            # dpkg-query -W hat eine bessere Fehlerabfrage
+            if ! dpkg-query -W "$package" >/dev/null 2>&1; then
                 echo -e "${SYM_OK} ${COLOR_ACTION}Installiere ${COLOR_SERVER}$package${COLOR_RESET}..."
                 sudo apt-get install -y "$package"
             fi
