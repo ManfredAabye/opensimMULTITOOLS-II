@@ -8,7 +8,7 @@
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.4.71.285"
+VERSION="V25.4.71.287"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -770,8 +770,9 @@ function versionrevision() {
     return 0
 }
 
-function generate_all_name() {
+function generate_name() {
     # Arrays mit Namensbestandteilen (alle einzigartig)
+
     local firstnames=(
         # Vornamen
         "Mystic" "Arcane" "Eldritch" "Enigmatic" "Esoteric" "Occult" "Cryptic" "Celestial" "Astral" "Ethereal" 
@@ -809,16 +810,34 @@ function generate_all_name() {
         "Kessel" "Lazarus" "Matrix" "Nostromo" "Outland" "Prometheus" "Quadrant" "Rapture" "Serenity" "Trifid"
         "Umbra" "Voyager" "Weyland" "Xenomorph" "Zodiac"
     )
-    
+
+    gennameone="${firstnames[$RANDOM % ${#firstnames[@]}]}" # übergebe das an generate_all_name()
+    gennametwo="${lastnames[$RANDOM % ${#lastnames[@]}]}" # übergebe das an generate_all_name()
+
+}
+generate_all_name() {
     # Alle Namen und Bezeichnungen für die Installation erstellen das dient dazu das die Namen im gesamten Programm verwendet werden können.
     # Benutzername Vorname Nachname
-    genFirstname="${firstnames[$RANDOM % ${#firstnames[@]}]}"
-    genLastname="${lastnames[$RANDOM % ${#lastnames[@]}]}"
+    generate_name
+    genFirstname="${gennameone}"
+    generate_name
+    genLastname="${gennametwo}"
+    echo "$gennameone"
+    echo "$gennametwo"
+
+    generate_name
     # database_setup
-    genDatabaseUserName="${firstnames[$RANDOM % ${#firstnames[@]}]}${lastnames[$RANDOM % ${#lastnames[@]}]}$((RANDOM % 900 + 100))"
-    # Neue Region
-    genRegionName="${firstnames[$RANDOM % ${#firstnames[@]}]}${lastnames[$RANDOM % ${#lastnames[@]}]}$((RANDOM % 900 + 100))"
-    genGridName="${lastnames[$RANDOM % ${#lastnames[@]}]}Grid"
+    genDatabaseUserName="${gennameone}${gennametwo}$((RANDOM % 900 + 100))"
+    echo "$genDatabaseUserName"
+
+    # generate_name
+    # # Neue Region
+    # genRegionName="${gennameone}${gennametwo}$((RANDOM % 900 + 100))"
+    # echo "$genRegionName"
+
+    generate_name
+    genGridName="${gennametwo}Grid"
+    echo "$genGridName"
     
     # Test Ausgabe der Variablen
     #echo "genFirstname='${genFirstname}'"
@@ -826,8 +845,8 @@ function generate_all_name() {
     #echo "genDatabaseUserName='${genDatabaseUserName}'"
     #echo "genRegionName='${genRegionName}'"
     #echo "genGridName='${genGridName}'"
+    #echo "${names[$RANDOM % ${#names[@]}]}"
 }
-generate_all_name
 
 function opensimbuild() {
     echo -e "${COLOR_HEADING}🏗️  OpenSimulator Build-Prozess${COLOR_RESET}"
@@ -3027,7 +3046,13 @@ function regionsiniconfig() {
                 done
                 
                 port=$((base_port + sim_num * 100 + region_num))
+                # Neu generierter Name
+                generate_name
+                # Neue Region
+                genRegionName="${gennameone}${gennametwo}$((RANDOM % 900 + 100))"
+                echo "$genRegionName"
                 region_name=${genRegionName}
+
                 #region_uuid=$(generate_uuid)
                 config_file="${sim_dir}/${region_name}.ini"
                 
