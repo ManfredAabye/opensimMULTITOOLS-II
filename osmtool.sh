@@ -8,7 +8,7 @@
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.4.72.276"
+VERSION="V25.4.71.285"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -443,14 +443,16 @@ function check_screens() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 function opensimgitcopy() {
+    # 30.04.2025: Funktion um OpenSimulator von GitHub zu kopieren
     echo -e "${COLOR_HEADING}🔄 OpenSimulator GitHub-Verwaltung${COLOR_RESET}"
     
+    # Benutzerabfrage für Hauptaktion
     echo -e "${COLOR_LABEL}Möchten Sie den OpenSimulator vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
     read -r user_choice
     user_choice=${user_choice:-upgrade}
 
+    # Verarbeitung der Benutzerauswahl
     if [[ "$user_choice" == "new" ]]; then
-        # Falls eine alte Version existiert, wird sie gelöscht
         if [[ -d "opensim" ]]; then
             echo -e "${COLOR_ACTION}Vorhandene OpenSimulator-Version wird gelöscht...${COLOR_RESET}"
             rm -rf opensim
@@ -465,31 +467,40 @@ function opensimgitcopy() {
         if [[ -d "opensim/.git" ]]; then
             echo -e "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
             cd opensim || { echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
-            git pull origin master && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich aktualisiert!${COLOR_RESET}"
+            git pull origin master
+            echo -e "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich aktualisiert!${COLOR_RESET}"
             cd ..
         else
             echo -e "${COLOR_WARNING}⚠ ${COLOR_ACTION}OpenSimulator-Verzeichnis nicht gefunden. Klone Repository neu...${COLOR_RESET}"
-            git clone git://opensimulator.org/git/opensim opensim && echo -e "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich heruntergeladen!${COLOR_RESET}"
+            git clone git://opensimulator.org/git/opensim opensim
+            echo -e "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich heruntergeladen!${COLOR_RESET}"
         fi
     else
         echo -e "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
         return 1
     fi
 
-    # .NET-Version auswählen
-    echo -e "${COLOR_LABEL}Möchten Sie diese Version mit .NET 6 oder .NET 8 betreiben? (${COLOR_OK}[8]${COLOR_LABEL}/6)${COLOR_RESET}"
-    read -r dotnet_version
-    dotnet_version=${dotnet_version:-8}
-
-    if [[ "$dotnet_version" == "6" ]]; then
-        echo -e "${COLOR_ACTION}Wechsle zu .NET 6-Version...${COLOR_RESET}"
+    # Automatische .NET-Version-Erkennung mit klarer Ausgabe
+    echo -e "${COLOR_ACTION}Erkenne installierte .NET-Version...${COLOR_RESET}"
+    if dotnet_version=$(dotnet --version 2>/dev/null | awk -F. '{if($1==6)print"6";else print"8"}'); then
+        echo -e "${SYM_OK} ${COLOR_ACTION}Erkannte .NET-Version: ${COLOR_OK}$dotnet_version${COLOR_RESET}"
+        
         cd opensim || { echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler: Verzeichnis 'opensim' nicht gefunden.${COLOR_RESET}"; return 1; }
-        git checkout dotnet6
-        echo -e "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde für .NET 6 umgebaut.${COLOR_RESET}"
+        
+        if [[ "$dotnet_version" == "6" ]]; then
+            git checkout dotnet6
+            echo -e "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde für .NET 6 umgebaut.${COLOR_RESET}"
+        else
+            echo -e "${SYM_OK} ${COLOR_ACTION}Verwende Standard .NET 8.${COLOR_RESET}"
+        fi
+        cd ..
     else
-        echo -e "${SYM_OK} ${COLOR_ACTION}Standardmäßig wird .NET 8 verwendet.${COLOR_RESET}"
+        echo -e "${COLOR_WARNING}⚠ ${COLOR_ACTION}Keine .NET-Version erkannt, verwende Standard .NET 8.${COLOR_RESET}"
     fi
-    blankline
+
+    versionrevision
+
+    #blankline
 }
 
 function moneygitcopy() {
@@ -759,14 +770,6 @@ function versionrevision() {
     return 0
 }
 
-# Funktion zur Generierung von UUIDs
-# function generate_uuid() {
-#     uuidgen | tr '[:upper:]' '[:lower:]'
-#     # region_uuid=$(uuidgen)
-#     #region_uuid=$(command -v uuidgen >/dev/null && uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
-#    #region_uuid=$(command -v uuidgen >/dev/null 2>&1 && uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
-# }
-
 function generate_all_name() {
     # Arrays mit Namensbestandteilen (alle einzigartig)
     local firstnames=(
@@ -807,7 +810,7 @@ function generate_all_name() {
         "Umbra" "Voyager" "Weyland" "Xenomorph" "Zodiac"
     )
     
-    # Namen für die Installation erstellen
+    # Alle Namen und Bezeichnungen für die Installation erstellen das dient dazu das die Namen im gesamten Programm verwendet werden können.
     # Benutzername Vorname Nachname
     genFirstname="${firstnames[$RANDOM % ${#firstnames[@]}]}"
     genLastname="${lastnames[$RANDOM % ${#lastnames[@]}]}"
@@ -873,14 +876,16 @@ function createdirectory() {
         echo -e "${SYM_OK} ${COLOR_ACTION}Robust Verzeichnis wurde erstellt.${COLOR_RESET}"
 
         # Nach der Erstellung des Gridservers auch die Regionsserver erstellen lassen
-        echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie? (${COLOR_OK}[1]${COLOR_RESET})"
+        echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie? ${COLOR_OK}[1]${COLOR_RESET}"
         read -r num_regions
         # Standardmäßig 1 Region wählen, falls keine Eingabe erfolgt
         num_regions=${num_regions:-1}
+        echo -e "${SYM_OK} ${COLOR_ACTION}Sie haben $num_regions Regionsserver gew‰hlt.${COLOR_RESET}"
 
     elif [[ "$server_type" == "region" ]]; then
-        echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie?${COLOR_RESET}"
+        echo -e "${COLOR_LABEL}Wie viele Regionsserver benötigen Sie? ${COLOR_OK}[1]${COLOR_RESET}"
         read -r num_regions
+        echo -e "${SYM_OK} ${COLOR_ACTION}Sie haben $num_regions Regionsserver gew‰hlt.${COLOR_RESET}"
     else
         echo -e "${SYM_BAD} ${COLOR_ERROR}Ungültige Eingabe. Bitte geben Sie 'grid' oder 'region' ein.${COLOR_RESET}"
         return 1
@@ -938,6 +943,7 @@ function opensimcopy() {
 }
 
 function database_setup() {
+    # 30.04.2025
     echo -e "${COLOR_SECTION}=== MariaDB/MySQL Datenbank-Setup ===${COLOR_RESET}"
     
     # 1. Distribution Detection
@@ -994,20 +1000,33 @@ function database_setup() {
     default_cred_choice=${default_cred_choice:-j}
     
     if [[ "$default_cred_choice" =~ ^[jJ] ]]; then
-        # todo: Zufallsnamen erzeugen
-        #generate_all_name
         db_user="${genDatabaseUserName}"
         db_pass=$(tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 16)
         echo -e "${SYM_INFO} ${COLOR_LABEL}Generiertes Passwort: ${COLOR_VALUE}${db_pass}${COLOR_RESET}"
     else
-        echo -ne "${COLOR_ACTION}Benutzername: ${COLOR_RESET}"
+        echo -ne "${COLOR_ACTION}DB_Benutzername: ${COLOR_RESET}"
         read -r db_user
-        echo -ne "${COLOR_ACTION}Passwort: ${COLOR_RESET}"
+        echo -ne "${COLOR_ACTION}DB_Passwort: ${COLOR_RESET}"
         read -rs db_pass
         echo
     fi
 
-    # 5. Datenbankeinrichtung
+    # **Speicherung der Datenbank-Zugangsdaten in UserInfo.ini**
+    local ini_file="${SCRIPT_DIR}/UserInfo.ini"
+
+    if [[ ! -f "$ini_file" ]]; then
+        echo -e "${COLOR_INFO}Erstelle UserInfo.ini${COLOR_RESET}"
+        sudo touch "$ini_file"
+    fi
+
+    echo -e "\n[DatabaseData]" | sudo tee -a "$ini_file" >/dev/null
+    echo "DB_Benutzername = ${db_user}" | sudo tee -a "$ini_file" >/dev/null
+    echo "DB_Passwort = ${db_pass}" | sudo tee -a "$ini_file" >/dev/null
+
+
+    echo -e "${SYM_LOG} ${COLOR_LABEL}Datenbank-Zugangsdaten gespeichert in: ${COLOR_FILE}${ini_file}${COLOR_RESET}"
+
+    # 6. Datenbankeinrichtung
     echo -e "\n${COLOR_SECTION}=== Datenbank-Konfiguration ===${COLOR_RESET}"
     
     # RobustServer DB
@@ -1048,62 +1067,43 @@ function database_setup() {
     done
     sudo mysql -e "FLUSH PRIVILEGES"
 
-    # 6. Zusammenfassung
-    echo -e "\n${COLOR_SECTION}=== Zusammenfassung ===${COLOR_RESET}"
-    echo -e "${COLOR_LABEL}Benutzername: ${COLOR_VALUE}${db_user}${COLOR_RESET}"
-    echo -e "${COLOR_LABEL}Passwort: ${COLOR_VALUE}${db_pass}${COLOR_RESET}"
-    
-    if sudo mysql -e "SELECT user FROM mysql.user WHERE user='${db_user}' AND host='localhost'" | grep -q "${db_user}"; then
-        echo -e "${COLOR_LABEL}Berechtigungen:${COLOR_RESET}"
-        sudo mysql -e "SHOW GRANTS FOR '${db_user}'@'localhost'"
-    else
-        echo -e "${SYM_BAD} ${COLOR_WARNING}Benutzerberechtigungen nicht verfügbar${COLOR_RESET}"
-    fi
-    
-    # Zugangsdaten speichern
-    echo -e "\n${SYM_LOG} ${COLOR_LABEL}Zugangsdaten gespeichert in: ${COLOR_FILE}${SCRIPT_DIR}/mariadb_passwords.txt${COLOR_RESET}"
-    echo "Benutzername: ${db_user} Passwort: ${db_pass}" | sudo tee "${SCRIPT_DIR}/mariadb_passwords.txt" >/dev/null
+    echo -e "${COLOR_OK} Datenbank Setup abgeschlossen!${COLOR_RESET}"
 }
 
-# bash osmtool.sh createmasteruser
+
 function createmasteruser() {
-    # 24.04.2025 Master Avatar MasterAvatar
+    # 30.04.2025 Master Avatar MasterAvatar
 
     genPasswort=$(tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 16)
-    #genUserid="${input:-$(uuidgen)}"
-    # region_uuid=$(uuidgen)
-    #genUserid=$(command -v uuidgen >/dev/null && uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
     genUserid=$(command -v uuidgen >/dev/null 2>&1 && uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
     
-    # Der Master User ist die zweithöchste Person nach System im Grid.
-    local VORNAME="${genFirstname}"  # John → ${genFirstname}
-    local NACHNAME="${genLastname}"  # Doe → ${genLastname}
+    local VORNAME="${genFirstname}"
+    local NACHNAME="${genLastname}"
     local PASSWORT="${genPasswort}"
-    local EMAIL="${4:-${genFirstname}@${genLastname}.com}"  # john@doe.com → ${genFirstname}@${genLastname}.com
-    local userid="${5:-$(uuidgen)}"
-
-    # Interaktive Benutzerabfrage mit Fallback auf generierte Werte
+    local EMAIL="${4:-${genFirstname}@${genLastname}.com}"
+    local userid="${5:-$genUserid}"
+    
     echo -e "${COLOR_INFO}Master User Erstellung (Enter für generierte Werte)${COLOR_RESET}"
 
     echo -n "Vorname [${VORNAME}]: "
     read -r input
-    VORNAME="${input:-$VORNAME}"  # Fallback auf ${genFirstname}, wenn Eingabe leer
+    VORNAME="${input:-$VORNAME}"
 
     echo -n "Nachname [${NACHNAME}]: "
     read -r input
-    NACHNAME="${input:-$NACHNAME}"  # Fallback auf ${genLastname}, wenn Eingabe leer
+    NACHNAME="${input:-$NACHNAME}"
 
     echo -n "Passwort [${PASSWORT}]: "
     read -r input
-    PASSWORT="${input:-$PASSWORT}"  # Fallback auf ${genPasswort}, wenn Eingabe leer
+    PASSWORT="${input:-$PASSWORT}"
 
-    echo -n "E-Mail [${EMAIL}]: "  # Fallback Fantasiename
+    echo -n "E-Mail [${EMAIL}]: "
     read -r input
     EMAIL="${input:-$EMAIL}"
 
-    echo -n "UserID [${genUserid}]: "  # Fallback Generierte UserID.
+    echo -n "UserID [${userid}]: "
     read -r input
-    userid="${input:-$genUserid}"
+    userid="${input:-$userid}"
 
     # Überprüfe ob Robust läuft
     if ! screen -list | grep -q "robustserver"; then
@@ -1111,75 +1111,42 @@ function createmasteruser() {
         return 1
     fi
 
-    # Bestätigungsabfrage
-    echo -e "\n${COLOR_INFO}Zusammenfassung:${COLOR_RESET}"
-    echo "Vorname: $VORNAME"
-    echo "Nachname: $NACHNAME"
-    echo "Passwort: $PASSWORT"
-    echo "E-Mail: $EMAIL"
-    echo "UserID: $userid"
-    echo -e "${COLOR_WARNING}Wollen Sie den Benutzer wirklich anlegen? [J/n]${COLOR_RESET}"
-    read -r -n 1 confirmation
-    echo ""
-
-    if [[ "$confirmation" =~ [nN] ]]; then
-        echo -e "${COLOR_INFO}Abgebrochen${COLOR_RESET}"
-        return 0
-    fi
-
-    # create user [<first> [<last> [<pass> [<email> [<user id> [<model>]]]]]]
-    # Create a new user
-    # Befehlskette zur Benutzererstellung:
+    # Benutzer in Robust erstellen
     screen -S robustserver -p 0 -X eval "stuff 'create user'^M"
-    screen -S robustserver -p 0 -X eval "stuff '$VORNAME'^M"   # Vorname
-    screen -S robustserver -p 0 -X eval "stuff '$NACHNAME'^M"  # Nachname
-    screen -S robustserver -p 0 -X eval "stuff '$PASSWORT'^M"  # Passwort
-    #screen -S robustserver -p 0 -X eval "stuff '128'^M"        # locationX - Robust Fehler
-    #screen -S robustserver -p 0 -X eval "stuff '128'^M"        # locationY - Robust Fehler
-    screen -S robustserver -p 0 -X eval "stuff '$EMAIL'^M"     # E-Mail
-    screen -S robustserver -p 0 -X eval "stuff '$userid'^M"    # User ID
-    screen -S robustserver -p 0 -X eval "stuff 'Ruth'^M"    # Model name Ruth - Robust Fehler
-    #screen -S robustserver -p 0 -X eval "stuff 'set home'^M"   # Home setzen - Robust Fehler
-
-    # [Estates]
-    #set_ini_key "$file" "Estates" "DefaultEstateName" "$gridname Estate"
-    #set_ini_key "$file" "Estates" "DefaultEstateOwnerName" "$VORNAME $NACHNAME"
-	#set_ini_key "$file" "Estates" "DefaultEstateOwnerUUID" "00000000-0000-0000-0000-000000000000"
-	#set_ini_key "$file" "Estates" "DefaultEstateOwnerEMail" "owner@domain.com"
-	#set_ini_key "$file" "Estates" "DefaultEstateOwnerPassword" "password"
-
-    # Setze DefaultEstateName, DefaultEstateOwnerName, DefaultEstateOwnerUUID, DefaultEstateOwnerEMail und DefaultEstateOwnerPassword in allen Simulatoren.
-    for ((i=1; i<=99; i++)); do
-        sim_dir="$SCRIPT_DIR/sim$i"
-        if [[ -d "$sim_dir/bin" ]]; then
-            local dir="$sim_dir/bin"
-            local file="$dir/OpenSim.ini"
-            
-            if [[ -f "$file" ]]; then
-                # [Estates]
-                set_ini_key "$file" "Estates" "DefaultEstateName" "$gridname Estate"
-                set_ini_key "$file" "Estates" "DefaultEstateOwnerName" "$VORNAME $NACHNAME"
-                set_ini_key "$file" "Estates" "DefaultEstateOwnerUUID" "$userid"
-                set_ini_key "$file" "Estates" "DefaultEstateOwnerEMail" "$EMAIL"
-                set_ini_key "$file" "Estates" "DefaultEstateOwnerPassword" "$PASSWORT"
-            else
-                echo "Warnung: $file nicht gefunden!" >&2
-            fi
-        fi
-    done
+    screen -S robustserver -p 0 -X eval "stuff '$VORNAME'^M"
+    screen -S robustserver -p 0 -X eval "stuff '$NACHNAME'^M"
+    screen -S robustserver -p 0 -X eval "stuff '$PASSWORT'^M"
+    screen -S robustserver -p 0 -X eval "stuff '$EMAIL'^M"
+    screen -S robustserver -p 0 -X eval "stuff '$userid'^M"
+    screen -S robustserver -p 0 -X eval "stuff 'Ruth'^M"
 
     echo -e "${COLOR_OK}Masteruser $VORNAME $NACHNAME wurde erstellt${COLOR_RESET}"
     echo -e "${COLOR_INFO}UserID: $userid${COLOR_RESET}"
     
-    echo -e "\n${SYM_LOG} ${COLOR_LABEL}Benutzerdaten gespeichert in: ${COLOR_FILE}${SCRIPT_DIR}/userinfo.txt${COLOR_RESET}"
-    echo "Vorname: ${VORNAME} Nachname: ${NACHNAME} Passwort: ${PASSWORT} E-Mail: ${EMAIL} UserID: ${userid}" | sudo tee "${SCRIPT_DIR}/userinfo.txt" >/dev/null
+    # **Speicherung der Benutzerdaten in UserInfo.ini** NEU
+    local ini_file="${SCRIPT_DIR}/UserInfo.ini"
 
-    echo " Der Fehler: Unable to set home for account - Ist ein Fehler in Robust der innerhalb des C# Sourcecode behoben werden muss."
-    echo "Das was wir machen müssen um diesen Fehler zu beheben ist im Viewer bei der Anmeldung eine Regionsnamen eingeben einer vorhandenen Region und Inworld dann Hier als zuhause auswählen."
+    if [[ ! -f "$ini_file" ]]; then
+        echo -e "${COLOR_INFO}Erstelle UserInfo.ini${COLOR_RESET}"
+        sudo touch "$ini_file"
+    fi
+
+    echo -e "\n[UserData]" | sudo tee -a "$ini_file" >/dev/null
+    echo "Vorname = ${VORNAME}" | sudo tee -a "$ini_file" >/dev/null
+    echo "Nachname = ${NACHNAME}" | sudo tee -a "$ini_file" >/dev/null
+    echo "Passwort = ${PASSWORT}" | sudo tee -a "$ini_file" >/dev/null
+    echo "E-Mail = ${EMAIL}" | sudo tee -a "$ini_file" >/dev/null
+    echo "UserID = ${userid}" | sudo tee -a "$ini_file" >/dev/null
+
+
+    echo -e "${SYM_LOG} ${COLOR_LABEL}Benutzerdaten hinzugefügt in: ${COLOR_FILE}${ini_file}${COLOR_RESET}"
+
     blankline
 }
 
+
 function firststart() {
+    cd "$SCRIPT_DIR"
 
     # RobustServer starten
     if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
@@ -1197,9 +1164,9 @@ function firststart() {
 	# Master Avatar Registrieren.
 	createmasteruser
 	
-    # Robust Starten
-    screen -S moneyserver -p 0 -X stuff "shutdown^M"
-    sleep $MoneyServer_Stop_wait
+    # Robust Stoppen
+    screen -S robustserver -p 0 -X stuff "shutdown^M"
+    sleep $RobustServer_Stop_wait
     killall screen
 
     blankline
@@ -2128,24 +2095,21 @@ function clear_ini_section() {
 # 	Key = Value
 # 	; Comment
 
-# clean_gridname() {
-#     echo "$1" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/ß/ss/g' \
-#                    -e 's/[- &]/_/g' -e 's/__\+/_/g' -e 's/^_//' -e 's/_$//'
-# }
 
-# Alle Datenbanken konfigurieren.
 function database_set_iniconfig() {
-    # 24.04.2025
-    local password_file="${SCRIPT_DIR}/mariadb_passwords.txt"
-    local section="DatabaseService"    
+    # 30.04.2025
+    local ini_file="${SCRIPT_DIR}/UserInfo.ini"
+    local section="DatabaseService"
 
     # Zugangsdaten auslesen
     local db_user db_pass
-    db_user=$(grep -oP 'Benutzername:\s*\K\S+' "$password_file")
-    db_pass=$(grep -oP 'Passwort:\s*\K\S+' "$password_file")
+    # Zeilenumbrüche entfernen
+    db_user=$(grep -oP '^DB_Benutzername\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+    db_pass=$(grep -oP '^DB_Passwort\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+
 
     if [[ -z "$db_user" || -z "$db_pass" ]]; then
-        echo -e "${COLOR_BAD}Benutzername oder Passwort fehlt in mariadb_passwords.txt${COLOR_RESET}"
+        echo -e "${COLOR_BAD}DB_Benutzername oder DB_Passwort fehlt in UserInfo.ini${COLOR_RESET}"
         return 1
     fi
 
@@ -2181,6 +2145,8 @@ function database_set_iniconfig() {
     echo -e "${COLOR_OK}Datenbanken erfolgreich konfiguriert${COLOR_RESET}"
     blankline
 }
+
+
 
 # Welcome-Region konfigurieren wenn sie noch nicht existiert.
 function welcomeiniconfig() {
@@ -2256,21 +2222,22 @@ function welcomeiniconfig() {
 }
 
 function moneyserveriniconfig() {
+    # 30.04.2025
     local ip="$1"
     local gridname="$2"
 
     # Gridname bereinigen
     gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
     
-    # Passwort aus Datei laden
-    local password_file="${SCRIPT_DIR}/mariadb_passwords.txt"
+    # Zugangsdaten aus UserInfo.ini laden
+    local ini_file="${SCRIPT_DIR}/UserInfo.ini"
     local db_user db_pass
-    db_user=$(grep -oP 'Benutzername:\s*\K\S+' "$password_file")
-    db_pass=$(grep -oP 'Passwort:\s*\K\S+' "$password_file")
+    db_user=$(grep -oP '^DB_Benutzername\s*=\s*\K\S+' "$ini_file")
+    db_pass=$(grep -oP '^DB_Passwort\s*=\s*\K\S+' "$ini_file")
 
     # Falls keine Benutzer- und Passwortwerte gelesen wurden, abbrechen
     if [[ -z "$db_user" || -z "$db_pass" ]]; then
-        echo "Fehler: Benutzername oder Passwort konnten nicht ausgelesen werden."
+        echo -e "${COLOR_BAD}Fehler: DB_Benutzername oder DB_Passwort fehlen in UserInfo.ini${COLOR_RESET}"
         return 1
     fi
 
@@ -2279,21 +2246,20 @@ function moneyserveriniconfig() {
 
     # Sicherstellen, dass die Vorlage existiert
     if [[ ! -f "$file.example" ]]; then
-        echo "FEHLER: Konfigurationsvorlage '$file.example' fehlt!" >&2
+        echo -e "${COLOR_BAD}FEHLER: Konfigurationsvorlage '$file.example' fehlt!${COLOR_RESET}" >&2
         exit 1  
     fi
 
     # Kopieren der Vorlage
     cp "$file.example" "$file" || {
-        echo "FEHLER: Konnte '$file' nicht erstellen" >&2
+        echo -e "${COLOR_BAD}FEHLER: Konnte '$file' nicht erstellen${COLOR_RESET}" >&2
         exit 1
     }
 
     # [Startup]
-    # /tmp/MoneyServer.exe.pid
     set_ini_key "$file" "Startup" "PIDFile" "\"/tmp/MoneyServer.exe.pid\""
 
-    # [MySql]
+    # [MySql] → Daten aus UserInfo.ini verwenden
     set_ini_key "$file" "MySql" "hostname" "\"localhost\""
     set_ini_key "$file" "MySql" "database" "\"robust\""
     set_ini_key "$file" "MySql" "username" "\"$db_user\""
@@ -2316,6 +2282,7 @@ function moneyserveriniconfig() {
     echo -e "${COLOR_OK}MoneyServer.ini Konfiguration abgeschlossen${COLOR_RESET}"
     blankline
 }
+
 
 # Konfiguriert OpenSim.ini für alle sim1 bis sim99-Verzeichnisse
 function opensiminiconfig() {
@@ -3004,8 +2971,8 @@ function regionsiniconfig() {
     declare -A used_locations
 
     # Benutzereingabe mit Symbol und Farbe
-    echo -e "${SYM_INFO}${COLOR_LABEL} Wie viele Zufallsregionen sollen pro Simulator erstellt werden?${COLOR_RESET}"
-    read -r regions_per_sim
+    echo -e "${SYM_INFO}${COLOR_LABEL} Wie viele Zufallsregionen sollen pro Simulator erstellt werden? ${COLOR_OK}[1]${COLOR_RESET}"
+    read -r regions_per_sim    
 
     # Eingabeprüfung
     # if ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
@@ -3020,6 +2987,8 @@ function regionsiniconfig() {
         echo -e "${SYM_BAD} ${COLOR_BAD}Ungültige Eingabe: Bitte eine positive Zahl eingeben${COLOR_RESET}" >&2
         return 1
     fi
+
+    echo -e "${SYM_OK} ${COLOR_ACTION}Sie haben ${COLOR_OK}$regions_per_sim${COLOR_ACTION} Regionen pro Simulator gewählt.${COLOR_RESET}"
 
     system_ip=$(hostname -I | awk '{print $1}')
 
@@ -3123,6 +3092,8 @@ function regionsiniconfig() {
 
 # Hauptfunktion, fragt Benutzer nach IP & Gridnamen und ruft alle Teilfunktionen auf
 function iniconfig() {
+    # 30.04.2025 - Server-Konfiguration
+
     echo "Das Arbeitsverzeichnis ist: $SCRIPT_DIR"
 
     echo "Wie ist Ihre IP oder DNS-Adresse? ($system_ip)"
@@ -3144,14 +3115,26 @@ function iniconfig() {
     echo "Verwendete IP: $ip"
     echo "Gridname: $gridname"
 
+    # **Speicherung der Server-Daten in UserInfo.ini**
+    local ini_file="${SCRIPT_DIR}/UserInfo.ini"
+
+    if [[ ! -f "$ini_file" ]]; then
+        echo -e "${COLOR_INFO}Erstelle UserInfo.ini${COLOR_RESET}"
+        sudo touch "$ini_file"
+    fi
+
+    echo -e "\n[ServerData]" | sudo tee -a "$ini_file" >/dev/null
+    echo "Arbeitsverzeichnis = ${SCRIPT_DIR}" | sudo tee -a "$ini_file" >/dev/null
+    echo "ServerIP = ${ip}" | sudo tee -a "$ini_file" >/dev/null
+    echo "GridName = ${gridname}" | sudo tee -a "$ini_file" >/dev/null
+
+    echo -e "${SYM_LOG} ${COLOR_LABEL}Serverdaten gespeichert in: ${COLOR_FILE}${ini_file}${COLOR_RESET}"
+
     #! ⚠️ **Wichtige Sicherheitsinformation!**
-    # Zur Kontrolle wird der Benutzername und das Passwort in der Datei:
-    # `mariadb_passwords.txt` und `userinfo.txt` gespeichert.
-    # Diese Konfiguration benötigt diese `mariadb_passwords.txt` und `userinfo.txt` Datei um die Daten einzutragen.
-    # Diese Dateien **solltet ihr danach unbedingt von eurem Server löschen** und stattdessen **sicher auf eurem PC aufbewahren**.
-    
+    # Die Datei UserInfo.ini enthält Zugangsdaten. 
+    # Sie **sollte danach unbedingt von eurem Server gelöscht und sicher auf eurem PC gespeichert werden**.
+
     # Konfigurationsfunktionen für verschiedene Komponenten aufrufen
-    #generate_all_name
     echo "Starte moneyserveriniconfig ..."
     moneyserveriniconfig "$ip" "$gridname"
     echo "Starte opensiminiconfig ..."
@@ -3172,10 +3155,12 @@ function iniconfig() {
     welcomeiniconfig "$ip" "$gridname"
     echo "Starte database_set_iniconfig ..."
     database_set_iniconfig    
+
     # Auswahl des Modus Hypergrid oder Geschlossener Grid.
     hypergrid "hypergrid"
     #hypergrid "closed"
 }
+
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* XML Konfigurationen für Addon Pakete wie Texturen, Avatare oder Skripte
@@ -3486,12 +3471,14 @@ function downloadallgit() {
     #osslscriptsgit
     #pbrtexturesgit
     # Versionierung des OpenSimulators.
-    versionrevision
+    #versionrevision
     # OpenSimulator erstellen aus dem Source Code.
     opensimbuild
 }
 
 function autoinstall() {
+    # 30.04.2025
+
     # Server vorbereiten
     servercheck
 
@@ -3506,7 +3493,7 @@ function autoinstall() {
     moneygitcopy
 
     # Versionierung des OpenSimulators. Keine eingabe erforderlich.
-    versionrevision
+    #versionrevision
 
     # OpenSimulator erstellen aus dem Source Code. Standard: ja.
     opensimbuild
@@ -3529,55 +3516,10 @@ function autoinstall() {
     #Vor dem Start die letzten vorbereitungen.
     firststart
 
-    # todo: alles vereinfachen in einer Abfrage:
-    # 3.Schritt
-    # Standard-Zugangsdaten verwenden? (j/n)
-    # n
+    # OpenSimulator starten
+    #opensimrestart
 
-    # Benutzername: MeinDatenbankBenutzername
-    # Passwort:MeinGeheimesDatenbankPawort123
-
-    # 4.Schritt
-    # ? OpenSimulator GitHub-Verwaltung
-    # Möchten Sie den OpenSimulator vom GitHub verwenden oder aktualisieren? ([upgrade]/new)
-    # new
-    # Möchten Sie diese Version mit .NET 6 oder .NET 8 betreiben? ([8]/6)
-    # 8
-
-    # 5.Schritt
-    # ? MoneyServer GitHub-Verwaltung
-    # Möchten Sie den MoneyServer vom GitHub verwenden oder aktualisieren? ([upgrade]/new)
-    # new
-
-    # 6.Schritt
-    # ?️ OpenSimulator Build-Prozess
-    # Möchten Sie den OpenSimulator jetzt erstellen? ([ja]/nein)
-    # ja
-
-    # 7.Schritt
-    # Das Arbeitsverzeichnis ist: /home
-    # Wie ist Ihre IP oder DNS-Adresse? (192.168.2.105)
-    # MeinOpenSimServer.de
-
-    # Wie heißt Ihr Grid?
-    # TeleTabiGrid
-
-    # 8.Schritt
-    # ☛ Wie viele Zufallsregionen sollen pro Simulator erstellt werden?
-    # 1
-
-    # 9.Schritt
-    # Master User Erstellung (Enter für Default-Werte)
-    # Vorname [John]:Tele
-    # Nachname [Doe]:Tabbi
-    # Passwort [123456]:GeheimesPasswort123
-    # E-Mail [john@doe.com]:purzel@baum.de
-    # UserID [automatisch generiert]:Enter drücken
-
-    # Zusammenfassung wird hier angezeigt.
-    # j
-
-    # Eure Informationen sind gespeichert in mariadb_passwords.txt und userinfo.txt bitte sicher verwahren.
+    # Eure Informationen sind gespeichert in UserInfo.ini bitte sicher verwahren.
 
 }
 
