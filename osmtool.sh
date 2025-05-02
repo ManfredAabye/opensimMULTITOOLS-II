@@ -7,8 +7,11 @@
 
 tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
 SCRIPTNAME="opensimMULTITOOL II"
+
+#testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
+
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.4.71.287"
+VERSION="V25.5.78.314"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -274,11 +277,13 @@ function servercheck() {
 function standalonestart() {
     cd opensim/bin || exit 1
     screen -fa -S opensim -d -U -m dotnet OpenSim.dll
+    echo "OpenSim starten abgeschlossen."
     blankline
 }
 
 function standalonestop() {
     screen -S opensim -p 0 -X stuff "shutdown^M"
+    echo "OpenSim stoppen abgeschlossen."
     blankline
 }
 
@@ -289,13 +294,16 @@ function simstart() {
     cd "$sim_dir"
     screen -fa -S "$simstart" -d -U -m dotnet OpenSim.dll
     cd "$SCRIPT_DIR"
-
+    echo "OpenSim starten abgeschlossen."
+    blankline
 }
 
 function simstop() {
     simstop=$1
     echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER} $simstop${COLOR_RESET}"
     screen -S "$simstop" -p 0 -X stuff "shutdown^M"
+    echo "OpenSim stoppen abgeschlossen."
+    blankline
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -497,8 +505,8 @@ function opensimgitcopy() {
     else
         echo -e "${COLOR_WARNING}⚠ ${COLOR_ACTION}Keine .NET-Version erkannt, verwende Standard .NET 8.${COLOR_RESET}"
     fi
-
-    versionrevision
+    
+    versionrevision # Versionierung des OpenSimulators von Flavour.Dev zu Flavour.Extended
 
     #blankline
 }
@@ -749,8 +757,161 @@ function pbrtexturesgit() {
     return 0
 }
 
+function osWebinterfacegit() {
+    echo -e "${COLOR_HEADING}🌐 Webinterface Installation${COLOR_RESET}"
+
+    webverzeichnis="oswebinterface"
+
+    # Abfrage zur Installation mit Default "Nein"
+    echo -n "Möchten Sie das OpenSim Webinterface installieren? ()j/N) [n]"
+    read -r install_webinterface
+    if [[ ! "$install_webinterface" =~ ^[jJ][aA]?$ ]]; then
+        echo -e "${COLOR_INFO}Installation abgebrochen (Default: Nein)${COLOR_RESET}"
+        blankline
+        return 0
+    fi
+    
+    # 1. PHP-Check mit Distro-Erkennung
+    if ! command -v php &>/dev/null; then
+        echo -e "${SYM_WARNING} ${COLOR_WARNING}PHP ist nicht installiert!${COLOR_RESET}"
+        
+        # Distro-Erkennung
+        # shellcheck source=/dev/null
+        source /etc/os-release
+        case $ID in
+            debian|ubuntu|linuxmint|pop|mx|zorin|elementary)
+                pkg_cmd="sudo apt-get install -y php php-mysql php-gd php-curl"
+                ;;
+            arch|manjaro)
+                pkg_cmd="sudo pacman -S --noconfirm php php-gd php-curl"
+                ;;
+            fedora|centos|rhel)
+                pkg_cmd="sudo dnf install -y php php-mysqlnd php-gd php-common"
+                ;;
+            opensuse|sles)
+                pkg_cmd="sudo zypper install -y php7 php7-mysql php7-gd php7-curl"
+                ;;
+            *)
+                echo -e "${SYM_BAD} ${COLOR_ERROR}Unterstützte Distribution nicht erkannt!${COLOR_RESET}"
+                echo "Manuell installieren: php php-mysql php-gd php-curl"
+                return 1
+                ;;
+        esac
+
+        echo -e "PHP auf ${PRETTY_NAME} installieren? (j/n) " 
+        read -r install_php
+        if [[ "$install_php" =~ ^[jJ] ]]; then
+            echo -e "${COLOR_ACTION}Installiere PHP... (${pkg_cmd})${COLOR_RESET}"
+            if ! eval "$pkg_cmd"; then
+                echo -e "${SYM_BAD} ${COLOR_ERROR}PHP-Installation fehlgeschlagen!${COLOR_RESET}"
+                return 1
+            fi
+            echo -e "${COLOR_OK}✅ PHP erfolgreich installiert!${COLOR_RESET}"
+        else
+            echo -e "${SYM_BAD} ${COLOR_ERROR}Abbruch: PHP ist erforderlich.${COLOR_RESET}"
+            return 1
+        fi
+    else
+        echo -e "${COLOR_OK}✅ PHP ist installiert ($(php -v | head -n 1))${COLOR_RESET}"
+    fi
+
+    # 2. Webverzeichnis-Check mit automatischer User/Group-Erkennung
+    local webroot="/var/www/html"
+    [[ -d "/var/www" && ! -d "$webroot" ]] && webroot="/var/www"  # Fallback für einige Distros
+    
+    if [[ ! -d "$webroot" ]]; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Webroot nicht gefunden in:${COLOR_RESET}"
+        echo "/var/www/html oder /var/www"
+        echo "Tipp: Apache/Nginx zuerst installieren"
+        return 1
+    fi
+
+    # Bestimme den richtigen Benutzer und Gruppe basierend auf existierenden Dateien
+    local target_user target_group
+    # Suche nach einer existierenden Datei oder Verzeichnis im Webroot
+    sample_file=$(find "$webroot" -maxdepth 1 -type f -print -quit 2>/dev/null || true)
+    sample_dir=$(find "$webroot" -maxdepth 1 -type d ! -path "$webroot" -print -quit 2>/dev/null || true)
+    
+    if [ -n "$sample_file" ]; then
+        target_user=$(stat -c '%U' "$sample_file")
+        target_group=$(stat -c '%G' "$sample_file")
+    elif [ -n "$sample_dir" ]; then
+        target_user=$(stat -c '%U' "$sample_dir")
+        target_group=$(stat -c '%G' "$sample_dir")
+    else
+        # Fallback: Standard-Webserver-User je nach Distribution
+        # shellcheck source=/dev/null
+        source /etc/os-release
+        case $ID in
+            debian|ubuntu|linuxmint|pop|mx|zorin|elementary)
+                target_user="www-data"
+                target_group="www-data"
+                ;;
+            arch|manjaro)
+                target_user="http"
+                target_group="http"
+                ;;
+            fedora|centos|rhel)
+                target_user="apache"
+                target_group="apache"
+                ;;
+            opensuse|sles)
+                target_user="wwwrun"
+                target_group="www"
+                ;;
+            *)
+                target_user="www-data"
+                target_group="www-data"
+                ;;
+        esac
+    fi
+
+    # 3. Git-Operationen
+    if [[ ! -d "oswebinterface" ]]; then
+        git clone https://github.com/ManfredAabye/oswebinterface.git oswebinterface || return 1
+    else
+        cd oswebinterface || return 1
+        git pull origin "$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')" || return 1
+        cd ..
+    fi
+
+    # 4. Deployment mit korrekten Berechtigungen
+    echo -e "${COLOR_ACTION}Kopiere Webinterface nach ${webroot}/${webverzeichnis}...${COLOR_RESET}"
+    if ! sudo cp -r "oswebinterface" "$webroot/$webverzeichnis"; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Kopieren fehlgeschlagen!${COLOR_RESET}"
+        return 1
+    fi
+
+    echo -e "${COLOR_ACTION}Setze Besitzer auf ${target_user}:${target_group}...${COLOR_RESET}"
+    if ! sudo chown -R "$target_user:$target_group" "$webroot/$webverzeichnis"; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Besitzer ändern fehlgeschlagen!${COLOR_RESET}"
+        return 1
+    fi
+
+    echo -e "${COLOR_ACTION}Setze Dateiberechtigungen...${COLOR_RESET}"
+    if ! sudo find "$webroot/$webverzeichnis" -type d -exec chmod 755 {} \; || \
+       ! sudo find "$webroot/$webverzeichnis" -type f -exec chmod 644 {} \; ; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Berechtigungen setzen fehlgeschlagen!${COLOR_RESET}"
+        return 1
+    fi
+
+    echo -e "${COLOR_OK}✅ Erfolgreich installiert nach: ${COLOR_DIR}$webroot/$webverzeichnis${COLOR_RESET}"
+    echo -e "   Benutzer/Gruppe: ${COLOR_INFO}$target_user:$target_group${COLOR_RESET}"
+    blankline
+    return 0
+}
+
 function versionrevision() {
     file="opensim/OpenSim/Framework/VersionInfo.cs"
+
+    #xflavour="Unknown"
+    #xflavour="Dev"
+    #xflavour="RC1"
+    #xflavour="RC2"
+    #xflavour="RC3"
+    #xflavour="Release"
+    #xflavour="Post_Fixes"
+    xflavour="Extended"
 
     if [[ ! -f "$file" ]]; then
         echo -e "${SYM_BAD} ${COLOR_ERROR}Datei nicht gefunden: ${COLOR_DIR}$file${COLOR_RESET}"
@@ -759,13 +920,13 @@ function versionrevision() {
 
     echo -e "${SYM_OK} ${COLOR_ACTION}Bearbeite Datei: ${COLOR_DIR}$file${COLOR_RESET}"
 
-    # Ändere Flavour.Dev zu Flavour.Extended
-    sed -i 's/public const Flavour VERSION_FLAVOUR = Flavour\.Dev;/public const Flavour VERSION_FLAVOUR = Flavour.Extended;/' "$file"
+    # Ändere Flavour.Dev
+    sed -i 's/public const Flavour VERSION_FLAVOUR = Flavour\.[^;]*;/public const Flavour VERSION_FLAVOUR = Flavour.'"$xflavour"';/' "$file"
 
     # Entferne "Nessie" aus dem Versions-String
     sed -i 's/OpenSim {versionNumber} Nessie {flavour}/OpenSim {versionNumber} {flavour}/' "$file"
 
-    echo -e "${SYM_OK} ${COLOR_ACTION}Änderungen wurden erfolgreich vorgenommen.${COLOR_RESET}"
+    echo -e "${SYM_OK} ${COLOR_ACTION}Änderungen zu $xflavour wurden erfolgreich vorgenommen.${COLOR_RESET}"
     blankline
     return 0
 }
@@ -811,32 +972,32 @@ function generate_name() {
         "Umbra" "Voyager" "Weyland" "Xenomorph" "Zodiac"
     )
 
-    gennameone="${firstnames[$RANDOM % ${#firstnames[@]}]}" # übergebe das an generate_all_name()
-    gennametwo="${lastnames[$RANDOM % ${#lastnames[@]}]}" # übergebe das an generate_all_name()
+    gennamefirst="${firstnames[$RANDOM % ${#firstnames[@]}]}" # übergebe das an generate_all_name()
+    gennamesecond="${lastnames[$RANDOM % ${#lastnames[@]}]}" # übergebe das an generate_all_name()
 
 }
 generate_all_name() {
     # Alle Namen und Bezeichnungen für die Installation erstellen das dient dazu das die Namen im gesamten Programm verwendet werden können.
     # Benutzername Vorname Nachname
     generate_name
-    genFirstname="${gennameone}"
+    genFirstname="${gennamefirst}"
     generate_name
-    genLastname="${gennametwo}"
-    echo "$gennameone"
-    echo "$gennametwo"
+    genLastname="${gennamesecond}"
+    echo "$gennamefirst"
+    echo "$gennamesecond"
 
     generate_name
     # database_setup
-    genDatabaseUserName="${gennameone}${gennametwo}$((RANDOM % 900 + 100))"
+    genDatabaseUserName="${gennamefirst}${gennamesecond}$((RANDOM % 900 + 100))"
     echo "$genDatabaseUserName"
 
     # generate_name
     # # Neue Region
-    # genRegionName="${gennameone}${gennametwo}$((RANDOM % 900 + 100))"
+    # genRegionName="${gennamefirst}${gennamesecond}$((RANDOM % 900 + 100))"
     # echo "$genRegionName"
 
     generate_name
-    genGridName="${gennametwo}Grid"
+    genGridName="${gennamesecond}Grid"
     echo "$genGridName"
     
     # Test Ausgabe der Variablen
@@ -879,6 +1040,16 @@ function opensimbuild() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Erstellen eines OpenSimulators Grids
 #?──────────────────────────────────────────────────────────────────────────────────────────
+
+function removeconfigfiles() {
+    local ini_file="${SCRIPT_DIR}/UserInfo.ini"
+    # Erstelle Backup wenn Datei existiert
+    if [[ -f "$ini_file" ]]; then
+        #echo "$(date +'%d.%m.%Y')_$(date +'%H:%M:%S')"
+        backup_file="${ini_file}.$(date +'%d.%m.%Y')_$(date +'%H:%M:%S').bak"
+        sudo mv -f "$ini_file" "$backup_file"
+    fi
+}  
 
 function createdirectory() {
     echo -e "${COLOR_HEADING}📂 Verzeichniserstellung${COLOR_RESET}"
@@ -1091,16 +1262,30 @@ function database_setup() {
 
 
 function createmasteruser() {
-    # 30.04.2025 Master Avatar MasterAvatar
+    # 02.05.2025 Master Avatar MasterAvatar
+
+    # RobustServer starten
+    echo "RobustServer starten, erster start..."
+    if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
+        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}RobustServer ${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
+        cd robust/bin || exit 1
+        #  -inifile=Robust.HG.ini
+
+        screen -fa -S robustserver -d -U -m dotnet Robust.dll
+        cd - >/dev/null 2>&1 || exit 1
+        sleep $RobustServer_Start_wait
+    else
+        echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Robust.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
+    fi
 
     genPasswort=$(tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 16)
     genUserid=$(command -v uuidgen >/dev/null 2>&1 && uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
     
-    local VORNAME="${genFirstname}"
-    local NACHNAME="${genLastname}"
+    VORNAME="${genFirstname}"
+    NACHNAME="${genLastname}"
     local PASSWORT="${genPasswort}"
     local EMAIL="${4:-${genFirstname}@${genLastname}.com}"
-    local userid="${5:-$genUserid}"
+    userid="${5:-$genUserid}"
     
     echo -e "${COLOR_INFO}Master User Erstellung (Enter für generierte Werte)${COLOR_RESET}"
 
@@ -1163,34 +1348,229 @@ function createmasteruser() {
     blankline
 }
 
+function createmasterestate() {
+    # 02.05.2025 Master Estate
+    echo -e "${COLOR_HEADING}🏡 Master Estate Erstellung${COLOR_RESET}"
+
+    # sim1 starten
+    echo "Sim1 Welcome starten, erster start..."
+    if [[ -d "sim1/bin" && -f "sim1/bin/OpenSim.dll" ]]; then
+        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}sim1 ${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}sim1/bin...${COLOR_RESET}"
+        cd sim1/bin || exit 1
+        screen -fa -S sim1 -d -U -m dotnet OpenSim.dll
+        cd - >/dev/null 2>&1 || exit 1
+        sleep 10
+    else
+        echo -e "${SYM_BAD} ${COLOR_SERVER}sim1: ${COLOR_BAD}OpenSim.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
+    fi
+
+    # 1. Überprüfe ob sim1 läuft
+    if ! screen -list | grep -q "sim1"; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}CREATEESTATE: sim1 existiert nicht oder läuft nicht${COLOR_RESET}"
+        echo -e "${COLOR_INFO}Tipp: Starten Sie die Simulator-Instanz zuerst${COLOR_RESET}"
+        return 1
+    fi
+
+    # 1. INI-Datei auslesen mit angepasstem Parsing
+    local ini_file="${SCRIPT_DIR}/UserInfo.ini"
+    if [[ ! -f "$ini_file" ]]; then
+        echo -e "${COLOR_BAD}UserInfo.ini nicht gefunden unter: $ini_file${COLOR_RESET}"
+        return 1
+    fi
+
+    # Parsing-Funktion mit Trim und Leerzeichen im Pattern
+    ini_get() {
+        local section="$1" key="$2"
+        awk -F ' = ' '
+        /^\[/ { current_section = substr($0, 2, length($0)-2) }
+        current_section == "'"$section"'" && $1 == "'"$key"'" { 
+            sub(/^[ \t]+/, "", $2)  # Trim leading whitespace
+            sub(/[ \t\r]+$/, "", $2) # Trim trailing whitespace
+            print $2
+            exit
+        }
+        ' "$ini_file"
+    }
+
+    # Werte auslesen
+    gridname=$(ini_get "ServerData" "GridName")
+    VORNAME=$(ini_get "UserData" "Vorname")
+    NACHNAME=$(ini_get "UserData" "Nachname")
+
+    # Debug-Ausgabe
+    echo -e "${COLOR_DEBUG}Gelesene Werte:"
+    echo -e "GridName: '${gridname:-NICHT GEFUNDEN}'"
+    echo -e "Vorname: '${VORNAME:-NICHT GEFUNDEN}'"
+    echo -e "Nachname: '${NACHNAME:-NICHT GEFUNDEN}'${COLOR_RESET}"
+
+    if [[ -z "$gridname" || -z "$VORNAME" || -z "$NACHNAME" ]]; then
+        echo -e "${COLOR_BAD}Fehlende Daten in UserInfo.ini${COLOR_RESET}"
+        echo -e "Bitte überprüfen Sie folgende Einträge:"
+        echo -e "[ServerData]"
+        echo -e "GridName = ..."
+        echo -e "[UserData]"
+        echo -e "Vorname = ..."
+        echo -e "Nachname = ..."
+        return 1
+    fi
+
+    # 3. Logging vor der Ausführung
+    echo -e "${COLOR_INFO}Erstelle Master Estate für:"
+    echo -e "- Grid: ${COLOR_VALUE}$gridname"
+    echo -e "- Avatar: ${COLOR_VALUE}$VORNAME $NACHNAME${COLOR_RESET}"
+
+    # 4. Befehle an sim1 senden mit Fehlerprüfung
+    if ! screen -S sim1 -p 0 -X eval "stuff '$gridname Estate'^M"; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden des Estate-Befehls${COLOR_RESET}"
+        return 1
+    fi
+    sleep 1  # Kurze Pause zwischen den Befehlen
+
+    if ! screen -S sim1 -p 0 -X eval "stuff '$VORNAME'^M"; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden des Vornamens${COLOR_RESET}"
+        return 1
+    fi
+    sleep 1
+
+    if ! screen -S sim1 -p 0 -X eval "stuff '$NACHNAME'^M"; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden des Nachnamens${COLOR_RESET}"
+        return 1
+    fi
+
+    # 5. Erfolgsmeldung
+    echo -e "${SYM_OK} ${COLOR_OK}Master Estate erfolgreich erstellt${COLOR_RESET}"
+    echo -e "${COLOR_INFO}Starte nun die Estate-Akzeptierung für alle Regionen...${COLOR_RESET}"
+    blankline
+
+    # 6. Alle anderen Starten und Estate akzeptieren
+    if ! createmasterestateall; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler bei createmasterestateall${COLOR_RESET}"
+        return 1
+    fi
+
+    return 0
+}
+
+function createmasterestateall() {
+    # 02.05.2025 Master Estate Bestätigung mit Simulator-Start
+    echo -e "${COLOR_HEADING}🌍 Starte Simulatoren & bestätige Master Estate${COLOR_RESET}"
+
+    # 1. INI-Datei auslesen mit angepasstem Parsing
+    local ini_file="${SCRIPT_DIR}/UserInfo.ini"
+    if [[ ! -f "$ini_file" ]]; then
+        echo -e "${COLOR_BAD}UserInfo.ini nicht gefunden unter: $ini_file${COLOR_RESET}"
+        return 1
+    fi
+
+    # Parsing-Funktion mit Trim und Leerzeichen im Pattern
+    ini_get() {
+        local section="$1" key="$2"
+        awk -F ' = ' '
+        /^\[/ { current_section = substr($0, 2, length($0)-2) }
+        current_section == "'"$section"'" && $1 == "'"$key"'" { 
+            sub(/^[ \t]+/, "", $2)  # Trim leading whitespace
+            sub(/[ \t\r]+$/, "", $2) # Trim trailing whitespace
+            print $2
+            exit
+        }
+        ' "$ini_file"
+    }
+
+    # Werte auslesen
+    gridname=$(ini_get "ServerData" "GridName")
+    VORNAME=$(ini_get "UserData" "Vorname")
+    NACHNAME=$(ini_get "UserData" "Nachname")
+
+    # Debug-Ausgabe
+    echo -e "${COLOR_DEBUG}Gelesene Werte:"
+    echo -e "GridName: '${gridname:-NICHT GEFUNDEN}'"
+    echo -e "Vorname: '${VORNAME:-NICHT GEFUNDEN}'"
+    echo -e "Nachname: '${NACHNAME:-NICHT GEFUNDEN}'${COLOR_RESET}"
+
+    if [[ -z "$gridname" || -z "$VORNAME" || -z "$NACHNAME" ]]; then
+        echo -e "${COLOR_BAD}Fehlende Daten in UserInfo.ini${COLOR_RESET}"
+        echo -e "Bitte überprüfen Sie folgende Einträge:"
+        echo -e "[ServerData]"
+        echo -e "GridName = ..."
+        echo -e "[UserData]"
+        echo -e "Vorname = ..."
+        echo -e "Nachname = ..."
+        return 1
+    fi
+
+    # 2. Starte alle Simulatoren
+    echo -e "${COLOR_ACTION}Starte Simulator-Instanzen...${COLOR_RESET}"
+    local started_sims=0
+    
+    for ((i=2; i<=999; i++)); do
+        sim_dir="sim$i/bin"
+        if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
+            echo -n -e "${SYM_INFO} ${COLOR_DIR}sim$i: ${COLOR_RESET}"
+            
+            if cd "$sim_dir" && screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll; then
+                echo -e "${COLOR_OK}gestartet${COLOR_RESET}"
+                ((started_sims++))
+                sleep "${Simulator_Start_wait:-5}"
+            else
+                echo -e "${COLOR_ERROR}start fehlgeschlagen${COLOR_RESET}"
+            fi
+            cd - >/dev/null 2>&1
+        fi
+    done
+
+    # 3. Estate-Bestätigung
+    if [[ $started_sims -gt 0 ]]; then
+        echo -e "${COLOR_ACTION}Bestätige Estate für $started_sims Simulator(en)...${COLOR_RESET}"
+        
+        for ((i=2; i<=999; i++)); do
+            if screen -list | grep -q "sim$i"; then
+                echo -n -e "${SYM_INFO} ${COLOR_DIR}sim$i: ${COLOR_RESET}"
+                
+                # manni neu
+                #screen -S "sim$i" -p 0 -X eval "stuff 'yes'^M";
+                #screen -S "sim$i" -p 0 -X eval "stuff '$gridname Estate'^M";
+
+                if ! screen -S "sim$i" -p 0 -X eval "stuff 'yes'^M"; then
+                    echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von yes${COLOR_RESET}"
+                    return 1
+                fi
+                sleep 1
+
+                if ! screen -S "sim$i" -p 0 -X eval "stuff '$gridname Estate'^M"; then
+                    echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von $gridname Estate${COLOR_RESET}"
+                    return 1
+                fi
+            fi
+        done
+    else
+        echo -e "${SYM_WARNING} ${COLOR_WARNING}Keine Simulatoren gestartet!${COLOR_RESET}"
+        return 1
+    fi
+
+    echo -e "${SYM_OK} ${COLOR_OK}$started_sims Simulatoren gestartet & Estate bestätigt${COLOR_RESET}"
+    blankline
+    return 0
+}
 
 function firststart() {
-    cd "$SCRIPT_DIR"
-
-    # RobustServer starten
-    if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
-        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}RobustServer ${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
-        cd robust/bin || exit 1
-        #  -inifile=Robust.HG.ini
-
-        screen -fa -S robustserver -d -U -m dotnet Robust.dll
-        cd - >/dev/null 2>&1 || exit 1
-        sleep $RobustServer_Start_wait
-    else
-        echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Robust.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
-    fi
+    # 02.05.2025
+    # Sind wir im Skriptverzeichnis oder noch in opensim?
+    cd "$SCRIPT_DIR" || exit 1
 
 	# Master Avatar Registrieren.
 	createmasteruser
-	
-    # Robust Stoppen
-    screen -S robustserver -p 0 -X stuff "shutdown^M"
-    sleep $RobustServer_Stop_wait
-    killall screen
+
+    # Estate erstellen
+    createmasterestate
+
+    # Erststart stoppen
+    #opensimstop
+    #killall screen
+
+    # Regulären Start nach installation und setup.
+    #opensimrestart
 
     blankline
-    #opensimrestart
-    #blankline
 
 }
 
@@ -2171,7 +2551,7 @@ function database_set_iniconfig() {
 function welcomeiniconfig() {
     # 25.04.2025
     local ip="$1"
-    local gridname="$2"
+    gridname="$2"
 
     # Gridname bereinigen
     gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
@@ -2243,7 +2623,7 @@ function welcomeiniconfig() {
 function moneyserveriniconfig() {
     # 30.04.2025
     local ip="$1"
-    local gridname="$2"
+    gridname="$2"
 
     # Gridname bereinigen
     gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
@@ -2476,6 +2856,7 @@ function robusthginiconfig() {
     local gridname="$2"
     local dir="$SCRIPT_DIR/robust/bin"
     local file="$dir/Robust.HG.ini"
+    webverzeichnis="oswebinterface"
 
     # Gridname bereinigen
     gridname=$(echo "$gridname" | sed -e 's/ä/ae/g' -e 's/ö/oe/g' -e 's/ü/ue/g' -e 's/[-&]/_/g' -e 's/  */_/g' -e 's/__\+/_/g')
@@ -2528,9 +2909,9 @@ function robusthginiconfig() {
 
     set_ini_key "$file" "LoginService" "WelcomeMessage" "\"Willkommen im $gridname!\""
     set_ini_key "$file" "LoginService" "MapTileURL" "\"\${Const|BaseURL}:\${Const|PublicPort}/\""
-    set_ini_key "$file" "LoginService" "SearchURL" "\"\${Const|BaseURL}:\${Const|PublicPort}/searchservice.php\""
-	set_ini_key "$file" "LoginService" "DestinationGuide" "\"\${Const|BaseURL}/guide.php\""
-	set_ini_key "$file" "LoginService" "AvatarPicker" "\"\${Const|BaseURL}/avatarpicker.php\""    
+    set_ini_key "$file" "LoginService" "SearchURL" "\"\${Const|BaseURL}:\${Const|PublicPort}/$webverzeichnis/searchservice.php\""
+	set_ini_key "$file" "LoginService" "DestinationGuide" "\"\${Const|BaseURL}/$webverzeichnis/guide.php\""
+	set_ini_key "$file" "LoginService" "AvatarPicker" "\"\${Const|BaseURL}/$webverzeichnis/avatarpicker.php\""    
     set_ini_key "$file" "LoginService" "Currency" "\"OS$\""
     set_ini_key "$file" "LoginService" "DSTZone" "\"local\""
 
@@ -2540,13 +2921,13 @@ function robusthginiconfig() {
     # [GridInfoService]
     set_ini_key "$file" "GridInfoService" "gridname" "\"$gridname\""
     set_ini_key "$file" "GridInfoService" "gridnick" "\"$gridname\""
-    set_ini_key "$file" "GridInfoService" "welcome" "\"\${Const|BaseURL}/welcomesplashpage.php\""
+    set_ini_key "$file" "GridInfoService" "welcome" "\"\${Const|BaseURL}/$webverzeichnis/welcomesplashpage.php\""
     set_ini_key "$file" "GridInfoService" "economy" "\"\${Const|BaseURL}:8008/\""
-    set_ini_key "$file" "GridInfoService" "about" "\"\${Const|BaseURL}/aboutinformation.php\""
-    set_ini_key "$file" "GridInfoService" "register" "\"\${Const|BaseURL}/createavatar.php\""
-    set_ini_key "$file" "GridInfoService" "help" "\"\${Const|BaseURL}/help.php\""
-    set_ini_key "$file" "GridInfoService" "password" "\"\${Const|BaseURL}/passwordreset.php\""
-    set_ini_key "$file" "GridInfoService" "GridStatusRSS" "\"\${Const|BaseURL}/gridstatusrss.php\""
+    set_ini_key "$file" "GridInfoService" "about" "\"\${Const|BaseURL}/$webverzeichnis/aboutinformation.php\""
+    set_ini_key "$file" "GridInfoService" "register" "\"\${Const|BaseURL}/$webverzeichnis/createavatar.php\""
+    set_ini_key "$file" "GridInfoService" "help" "\"\${Const|BaseURL}/$webverzeichnis/help.php\""
+    set_ini_key "$file" "GridInfoService" "password" "\"\${Const|BaseURL}/$webverzeichnis/passwordreset.php\""
+    set_ini_key "$file" "GridInfoService" "GridStatusRSS" "\"\${Const|BaseURL}/$webverzeichnis/gridstatusrss.php\""
 
     # [UserAgentService]
     uncomment_ini_line "$file" "LevelOutsideContacts"
@@ -2561,6 +2942,64 @@ function robusthginiconfig() {
     echo -e "${COLOR_OK}Robust.HG.ini konfiguriert.${COLOR_RESET}"
     blankline
 }
+
+function oswebinterfaceconfig() {
+    # Konfigurationsdatei-Pfade
+    local ini_file="UserInfo.ini"  # Pfad zur INI-Datei mit Zugangsdaten
+    local php_config_file="/var/www/html/$webverzeichnis/include/env.php"
+    config_dir="$(dirname "$php_config_file")"
+
+    # Prüfe, ob Konfigurationsverzeichnis existiert
+    if [[ ! -d "$config_dir" ]]; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Verzeichnis nicht gefunden: ${COLOR_DIR}$config_dir${COLOR_RESET}"
+        return 1
+    fi
+
+    # Prüfe, ob INI-Datei existiert
+    if [[ ! -f "$ini_file" ]]; then
+        echo -e "${SYM_BAD} ${COLOR_ERROR}Konfigurationsdatei nicht gefunden: ${COLOR_DIR}$ini_file${COLOR_RESET}"
+        return 1
+    fi
+
+    # Zugangsdaten auslesen (mit Trimmen von Leerzeichen/Zeilenumbrüchen)
+    local db_user db_pass
+    db_user=$(grep -oP '^DB_Benutzername\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+    db_pass=$(grep -oP '^DB_Passwort\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+
+    # Fallback, falls Werte leer sind
+    [[ -z "$db_user" ]] && db_user="opensim_user"
+    [[ -z "$db_pass" ]] && db_pass="opensim123"
+
+    # Neu generierter Name
+    generate_name
+    # Neue Region
+    genHttpUserName="${gennamefirst}$((RANDOM % 900 + 100))"
+    genHttpUserPass="${gennamesecond}$((RANDOM % 900 + 100))"
+    echo "$genRegionName"
+    region_name=${genRegionName}
+
+    # PHP-Konfigurationsdatei generieren
+    cat > "$php_config_file" <<EOF
+<?php
+define('DB_SERVER', 'localhost');
+define('DB_USERNAME', '$db_user');
+define('DB_PASSWORD', '$db_pass');
+define('DB_NAME', 'robust');
+define('DB_ASSET_NAME', 'robust');
+
+define('REMOTEADMIN_HTTPAUTHUSERNAME', '${genHttpUserName}');
+define('REMOTEADMIN_HTTPAUTHPASSWORD', '${genHttpUserPass}');
+?>
+EOF
+
+    # Berechtigungen anpassen (falls nötig)
+    chmod 640 "$php_config_file"
+    chown www-data:www-data "$php_config_file"  # Anpassen für deinen Webserver-User
+
+    echo -e "${SYM_OK} ${COLOR_ACTION}Konfiguration geschrieben nach: ${COLOR_DIR}$php_config_file${COLOR_RESET}"
+    return 0
+}
+
 
 function robustiniconfig() {
     local ip="$1"
@@ -3049,7 +3488,7 @@ function regionsiniconfig() {
                 # Neu generierter Name
                 generate_name
                 # Neue Region
-                genRegionName="${gennameone}${gennametwo}$((RANDOM % 900 + 100))"
+                genRegionName="${gennamefirst}${gennamesecond}$((RANDOM % 900 + 100))"
                 echo "$genRegionName"
                 region_name=${genRegionName}
 
@@ -3179,7 +3618,9 @@ function iniconfig() {
     echo "Starte welcomeiniconfig ..."
     welcomeiniconfig "$ip" "$gridname"
     echo "Starte database_set_iniconfig ..."
-    database_set_iniconfig    
+    database_set_iniconfig
+    echo "Starte oswebinterfaceconfig ..."
+    oswebinterfaceconfig
 
     # Auswahl des Modus Hypergrid oder Geschlossener Grid.
     hypergrid "hypergrid"
@@ -3510,12 +3951,23 @@ function autoinstall() {
     # Verzeichnisse erstellen. Standard: 1
     createdirectory
 
+    # Doppelten Konfigurationsdateien entfernen
+    removeconfigfiles
+
     # mySQL installieren. Standard: Benutzername wird generiert, dazu wird ein 16 stelliges Passwort erzeugt.
     database_setup
 
     # Downloads aus dem Github hier OpenSim und Money. einfach beises mit Enter bestätigen.
     opensimgitcopy
     moneygitcopy
+
+    # Webinterface aus dem Github holen
+    osWebinterfacegit
+
+    #ruthrothgit        # Funktioniert nicht richtig.
+    #avatarassetsgit    # Funktioniert nicht richtig.
+    #osslscriptsgit
+    #pbrtexturesgit
 
     # Versionierung des OpenSimulators. Keine eingabe erforderlich.
     #versionrevision
@@ -3535,14 +3987,11 @@ function autoinstall() {
     # Zufallsregionen erstellen
     regionsiniconfig
 
-    # Alles starten
-    #opensimrestart
-
     #Vor dem Start die letzten vorbereitungen.
     firststart
 
     # OpenSimulator starten
-    #opensimrestart
+    opensimrestart
 
     # Eure Informationen sind gespeichert in UserInfo.ini bitte sicher verwahren.
 
@@ -3724,12 +4173,14 @@ case $KOMMANDO in
     pbrtexturesgit)             pbrtexturesgit ;;
     downloadallgit)             downloadallgit ;;
     versionrevision)            versionrevision ;;
+    osWebinterfacegit)          osWebinterfacegit ;;
 
     #  OPENSIM BUILD & DEPLOY #
     opensimbuild)      opensimbuild ;;
     opensimcopy)       opensimcopy ;;
     opensimupgrade)    opensimupgrade ;;
     database_setup)    database_setup ;;
+    removeconfigfiles) removeconfigfiles ;;
     autoinstall) autoinstall ;;
 
     #  KONFIGURATIONS-MGMT AUTOKONFIGURATION    #
@@ -3746,6 +4197,7 @@ case $KOMMANDO in
     regionsiniconfig)           regionsiniconfig ;; # Alle neuen Konfigurationen starten.
     cleanconfig)                clean_config "$2" ;;
     createmasteruser)           createmasteruser "$2" "$3" "$4" "$5" "$6" ;;
+    oswebinterfaceconfig)       oswebinterfaceconfig ;;
     firststart)                 firststart ;;
 
     #  Experimental            #
