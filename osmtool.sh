@@ -11,7 +11,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.78.315"
+VERSION="V25.5.78.318"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -625,9 +625,7 @@ function ruthrothgit() {
     python3 updatelibrary.py -n "Ruth2-v4" -s "Ruth2-v4" -a Ruth2-v4 -i Ruth2-v4
     cd ..
     # Schritt 3 das kopieren der Daten. Das einfügen der Daten in den Dateien ähnlich wie bei PBR.
-
 }
-
 
 function osslscriptsgit() {
     echo -e "${COLOR_HEADING}📜 OSSL Beispiel-Skripte GitHub-Verwaltung${COLOR_RESET}"
@@ -763,7 +761,7 @@ function osWebinterfacegit() {
     webverzeichnis="oswebinterface"
 
     # Abfrage zur Installation mit Default "Nein"
-    echo -n "Möchten Sie das OpenSim Webinterface installieren? ()j/N) [n]"
+    echo -e "${COLOR_LABEL}Möchten Sie das OpenSim Webinterface installieren? ()j/N) ${COLOR_RESET} [n]"
     read -r install_webinterface
     if [[ ! "$install_webinterface" =~ ^[jJ][aA]?$ ]]; then
         echo -e "${COLOR_INFO}Installation abgebrochen (Default: Nein)${COLOR_RESET}"
@@ -1451,6 +1449,107 @@ function createmasterestate() {
     return 0
 }
 
+# todo: createmasterestateall führt das nur für eine Region aus, wenn aber in der sim2/bin/Regions/ mehrere +.ini dateien aufgeführt sind muss das auch für alle Regionen gemacht werden.
+# function createmasterestateall() {
+#     # 02.05.2025 Master Estate Bestätigung mit Simulator-Start
+#     echo -e "${COLOR_HEADING}🌍 Starte Simulatoren & bestätige Master Estate${COLOR_RESET}"
+
+#     # 1. INI-Datei auslesen mit angepasstem Parsing
+#     local ini_file="${SCRIPT_DIR}/UserInfo.ini"
+#     if [[ ! -f "$ini_file" ]]; then
+#         echo -e "${COLOR_BAD}UserInfo.ini nicht gefunden unter: $ini_file${COLOR_RESET}"
+#         return 1
+#     fi
+
+#     # Parsing-Funktion mit Trim und Leerzeichen im Pattern
+#     ini_get() {
+#         local section="$1" key="$2"
+#         awk -F ' = ' '
+#         /^\[/ { current_section = substr($0, 2, length($0)-2) }
+#         current_section == "'"$section"'" && $1 == "'"$key"'" { 
+#             sub(/^[ \t]+/, "", $2)  # Trim leading whitespace
+#             sub(/[ \t\r]+$/, "", $2) # Trim trailing whitespace
+#             print $2
+#             exit
+#         }
+#         ' "$ini_file"
+#     }
+
+#     # Werte auslesen
+#     gridname=$(ini_get "ServerData" "GridName")
+#     VORNAME=$(ini_get "UserData" "Vorname")
+#     NACHNAME=$(ini_get "UserData" "Nachname")
+
+#     # Debug-Ausgabe
+#     echo -e "${COLOR_DEBUG}Gelesene Werte:"
+#     echo -e "GridName: '${gridname:-NICHT GEFUNDEN}'"
+#     echo -e "Vorname: '${VORNAME:-NICHT GEFUNDEN}'"
+#     echo -e "Nachname: '${NACHNAME:-NICHT GEFUNDEN}'${COLOR_RESET}"
+
+#     if [[ -z "$gridname" || -z "$VORNAME" || -z "$NACHNAME" ]]; then
+#         echo -e "${COLOR_BAD}Fehlende Daten in UserInfo.ini${COLOR_RESET}"
+#         echo -e "Bitte überprüfen Sie folgende Einträge:"
+#         echo -e "[ServerData]"
+#         echo -e "GridName = ..."
+#         echo -e "[UserData]"
+#         echo -e "Vorname = ..."
+#         echo -e "Nachname = ..."
+#         return 1
+#     fi
+
+#     # 2. Starte alle Simulatoren
+#     echo -e "${COLOR_ACTION}Starte Simulator-Instanzen...${COLOR_RESET}"
+#     local started_sims=0
+    
+#     for ((i=2; i<=999; i++)); do
+#         sim_dir="sim$i/bin"        
+#         if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
+#             echo -n -e "${SYM_INFO} ${COLOR_DIR}sim$i: ${COLOR_RESET}"
+            
+#             if cd "$sim_dir" && screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll; then
+#                 echo -e "${COLOR_OK}gestartet${COLOR_RESET}"
+#                 ((started_sims++))
+#                 sleep "${Simulator_Start_wait:-5}"
+#             else
+#                 echo -e "${COLOR_ERROR}start fehlgeschlagen${COLOR_RESET}"
+#             fi
+#             cd - >/dev/null 2>&1
+#         fi
+#     done
+
+#     # 3. Estate-Bestätigung
+#     if [[ $started_sims -gt 0 ]]; then
+#         echo -e "${COLOR_ACTION}Bestätige Estate für $started_sims Simulator(en)...${COLOR_RESET}"
+        
+#         for ((i=2; i<=999; i++)); do
+#             if screen -list | grep -q "sim$i"; then
+#                 echo -n -e "${SYM_INFO} ${COLOR_DIR}sim$i: ${COLOR_RESET}"
+                
+#                 # todo: Zähle die Anzahl der ini konfigurationen und wiederhole die bestätigung so oft wie notwendig. Die konfigurationen befinden sich in $SCRIPT_DIR/"sim$i"/bin/Regions
+#                 #screen -S "sim$i" -p 0 -X eval "stuff 'yes'^M";
+#                 #screen -S "sim$i" -p 0 -X eval "stuff '$gridname Estate'^M";
+
+#                 if ! screen -S "sim$i" -p 0 -X eval "stuff 'yes'^M"; then
+#                     echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von yes${COLOR_RESET}"
+#                     return 1
+#                 fi
+#                 sleep 1
+
+#                 if ! screen -S "sim$i" -p 0 -X eval "stuff '$gridname Estate'^M"; then
+#                     echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von $gridname Estate${COLOR_RESET}"
+#                     return 1
+#                 fi
+#             fi
+#         done
+#     else
+#         echo -e "${SYM_WARNING} ${COLOR_WARNING}Keine Simulatoren gestartet!${COLOR_RESET}"
+#         return 1
+#     fi
+
+#     echo -e "${SYM_OK} ${COLOR_OK}$started_sims Simulatoren gestartet & Estate bestätigt${COLOR_RESET}"
+#     blankline
+#     return 0
+# }
 function createmasterestateall() {
     # 02.05.2025 Master Estate Bestätigung mit Simulator-Start
     echo -e "${COLOR_HEADING}🌍 Starte Simulatoren & bestätige Master Estate${COLOR_RESET}"
@@ -1503,7 +1602,7 @@ function createmasterestateall() {
     local started_sims=0
     
     for ((i=2; i<=999; i++)); do
-        sim_dir="sim$i/bin"
+        sim_dir="sim$i/bin"        
         if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
             echo -n -e "${SYM_INFO} ${COLOR_DIR}sim$i: ${COLOR_RESET}"
             
@@ -1518,27 +1617,37 @@ function createmasterestateall() {
         fi
     done
 
-    # 3. Estate-Bestätigung
+    # 3. Estate-Bestätigung für alle Regionen
     if [[ $started_sims -gt 0 ]]; then
         echo -e "${COLOR_ACTION}Bestätige Estate für $started_sims Simulator(en)...${COLOR_RESET}"
         
         for ((i=2; i<=999; i++)); do
             if screen -list | grep -q "sim$i"; then
-                echo -n -e "${SYM_INFO} ${COLOR_DIR}sim$i: ${COLOR_RESET}"
-                
-                # manni neu
-                #screen -S "sim$i" -p 0 -X eval "stuff 'yes'^M";
-                #screen -S "sim$i" -p 0 -X eval "stuff '$gridname Estate'^M";
+                regions_dir="${SCRIPT_DIR}/sim$i/bin/Regions"
+                if [[ -d "$regions_dir" ]]; then
+                    # Zähle die Anzahl der Regionen-Konfigurationen
+                    region_count=$(find "$regions_dir" -maxdepth 1 -name "*.ini" | wc -l)
+                    echo -e "${SYM_INFO} ${COLOR_DIR}sim$i: ${region_count} Region(en) gefunden${COLOR_RESET}"
+                    
+                    # Für jede Region die Bestätigung senden
+                    for ((r=1; r<=region_count; r++)); do
+                        echo -n -e "  ${SYM_INFO} Region ${r}: ${COLOR_RESET}"
+                        
+                        if ! screen -S "sim$i" -p 0 -X eval "stuff 'yes'^M"; then
+                            echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von yes${COLOR_RESET}"
+                            return 1
+                        fi
+                        sleep 1
 
-                if ! screen -S "sim$i" -p 0 -X eval "stuff 'yes'^M"; then
-                    echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von yes${COLOR_RESET}"
-                    return 1
-                fi
-                sleep 1
-
-                if ! screen -S "sim$i" -p 0 -X eval "stuff '$gridname Estate'^M"; then
-                    echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von $gridname Estate${COLOR_RESET}"
-                    return 1
+                        if ! screen -S "sim$i" -p 0 -X eval "stuff '$gridname Estate'^M"; then
+                            echo -e "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von $gridname Estate${COLOR_RESET}"
+                            return 1
+                        fi
+                        echo -e "${COLOR_OK}bestätigt${COLOR_RESET}"
+                        sleep 1
+                    done
+                else
+                    echo -e "${SYM_WARNING} ${COLOR_WARNING}sim$i: Kein Regions-Verzeichnis gefunden${COLOR_RESET}"
                 fi
             fi
         done
@@ -1547,7 +1656,7 @@ function createmasterestateall() {
         return 1
     fi
 
-    echo -e "${SYM_OK} ${COLOR_OK}$started_sims Simulatoren gestartet & Estate bestätigt${COLOR_RESET}"
+    echo -e "${SYM_OK} ${COLOR_OK}$started_sims Simulatoren gestartet & Estate für alle Regionen bestätigt${COLOR_RESET}"
     blankline
     return 0
 }
@@ -3511,6 +3620,160 @@ function standalonecommoniniconfig() {
 #         sim1 dient als "Welcome-Region" (Eingangsbereich des Grids)
 #         Diese Region hat oft mehr Besucherverkehr
 #         Durch Isolation auf einen Simulator bleibt sie performant
+# function regionsiniconfig() {
+#     # Konstanten
+#     local center_x=4000
+#     local center_y=4000
+#     local base_port=9000
+    
+#     # Variablen
+#     local regions_per_sim
+#     local system_ip
+#     local sim_num
+#     local region_num
+#     local sim_dir
+#     local offset
+#     local pos_x
+#     local pos_y
+#     local location
+#     local port
+#     local region_name
+#     local region_uuid
+#     local config_file
+#     declare -A used_locations
+
+#     # Benutzereingabe mit Symbol und Farbe
+#     echo -e "${SYM_INFO}${COLOR_LABEL} Wie viele Zufallsregionen sollen pro Simulator erstellt werden? ${COLOR_OK}[1]${COLOR_RESET}"
+#     read -r regions_per_sim    
+
+#     # Eingabeprüfung
+#     # if ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
+#     #     echo -e "${SYM_BAD} ${COLOR_BAD}Ungültige Eingabe: Bitte eine positive Zahl eingeben${COLOR_RESET}" >&2
+#     #     return 1
+#     # fi
+
+#     # Eingabeprüfung - falls leer, 1 verwenden
+#     if [[ -z "$regions_per_sim" ]]; then
+#         regions_per_sim=1
+#     elif ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
+#         echo -e "${SYM_BAD} ${COLOR_BAD}Ungültige Eingabe: Bitte eine positive Zahl eingeben${COLOR_RESET}" >&2
+#         return 1
+#     fi
+
+#     echo -e "${SYM_OK} ${COLOR_ACTION}Sie haben ${COLOR_OK}$regions_per_sim${COLOR_ACTION} Regionen pro Simulator gewählt.${COLOR_RESET}"
+
+#     system_ip=$(hostname -I | awk '{print $1}')
+
+#     echo -e "\n${SYM_SERVER}${COLOR_HEADING}  Starte Regionserstellung...${COLOR_RESET}"
+
+#     # Simulatoren durchlaufen (beginnt bei 2 um sim1 für Welcome-Region freizuhalten)
+#     for ((sim_num=2; sim_num<=999; sim_num++)); do
+#         sim_dir="${SCRIPT_DIR}/sim${sim_num}/bin/Regions"
+        
+#         if [[ -d "$sim_dir" ]]; then
+#             echo -e "${SYM_FOLDER}${COLOR_SERVER} Simulator ${sim_num}:${COLOR_RESET} ${COLOR_ACTION}Erstelle ${regions_per_sim} Region(en)${COLOR_RESET}" >&2
+            
+#             # Regionen erstellen
+#             for ((region_num=1; region_num<=regions_per_sim; region_num++)); do
+#                 # Position berechnen (mit Kollisionsprüfung)
+#                 local attempts=0
+#                 local max_attempts=100
+                
+#                 while true; do
+#                     offset=$(( (RANDOM % 2000) - 1000 ))
+#                     pos_x=$((center_x + offset))
+#                     offset=$(( (RANDOM % 2000) - 1000 ))
+#                     pos_y=$((center_y + offset))
+#                     location="$pos_x,$pos_y"
+                    
+#                     if [[ -z "${used_locations[$location]}" ]]; then
+#                         used_locations[$location]=1
+#                         break
+#                     fi
+                    
+#                     attempts=$((attempts + 1))
+#                     if (( attempts >= max_attempts )); then
+#                         echo -e "${SYM_BAD} ${COLOR_WARNING}Fehler: Konnte nach ${max_attempts} Versuchen keine eindeutige Position finden${COLOR_RESET}" >&2
+#                         return 1
+#                     fi
+#                 done
+
+#                 # todo:
+#                 # Regions-Verzeichnis-Check:
+#                 # Prüfe das Vorhandensein von sim$i/bin/Regions/
+#                 # Zähle alle .ini-Dateien im Regions-Verzeichnis
+#                 # addieren anzahl an .ini-Dateien im Verzeichnis mit port oder anderweitig damit die Ports einzigartig sind.
+                
+#                 port=$((base_port + sim_num * 100 + region_num))
+#                 # Neu generierter Name
+#                 generate_name
+#                 # Neue Region
+#                 genRegionName="${gennamefirst}${gennamesecond}$((RANDOM % 900 + 100))"
+#                 echo "$genRegionName"
+#                 region_name=${genRegionName}
+
+#                 #region_uuid=$(generate_uuid)
+#                 config_file="${sim_dir}/${region_name}.ini"
+                
+#                 # Prüfen ob Region existiert
+#                 if [[ -f "$config_file" ]]; then
+#                     echo -e "${SYM_WAIT} ${COLOR_WARNING}Überspringe ${COLOR_VALUE}${region_name}${COLOR_RESET}${COLOR_WARNING} - existiert bereits${COLOR_RESET}" >&2
+#                     continue
+#                 fi
+
+#                 # region_uuid=$(uuidgen)
+#                 #region_uuid=$(command -v uuidgen >/dev/null && uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
+#                 region_uuid=$(command -v uuidgen >/dev/null 2>&1 && uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
+
+#                 # Datei erstellen
+#                 #touch "$welcome_ini"
+#                 #touch "$welcome_ini" || echo "" > "$welcome_ini"
+#                 touch "$config_file" 2>/dev/null || echo "" > "$config_file"
+                
+#                 # Regionseinstellungen hinzufügen
+#                 add_ini_section "$config_file" "$region_name"
+                
+#                 # Regionseinstellungen setzen
+#                 set_ini_key "$config_file" "$region_name" "RegionUUID" "$region_uuid"
+#                 set_ini_key "$config_file" "$region_name" "Location" "$location"
+#                 set_ini_key "$config_file" "$region_name" "SizeX" "256"
+#                 set_ini_key "$config_file" "$region_name" "SizeY" "256"
+#                 set_ini_key "$config_file" "$region_name" "SizeZ" "256"
+#                 set_ini_key "$config_file" "$region_name" "InternalPort" "$port"
+#                 set_ini_key "$config_file" "$region_name" "ExternalHostName" "$system_ip"
+#                 set_ini_key "$config_file" "$region_name" "MaxPrims" "15000"
+#                 set_ini_key "$config_file" "$region_name" "MaxAgents" "40"
+#                 set_ini_key "$config_file" "$region_name" "MaptileStaticUUID" "$region_uuid"
+#                 set_ini_key "$config_file" "$region_name" "InternalAddress" "0.0.0.0"
+#                 set_ini_key "$config_file" "$region_name" "AllowAlternatePorts" "False"
+#                 set_ini_key "$config_file" "$region_name" "NonPhysicalPrimMax" "512"
+#                 set_ini_key "$config_file" "$region_name" "PhysicalPrimMax" "128"
+#                 set_ini_key "$config_file" "$region_name" ";ClampPrimSize" "false"
+#                 set_ini_key "$config_file" "$region_name" ";MaxPrimsPerUser" "-1"
+#                 set_ini_key "$config_file" "$region_name" ";ScopeID" "$region_uuid"
+#                 set_ini_key "$config_file" "$region_name" ";RegionType" "Mainland"
+#                 set_ini_key "$config_file" "$region_name" ";RenderMinHeight" "-1"
+#                 set_ini_key "$config_file" "$region_name" ";RenderMaxHeight" "100"
+#                 set_ini_key "$config_file" "$region_name" ";MapImageModule" "Warp3DImageModule"
+#                 set_ini_key "$config_file" "$region_name" ";TextureOnMapTile" "true"
+#                 set_ini_key "$config_file" "$region_name" ";DrawPrimOnMapTile" "true"
+#                 set_ini_key "$config_file" "$region_name" ";GenerateMaptiles" "true"
+#                 set_ini_key "$config_file" "$region_name" ";MaptileRefresh" "0"
+#                 set_ini_key "$config_file" "$region_name" ";MaptileStaticFile" "path/to/SomeFile.png"
+#                 set_ini_key "$config_file" "$region_name" ";MasterAvatarFirstName" "John"
+#                 set_ini_key "$config_file" "$region_name" ";MasterAvatarLastName" "Doe"
+#                 set_ini_key "$config_file" "$region_name" ";MasterAvatarSandboxPassword" "passwd"
+                
+#                 echo -e "${SYM_OK} ${COLOR_VALUE}${region_name} ${COLOR_DIR}(${location}, Port ${port})${COLOR_RESET}" >&2
+#             done
+#         fi
+#     done
+
+#     echo -e "${SYM_OK}${COLOR_OK} Regionserstellung abgeschlossen!${COLOR_RESET}"
+#     blankline
+#     return 0
+# }
+
 function regionsiniconfig() {
     # Konstanten
     local center_x=4000
@@ -3532,18 +3795,13 @@ function regionsiniconfig() {
     local region_uuid
     local config_file
     declare -A used_locations
+    declare -A used_ports
 
     # Benutzereingabe mit Symbol und Farbe
     echo -e "${SYM_INFO}${COLOR_LABEL} Wie viele Zufallsregionen sollen pro Simulator erstellt werden? ${COLOR_OK}[1]${COLOR_RESET}"
     read -r regions_per_sim    
 
     # Eingabeprüfung
-    # if ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
-    #     echo -e "${SYM_BAD} ${COLOR_BAD}Ungültige Eingabe: Bitte eine positive Zahl eingeben${COLOR_RESET}" >&2
-    #     return 1
-    # fi
-
-    # Eingabeprüfung - falls leer, 1 verwenden
     if [[ -z "$regions_per_sim" ]]; then
         regions_per_sim=1
     elif ! [[ "$regions_per_sim" =~ ^[1-9][0-9]*$ ]]; then
@@ -3563,6 +3821,20 @@ function regionsiniconfig() {
         
         if [[ -d "$sim_dir" ]]; then
             echo -e "${SYM_FOLDER}${COLOR_SERVER} Simulator ${sim_num}:${COLOR_RESET} ${COLOR_ACTION}Erstelle ${regions_per_sim} Region(en)${COLOR_RESET}" >&2
+            
+            # Bestehende Ports erfassen
+            local existing_port_count=0
+            if [[ -d "$sim_dir" ]]; then
+                for existing_file in "$sim_dir"/*.ini; do
+                    if [[ -f "$existing_file" ]]; then
+                        existing_port=$(grep -oP 'InternalPort\s*=\s*\K\d+' "$existing_file" 2>/dev/null)
+                        if [[ -n "$existing_port" ]]; then
+                            used_ports["$existing_port"]=1
+                            ((existing_port_count++))
+                        fi
+                    fi
+                done
+            fi
             
             # Regionen erstellen
             for ((region_num=1; region_num<=regions_per_sim; region_num++)); do
@@ -3588,16 +3860,45 @@ function regionsiniconfig() {
                         return 1
                     fi
                 done
-                
-                port=$((base_port + sim_num * 100 + region_num))
+
+                # Eindeutigen Port finden
+                local port_attempts=0
+                local max_port_attempts=100
+                while true; do
+                    # Port-Berechnung basierend auf Sim-Nummer, Region-Nummer und bestehenden Ports
+                    port=$((base_port + sim_num * 100 + region_num + existing_port_count))
+                    
+                    # Falls Port bereits vergeben, erhöhen wir ihn
+                    while [[ -n "${used_ports[$port]}" ]]; do
+                        ((port++))
+                        ((port_attempts++))
+                        if (( port_attempts >= max_port_attempts )); then
+                            echo -e "${SYM_BAD} ${COLOR_WARNING}Fehler: Konnte nach ${max_port_attempts} Versuchen keinen freien Port finden${COLOR_RESET}" >&2
+                            return 1
+                        fi
+                    done
+                    
+                    # Prüfen ob Port verfügbar ist
+                    if ! nc -z localhost "$port" 2>/dev/null; then
+                        used_ports["$port"]=1
+                        break
+                    fi
+                    
+                    ((port_attempts++))
+                    if (( port_attempts >= max_port_attempts )); then
+                        echo -e "${SYM_BAD} ${COLOR_WARNING}Fehler: Konnte nach ${max_port_attempts} Versuchen keinen freien Port finden${COLOR_RESET}" >&2
+                        return 1
+                    fi
+                done
+
                 # Neu generierter Name
                 generate_name
-                # Neue Region
                 genRegionName="${gennamefirst}${gennamesecond}$((RANDOM % 900 + 100))"
                 echo "$genRegionName"
                 region_name=${genRegionName}
 
-                #region_uuid=$(generate_uuid)
+                region_uuid=$(command -v uuidgen >/dev/null 2>&1 && uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
+
                 config_file="${sim_dir}/${region_name}.ini"
                 
                 # Prüfen ob Region existiert
@@ -3606,13 +3907,6 @@ function regionsiniconfig() {
                     continue
                 fi
 
-                # region_uuid=$(uuidgen)
-                #region_uuid=$(command -v uuidgen >/dev/null && uuidgen || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
-                region_uuid=$(command -v uuidgen >/dev/null 2>&1 && uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
-
-                # Datei erstellen
-                #touch "$welcome_ini"
-                #touch "$welcome_ini" || echo "" > "$welcome_ini"
                 touch "$config_file" 2>/dev/null || echo "" > "$config_file"
                 
                 # Regionseinstellungen hinzufügen
@@ -4069,9 +4363,14 @@ function autoinstall() {
     # Webinterface aus dem Github holen
     osWebinterfacegit
 
+    # Neue standartavatare einfügen
     #ruthrothgit        # Funktioniert nicht richtig.
     #avatarassetsgit    # Funktioniert nicht richtig.
-    #osslscriptsgit
+
+    # OSSL Beispielskripte
+    osslscriptsgit
+
+    # Texturen für Normale und PBR Texturen installieren
     #pbrtexturesgit
 
     # Versionierung des OpenSimulators. Keine eingabe erforderlich.
