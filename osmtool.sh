@@ -11,7 +11,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.78.314"
+VERSION="V25.5.78.315"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -2943,10 +2943,79 @@ function robusthginiconfig() {
     blankline
 }
 
+# function oswebinterfaceconfig() {
+#     # Konfigurationsdatei-Pfade
+#     local ini_file="UserInfo.ini"  # Pfad zur INI-Datei mit Zugangsdaten
+#     local php_config_file="/var/www/html/$webverzeichnis/include/env.php"
+#     config_dir="$(dirname "$php_config_file")"
+
+#     # Prüfe, ob Konfigurationsverzeichnis existiert
+#     if [[ ! -d "$config_dir" ]]; then
+#         echo -e "${SYM_BAD} ${COLOR_ERROR}Verzeichnis nicht gefunden: ${COLOR_DIR}$config_dir${COLOR_RESET}"
+#         return 1
+#     fi
+
+#     # Prüfe, ob INI-Datei existiert
+#     if [[ ! -f "$ini_file" ]]; then
+#         echo -e "${SYM_BAD} ${COLOR_ERROR}Konfigurationsdatei nicht gefunden: ${COLOR_DIR}$ini_file${COLOR_RESET}"
+#         return 1
+#     fi
+
+#     # Zugangsdaten auslesen (mit Trimmen von Leerzeichen/Zeilenumbrüchen)
+#     local db_user db_pass
+#     db_user=$(grep -oP '^DB_Benutzername\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+#     db_pass=$(grep -oP '^DB_Passwort\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+#     # todo: Werte für config.php hinzufügen:
+#     # [ServerData]
+#     # ServerIP = yourdomain.com oder IP
+#     # GridName = Dein Grid Name
+
+#     # Fallback, falls Werte leer sind
+#     [[ -z "$db_user" ]] && db_user="opensim_user"
+#     [[ -z "$db_pass" ]] && db_pass="opensim123"
+
+#     # Neu generierter Name
+#     generate_name
+#     # Neue Region
+#     genHttpUserName="${gennamefirst}$((RANDOM % 900 + 100))"
+#     genHttpUserPass="${gennamesecond}$((RANDOM % 900 + 100))"
+#     echo "$genRegionName"
+#     region_name=${genRegionName}
+
+#     # PHP-Konfigurationsdatei generieren
+#     cat > "$php_config_file" <<EOF
+# <?php
+# define('DB_SERVER', 'localhost');
+# define('DB_USERNAME', '$db_user');
+# define('DB_PASSWORD', '$db_pass');
+# define('DB_NAME', 'robust');
+# define('DB_ASSET_NAME', 'robust');
+
+# define('REMOTEADMIN_HTTPAUTHUSERNAME', '${genHttpUserName}');
+# define('REMOTEADMIN_HTTPAUTHPASSWORD', '${genHttpUserPass}');
+# ?>
+# EOF
+
+#     # todo: /var/www/html/$webverzeichnis/include/config.example.php in /var/www/html/$webverzeichnis/include/config.php umbenennen
+#     # todo: In der Datei config.php folgende 2 einstellungen einfügen:
+#     # define('BASE_URL', 'http://yourdomain.com'); // Basis-URL der Webseite / Base URL of the website
+#     # define('SITE_NAME', 'Dein Grid Name'); // Name des Grids / Name of the grid
+
+#     # Berechtigungen anpassen (falls nötig)
+#     chmod 640 "$php_config_file"
+#     chown www-data:www-data "$php_config_file"  # Anpassen für deinen Webserver-User
+
+#     echo -e "${SYM_OK} ${COLOR_ACTION}Konfiguration geschrieben nach: ${COLOR_DIR}$php_config_file${COLOR_RESET}"
+#     return 0
+# }
+
 function oswebinterfaceconfig() {
     # Konfigurationsdatei-Pfade
+    webverzeichnis="oswebinterface"
     local ini_file="UserInfo.ini"  # Pfad zur INI-Datei mit Zugangsdaten
     local php_config_file="/var/www/html/$webverzeichnis/include/env.php"
+    local config_example_file="/var/www/html/$webverzeichnis/include/config.example.php"
+    local config_file="/var/www/html/$webverzeichnis/include/config.php"
     config_dir="$(dirname "$php_config_file")"
 
     # Prüfe, ob Konfigurationsverzeichnis existiert
@@ -2962,13 +3031,18 @@ function oswebinterfaceconfig() {
     fi
 
     # Zugangsdaten auslesen (mit Trimmen von Leerzeichen/Zeilenumbrüchen)
-    local db_user db_pass
+    local db_user db_pass server_ip grid_name # Daten für dev.php
     db_user=$(grep -oP '^DB_Benutzername\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
     db_pass=$(grep -oP '^DB_Passwort\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+    # Daten für config.php
+    server_ip=$(grep -oP '^ServerIP\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+    grid_name=$(grep -oP '^GridName\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
 
     # Fallback, falls Werte leer sind
     [[ -z "$db_user" ]] && db_user="opensim_user"
     [[ -z "$db_pass" ]] && db_pass="opensim123"
+    [[ -z "$server_ip" ]] && server_ip="localhost"
+    [[ -z "$grid_name" ]] && grid_name="OpenSim Grid"
 
     # Neu generierter Name
     generate_name
@@ -2992,14 +3066,45 @@ define('REMOTEADMIN_HTTPAUTHPASSWORD', '${genHttpUserPass}');
 ?>
 EOF
 
+    # config.example.php in config.php umbenennen, falls es existiert
+    if [[ -f "$config_example_file" ]]; then
+        mv "$config_example_file" "$config_file"
+        echo -e "${SYM_OK} ${COLOR_ACTION}Konfigurationsdatei umbenannt: ${COLOR_DIR}$config_file${COLOR_RESET}"
+        
+        # Konfiguration in config.php einfügen
+        if [[ -f "$config_file" ]]; then
+            # BASE_URL ersetzen oder hinzufügen
+            if grep -q "define('BASE_URL'" "$config_file"; then
+                sed -i "s|define('BASE_URL'.*|define('BASE_URL', 'http://${server_ip}');|" "$config_file"
+            else
+                sed -i "/<?php/a define('BASE_URL', 'http://${server_ip}'); // Basis-URL der Webseite / Base URL of the website" "$config_file"
+            fi
+            
+            # SITE_NAME ersetzen oder hinzufügen
+            if grep -q "define('SITE_NAME'" "$config_file"; then
+                sed -i "s|define('SITE_NAME'.*|define('SITE_NAME', '${grid_name}');|" "$config_file"
+            else
+                sed -i "/<?php/a define('SITE_NAME', '${grid_name}'); // Name des Grids / Name of the grid" "$config_file"
+            fi
+            
+            echo -e "${SYM_OK} ${COLOR_ACTION}Konfiguration in ${COLOR_DIR}$config_file${COLOR_ACTION} eingetragen${COLOR_RESET}"
+        fi
+    else
+        echo -e "${SYM_INFO} ${COLOR_INFO}Konfigurationsvorlage nicht gefunden: ${COLOR_DIR}$config_example_file${COLOR_RESET}"
+    fi
+
     # Berechtigungen anpassen (falls nötig)
     chmod 640 "$php_config_file"
     chown www-data:www-data "$php_config_file"  # Anpassen für deinen Webserver-User
+    
+    if [[ -f "$config_file" ]]; then
+        chmod 640 "$config_file"
+        chown www-data:www-data "$config_file"
+    fi
 
     echo -e "${SYM_OK} ${COLOR_ACTION}Konfiguration geschrieben nach: ${COLOR_DIR}$php_config_file${COLOR_RESET}"
     return 0
 }
-
 
 function robustiniconfig() {
     local ip="$1"
