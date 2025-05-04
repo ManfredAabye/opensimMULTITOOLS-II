@@ -11,7 +11,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.78.321"
+VERSION="V25.5.78.328"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -65,7 +65,7 @@ Simulator_Stop_wait=15 # Sekunden
 MoneyServer_Stop_wait=30 # Sekunden
 RobustServer_Stop_wait=30 # Sekunden
 
-function blankline() { sleep 1; echo " ";}
+function blankline() { sleep 0.5; echo " ";}
 
 # Hauptpfad des Skripts automatisch setzen
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
@@ -287,23 +287,58 @@ function standalonestop() {
     blankline
 }
 
+function validate_sim_name() {
+    local sim_name=$1
+    # Überprüfe ob der Name dem Muster sim[1-99] entspricht (case-sensitive)
+    if [[ ! "$sim_name" =~ ^sim([1-9]|[1-9][0-9])$ ]]; then
+        echo -e "${SYM_BAD} ${COLOR_WARNING}Ungültiger Sim-Name! Bitte verwende sim1 bis sim99.${COLOR_RESET}"
+        return 1
+    fi
+    return 0
+}
+
 function simstart() {
-    simstart=$1
+    local simstart=$1
+    if ! validate_sim_name "$simstart"; then
+        exit 1
+    fi
+    
     echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}$ $simstart ${COLOR_RESET}"
     sim_dir="$simstart/bin"
-    cd "$sim_dir"
+    cd "$sim_dir" || {
+        echo -e "${SYM_BAD} ${COLOR_WARNING}Verzeichnis $sim_dir nicht gefunden!${COLOR_RESET}"
+        exit 1
+    }
     screen -fa -S "$simstart" -d -U -m dotnet OpenSim.dll
-    cd "$SCRIPT_DIR"
-    echo "OpenSim starten abgeschlossen."
+    cd "$SCRIPT_DIR" || exit
+    sleep $Simulator_Start_wait
+    echo "OpenSim starten abgeschlossen."    
     blankline
 }
 
 function simstop() {
-    simstop=$1
+    local simstop=$1
+    if ! validate_sim_name "$simstop"; then
+        exit 1
+    fi
+    
     echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER} $simstop${COLOR_RESET}"
     screen -S "$simstop" -p 0 -X stuff "shutdown^M"
-    echo "OpenSim stoppen abgeschlossen."
+    sleep $Simulator_Stop_wait
+    echo "OpenSim stoppen abgeschlossen."    
     blankline
+}
+
+function simrestart() {
+    local simrestart=$1
+    if ! validate_sim_name "$simrestart"; then
+        exit 1
+    fi
+    
+    simstop "$simrestart"
+    simstart "$simrestart"
+    echo
+    echo "OpenSim Restart abgeschlossen."
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -4139,34 +4174,40 @@ function autoinstall() {
 function help() {
     # Allgemeine Befehle
     echo -e "${COLOR_SECTION}${SYM_SERVER} OpenSim Grundbefehle:${COLOR_RESET}"
-    echo -e "\t${COLOR_START}opensimstart${COLOR_RESET}\t\t# Startet OpenSimulator Gridserver oder Regionsserver"
+    echo -e "\t${COLOR_START}opensimstart${COLOR_RESET}\t\t# Startet OpenSimulator komplett"
     echo -e "\t${COLOR_STOP}opensimstop${COLOR_RESET}\t\t# Stoppt OpenSimulator komplett"
     echo -e "\t${COLOR_START}opensimrestart${COLOR_RESET}\t\t# Startet den OpenSimulator neu"
+    echo
+    echo -e "\t${COLOR_START}simstart${COLOR_RESET}\t\t# simX angeben - startet einen Regionsserver"
+    echo -e "\t${COLOR_STOP}simstop${COLOR_RESET}\t\t\t# simX angeben - stoppt einen Regionsserver"
+    echo -e "\t${COLOR_START}simrestart${COLOR_RESET}\t\t# simX angeben - startet einen Regionsserver neu"
+    echo
     echo -e "\t${COLOR_OK}check_screens${COLOR_RESET}\t\t# Prüft laufende Prozesse und handelt entsprechend"
     echo ""
 
     # System-Checks & Setup
     echo -e "${COLOR_SECTION}${SYM_TOOLS} System-Checks & Setup:${COLOR_RESET}"
-    echo -e "\t${COLOR_OK}servercheck${COLOR_RESET}\t\t# Installiert und Prüft den Server"
-    echo -e "\t${COLOR_OK}createdirectory${COLOR_RESET}\t\t# Erstellt alle benötigten Verzeichnisse"
+    #echo -e "\t${COLOR_OK}servercheck${COLOR_RESET}\t\t# Installiert und Prüft den Server"
+    #echo -e "\t${COLOR_OK}createdirectory${COLOR_RESET}\t\t# Erstellt alle benötigten Verzeichnisse"
+    echo -e "\t${COLOR_OK}autoinstall${COLOR_RESET}\t\t# OpenSimulator Automatisiert installieren und einrichten"
     echo -e "\t${COLOR_OK}setcrontab${COLOR_RESET}\t\t# Richtet Crontab ein damit der Server wartungsfrei laeuft"
     echo ""
 
     # Git-Operationen
-    echo -e "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
-    echo -e "\t${COLOR_OK}opensimgitcopy${COLOR_RESET}\t\t# Klont den OpenSim Code"
-    echo -e "\t${COLOR_OK}moneygitcopy${COLOR_RESET}\t\t# Baut den MoneyServer in den OpenSimulator ein"
+    #echo -e "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
+    #echo -e "\t${COLOR_OK}opensimgitcopy${COLOR_RESET}\t\t# Klont den OpenSim Code"
+    #echo -e "\t${COLOR_OK}moneygitcopy${COLOR_RESET}\t\t# Baut den MoneyServer in den OpenSimulator ein"
     #echo -e "\t${COLOR_OK}osslscriptsgit${COLOR_RESET}\t\t# Klont OSSL-Skripte"
     #echo -e "\t${COLOR_OK}versionrevision${COLOR_RESET}\t\t# Setzt Versionsrevision"
-    echo ""
+    #echo ""
 
     # OpenSim Build & Deploy
-    echo -e "${COLOR_SECTION}${SYM_FOLDER} OpenSim Build & Deploy:${COLOR_RESET}"
-    echo -e "\t${COLOR_OK}opensimbuild${COLOR_RESET}\t\t# Kompiliert OpenSim zu ausführbaren Dateien"
-    echo -e "\t${COLOR_OK}opensimcopy${COLOR_RESET}\t\t# Kopiert OpenSim in alle Verzeichnisse"
+    #echo -e "${COLOR_SECTION}${SYM_FOLDER} OpenSim Build & Deploy:${COLOR_RESET}"
+    #echo -e "\t${COLOR_OK}opensimbuild${COLOR_RESET}\t\t# Kompiliert OpenSim zu ausführbaren Dateien"
+    #echo -e "\t${COLOR_OK}opensimcopy${COLOR_RESET}\t\t# Kopiert OpenSim in alle Verzeichnisse"
     #echo -e "\t${COLOR_OK}opensimupgrade${COLOR_RESET}\t\t# Upgradet OpenSim"
-    echo -e "\t${COLOR_OK}database_setup${COLOR_RESET}\t\t# Erstellt alle Datenbanken"
-    echo ""
+    #echo -e "\t${COLOR_OK}database_setup${COLOR_RESET}\t\t# Erstellt alle Datenbanken"
+    #echo ""
 
     # Konfigurationsmanagement
     #echo -e "${COLOR_SECTION}${SYM_CONFIG} Konfigurationsmanagement:${COLOR_RESET}"
@@ -4177,9 +4218,9 @@ function help() {
 
     # Systembereinigung
     echo -e "${COLOR_SECTION}${SYM_CLEAN} Systembereinigung:${COLOR_RESET}"
-    echo -e "\t${COLOR_OK}cacheclean${COLOR_RESET}\t\t# Bereinigt Cache"
-    echo -e "\t${COLOR_OK}logclean${COLOR_RESET}\t\t# Bereinigt Logs"
-    echo -e "\t${COLOR_OK}mapclean${COLOR_RESET}\t\t# Bereinigt Maptiles"
+    echo -e "\t${COLOR_OK}cacheclean${COLOR_RESET}\t\t# Bereinigt OpenSimulator Cache"
+    echo -e "\t${COLOR_OK}logclean${COLOR_RESET}\t\t# Bereinigt OpenSimulator Logs"
+    echo -e "\t${COLOR_OK}mapclean${COLOR_RESET}\t\t# Bereinigt OpenSimulator Maptiles"
     #echo -e "\t${COLOR_OK}clean_linux_logs${COLOR_RESET}\t# Bereinigt Systemlogs"
     echo ""
 
@@ -4260,11 +4301,11 @@ function prohelp() {
 
     #* System-Bereinigung
     echo -e "${COLOR_SECTION}${SYM_CLEAN} Systembereinigung:${COLOR_RESET}"
-    echo -e "\t${COLOR_OK}reboot${COLOR_RESET} \t\t\t\t # Server neu starten"
-    echo -e "\t${COLOR_OK}cacheclean${COLOR_RESET} \t\t\t # Cache bereinigen"
-    echo -e "\t${COLOR_OK}logclean${COLOR_RESET} \t\t\t # Logs bereinigen"
-    echo -e "\t${COLOR_OK}mapclean${COLOR_RESET} \t\t\t # Maptiles bereinigen"
-    echo -e "\t${COLOR_OK}renamefiles${COLOR_RESET} \t\t\t # Beispieldateien umbenennen"
+    echo -e "\t${COLOR_OK}reboot${COLOR_RESET} \t\t\t\t # Linux Server neu starten"
+    echo -e "\t${COLOR_OK}cacheclean${COLOR_RESET} \t\t\t # OpenSimulator Cache bereinigen"
+    echo -e "\t${COLOR_OK}logclean${COLOR_RESET} \t\t\t # OpenSimulator Logs bereinigen"
+    echo -e "\t${COLOR_OK}mapclean${COLOR_RESET} \t\t\t # OpenSimulator Maptiles bereinigen"
+    echo -e "\t${COLOR_OK}renamefiles${COLOR_RESET} \t\t\t # OpenSimulator Beispieldateien umbenennen"
     echo -e "\t${COLOR_OK}clean_linux_logs${COLOR_RESET} \t\t # Linux-Logs bereinigen"
     echo -e "\t${COLOR_OK}delete_opensim${COLOR_RESET} \t\t # OpenSimulator mit Verzeichnisse entfernen"
     echo " "
@@ -4287,7 +4328,7 @@ case $KOMMANDO in
     osrestart|autorestart|restart|opensimrestart) opensimrestart ;;
     simstart)                  simstart "$2" ;;
     simstop)                   simstop "$2" ;;
-    simrestart)                simrestart ;;
+    simrestart)                simrestart "$2" ;;
     simstatus)                 simstatus ;;
     simlist)                   simlist ;;
     simrestartall)             simrestartall ;;
