@@ -4181,12 +4181,12 @@ function help() {
     echo -e "\t${COLOR_START}simstart${COLOR_RESET}\t\t# simX angeben - startet einen Regionsserver"
     echo -e "\t${COLOR_STOP}simstop${COLOR_RESET}\t\t\t# simX angeben - stoppt einen Regionsserver"
     echo -e "\t${COLOR_START}simrestart${COLOR_RESET}\t\t# simX angeben - startet einen Regionsserver neu"
-    echo
-    echo -e "\t${COLOR_OK}check_screens${COLOR_RESET}\t\t# Prüft laufende Prozesse und handelt entsprechend"
     echo ""
 
     # System-Checks & Setup
     echo -e "${COLOR_SECTION}${SYM_TOOLS} System-Checks & Setup:${COLOR_RESET}"
+    echo -e "\t${COLOR_OK}check_screens${COLOR_RESET}\t\t# Prüft laufende Prozesse und handelt entsprechend"
+    echo
     #echo -e "\t${COLOR_OK}servercheck${COLOR_RESET}\t\t# Installiert und Prüft den Server"
     #echo -e "\t${COLOR_OK}createdirectory${COLOR_RESET}\t\t# Erstellt alle benötigten Verzeichnisse"
     echo -e "\t${COLOR_OK}autoinstall${COLOR_RESET}\t\t# OpenSimulator Automatisiert installieren und einrichten"
