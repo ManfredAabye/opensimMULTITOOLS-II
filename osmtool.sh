@@ -11,7 +11,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.78.319"
+VERSION="V25.5.78.321"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -2963,71 +2963,26 @@ function robusthginiconfig() {
     blankline
 }
 
-# function oswebinterfaceconfig() {
-#     # Konfigurationsdatei-Pfade
-#     local ini_file="UserInfo.ini"  # Pfad zur INI-Datei mit Zugangsdaten
-#     local php_config_file="/var/www/html/$webverzeichnis/include/env.php"
-#     config_dir="$(dirname "$php_config_file")"
+# Funktion zur Generierung eines 16-stelligen Passworts
+genPass() {
+  tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16
+}
 
-#     # Prüfe, ob Konfigurationsverzeichnis existiert
-#     if [[ ! -d "$config_dir" ]]; then
-#         echo -e "${SYM_BAD} ${COLOR_ERROR}Verzeichnis nicht gefunden: ${COLOR_DIR}$config_dir${COLOR_RESET}"
-#         return 1
-#     fi
+# Funktion zum Ersetzen mit 5 Passwörtern
+replace_passwords() {
+  local var_name="$1"
+  local file="$2"
 
-#     # Prüfe, ob INI-Datei existiert
-#     if [[ ! -f "$ini_file" ]]; then
-#         echo -e "${SYM_BAD} ${COLOR_ERROR}Konfigurationsdatei nicht gefunden: ${COLOR_DIR}$ini_file${COLOR_RESET}"
-#         return 1
-#     fi
+  # Neue Passwörter generieren
+  local new_values
+  new_values="\"$(genPass)\", \"$(genPass)\", \"$(genPass)\", \"$(genPass)\", \"$(genPass)\""
 
-#     # Zugangsdaten auslesen (mit Trimmen von Leerzeichen/Zeilenumbrüchen)
-#     local db_user db_pass
-#     db_user=$(grep -oP '^DB_Benutzername\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
-#     db_pass=$(grep -oP '^DB_Passwort\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
-#     # todo: Werte für config.php hinzufügen:
-#     # [ServerData]
-#     # ServerIP = yourdomain.com oder IP
-#     # GridName = Dein Grid Name
+  # Debug (optional)
+  echo "Ersetze $var_name in $file mit: [$new_values]"
 
-#     # Fallback, falls Werte leer sind
-#     [[ -z "$db_user" ]] && db_user="opensim_user"
-#     [[ -z "$db_pass" ]] && db_pass="opensim123"
-
-#     # Neu generierter Name
-#     generate_name
-#     # Neue Region
-#     genHttpUserName="${gennamefirst}$((RANDOM % 900 + 100))"
-#     genHttpUserPass="${gennamesecond}$((RANDOM % 900 + 100))"
-#     echo "$genRegionName"
-#     region_name=${genRegionName}
-
-#     # PHP-Konfigurationsdatei generieren
-#     cat > "$php_config_file" <<EOF
-# <?php
-# define('DB_SERVER', 'localhost');
-# define('DB_USERNAME', '$db_user');
-# define('DB_PASSWORD', '$db_pass');
-# define('DB_NAME', 'robust');
-# define('DB_ASSET_NAME', 'robust');
-
-# define('REMOTEADMIN_HTTPAUTHUSERNAME', '${genHttpUserName}');
-# define('REMOTEADMIN_HTTPAUTHPASSWORD', '${genHttpUserPass}');
-# ?>
-# EOF
-
-#     # todo: /var/www/html/$webverzeichnis/include/config.example.php in /var/www/html/$webverzeichnis/include/config.php umbenennen
-#     # todo: In der Datei config.php folgende 2 einstellungen einfügen:
-#     # define('BASE_URL', 'http://yourdomain.com'); // Basis-URL der Webseite / Base URL of the website
-#     # define('SITE_NAME', 'Dein Grid Name'); // Name des Grids / Name of the grid
-
-#     # Berechtigungen anpassen (falls nötig)
-#     chmod 640 "$php_config_file"
-#     chown www-data:www-data "$php_config_file"  # Anpassen für deinen Webserver-User
-
-#     echo -e "${SYM_OK} ${COLOR_ACTION}Konfiguration geschrieben nach: ${COLOR_DIR}$php_config_file${COLOR_RESET}"
-#     return 0
-# }
+  # sed: Zeile mit dem Variablennamen ersetzen (achtet auf Leerzeichen und flexible Schreibweise)
+  sed -i "s|^\(\s*\$$var_name\s*=\s*\)\[.*\];|\1[$new_values];|" "$file"
+}
 
 function oswebinterfaceconfig() {
     # Konfigurationsdatei-Pfade
@@ -3088,7 +3043,8 @@ EOF
 
     # config.example.php in config.php umbenennen, falls es existiert
     if [[ -f "$config_example_file" ]]; then
-        mv "$config_example_file" "$config_file"
+        #mv "$config_example_file" "$config_file"
+        cp "$config_example_file" "$config_file"
         echo -e "${SYM_OK} ${COLOR_ACTION}Konfigurationsdatei umbenannt: ${COLOR_DIR}$config_file${COLOR_RESET}"
         
         # Konfiguration in config.php einfügen
@@ -3106,6 +3062,19 @@ EOF
             else
                 sed -i "/<?php/a define('SITE_NAME', '${grid_name}'); // Name des Grids / Name of the grid" "$config_file"
             fi
+
+            # PASSWÖRTER ERSETZEN (NACH DEM BASE_URL/SITE_NAME BLOCK!)
+            replace_passwords "registration_passwords_register" "$config_file"
+            replace_passwords "registration_passwords_reset" "$config_file"
+            replace_passwords "registration_passwords_partner" "$config_file"
+            replace_passwords "registration_passwords_inventory" "$config_file"
+            replace_passwords "registration_passwords_datatable" "$config_file"
+            replace_passwords "registration_passwords_listinventar" "$config_file"
+            replace_passwords "registration_passwords_picreader" "$config_file"
+            replace_passwords "registration_passwords_mutelist" "$config_file"
+            replace_passwords "registration_passwords_avatarpicker" "$config_file"
+            replace_passwords "registration_passwords_economy" "$config_file"
+            replace_passwords "registration_passwords_events" "$config_file"
             
             echo -e "${SYM_OK} ${COLOR_ACTION}Konfiguration in ${COLOR_DIR}$config_file${COLOR_ACTION} eingetragen${COLOR_RESET}"
         fi
