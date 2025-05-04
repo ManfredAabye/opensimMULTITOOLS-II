@@ -11,7 +11,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.78.328"
+VERSION="V25.5.84.342"
 echo -e "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -387,6 +387,58 @@ function opensimstart() {
     echo "OpenSim starten abgeschlossen."
     blankline
 }
+# Test OpenSim starten Parallel
+function opensimstartParallel() {
+    echo -e "${SYM_WAIT} ${COLOR_START}Starte das Grid!${COLOR_RESET}"
+    
+    # 1. RobustServer (muss zuerst laufen)
+    if [[ -d "robust/bin" && -f "robust/bin/Robust.dll" ]]; then
+        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}RobustServer ${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
+        (cd robust/bin && screen -fa -S robustserver -d -U -m dotnet Robust.dll)
+        sleep "$RobustServer_Start_wait"
+    else
+        echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Robust.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
+    fi
+
+    # 2. MoneyServer (optional)
+    if [[ -f "robust/bin/MoneyServer.dll" ]]; then
+        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}MoneyServer${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}robust/bin...${COLOR_RESET}"
+        (cd robust/bin && screen -fa -S moneyserver -d -U -m dotnet MoneyServer.dll)
+        sleep "$MoneyServer_Start_wait"
+    fi
+
+    # 3. SIM1 ZUERST (sequentiell)
+    if [[ -d "sim1/bin" && -f "sim1/bin/OpenSim.dll" ]]; then
+        echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}sim1${COLOR_RESET} ${COLOR_START}(primäre Region)...${COLOR_RESET}"
+        (cd sim1/bin && screen -fa -S sim1 -d -U -m dotnet OpenSim.dll)
+        sleep "$Simulator_Start_wait"
+    else
+        echo -e "${SYM_BAD} ${COLOR_SERVER}sim1: ${COLOR_BAD}OpenSim.dll nicht gefunden.${COLOR_RESET}"
+    fi
+
+    # 4. SIM2-SIM99 PARALLEL
+    echo -e "${SYM_INFO} ${COLOR_START}Starte sekundäre Simulatoren parallel...${COLOR_RESET}"
+    
+    # Maximal 10 parallele Jobs
+    MAX_JOBS=10
+    for ((i=2; i<=99; i++)); do
+        sim_dir="sim$i/bin"
+        if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
+            
+            # Warten falls zu viele Jobs laufen
+            while (( $(jobs -p | wc -l) >= MAX_JOBS )); do
+                sleep 1
+            done
+            
+            echo -e "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}sim$i${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}$sim_dir...${COLOR_RESET}"
+            (cd "$sim_dir" && screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll) &
+        fi
+    done
+    
+    wait # Warte auf alle Hintergrundjobs
+    echo -e "${SYM_OK} ${COLOR_START}Alle Simulatoren gestartet.${COLOR_RESET}"
+    blankline
+}
 
 #* OpenSim stoppen (sim999 bis sim1 → money → robust)
 function opensimstop() {
@@ -420,6 +472,61 @@ function opensimstop() {
         echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET} ${COLOR_STOP}Überspringe Stopp.${COLOR_RESET}"
     fi
      echo "OpenSim stoppen abgeschlossen."
+    blankline
+}
+
+# Das parallele Stoppen in der Reihenfolge sim999 → sim2 parallel, dann sim1 → MoneyServer → RobustServer
+function opensimstopParallel() {
+    echo -e "${SYM_WAIT} ${COLOR_STOP}Stoppe das Grid!${COLOR_RESET}"
+    local MAX_PARALLEL=10  # Maximale parallele Stopp-Vorgänge
+
+    # 1. Paralleles Stoppen von sim999 bis sim2
+    echo -e "${SYM_INFO} ${COLOR_STOP}Stoppe sekundäre Simulatoren parallel...${COLOR_RESET}"
+    for ((i=999; i>=2; i--)); do
+        sim_name="sim$i"
+        
+        # Warten falls zu viele parallele Jobs laufen
+        #while [ $(jobs -p | wc -l) -ge $MAX_PARALLEL ]; do
+        while [ "$(jobs -p | wc -l)" -ge $MAX_PARALLEL ]; do
+            sleep 0.5
+        done
+        
+        if screen -list | grep -q "$sim_name"; then
+            echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}$sim_name${COLOR_RESET}"
+            (
+                screen -S "$sim_name" -p 0 -X stuff "shutdown^M"
+                sleep $Simulator_Stop_wait
+            ) &
+        fi
+    done
+    wait  # Warte auf alle parallelen Stopp-Vorgänge
+
+    # 2. Sim1 sequentiell stoppen
+    if screen -list | grep -q "sim1"; then
+        echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}sim1${COLOR_RESET} ${COLOR_STOP}(primäre Region)...${COLOR_RESET}"
+        screen -S "sim1" -p 0 -X stuff "shutdown^M"
+        sleep $Simulator_Stop_wait
+    fi
+
+    # 3. MoneyServer stoppen
+    if screen -list | grep -q "moneyserver"; then
+        echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}MoneyServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
+        screen -S moneyserver -p 0 -X stuff "shutdown^M"
+        sleep $MoneyServer_Stop_wait
+    else
+        echo -e "${SYM_BAD} ${COLOR_SERVER}MoneyServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET}"
+    fi
+
+    # 4. RobustServer stoppen (zuletzt)
+    if screen -list | grep -q "robustserver"; then
+        echo -e "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}RobustServer${COLOR_RESET} ${COLOR_STOP}...${COLOR_RESET}"
+        screen -S robustserver -p 0 -X stuff "shutdown^M"
+        sleep $RobustServer_Stop_wait
+    else
+        echo -e "${SYM_BAD} ${COLOR_SERVER}RobustServer: ${COLOR_BAD}Läuft nicht.${COLOR_RESET}"
+    fi
+
+    echo -e "${SYM_OK} ${COLOR_STOP}Alle Dienste gestoppt.${COLOR_RESET}"
     blankline
 }
 
@@ -1009,7 +1116,7 @@ function generate_name() {
     gennamesecond="${lastnames[$RANDOM % ${#lastnames[@]}]}" # übergebe das an generate_all_name()
 
 }
-generate_all_name() {
+function generate_all_name() {
     # Alle Namen und Bezeichnungen für die Installation erstellen das dient dazu das die Namen im gesamten Programm verwendet werden können.
     # Benutzername Vorname Nachname
     generate_name
@@ -2999,12 +3106,12 @@ function robusthginiconfig() {
 }
 
 # Funktion zur Generierung eines 16-stelligen Passworts
-genPass() {
+function genPass() {
   tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16
 }
 
 # Funktion zum Ersetzen mit 5 Passwörtern
-replace_passwords() {
+function replace_passwords() {
   local var_name="$1"
   local file="$2"
 
@@ -4021,7 +4128,7 @@ function standalone() {
 }
 
 # Helper to clean config files (remove leading spaces/tabs)
-clean_config() {
+function clean_config() {
     local file=$1
     sed -i 's/^[ \t]*//' "$file"
 }
@@ -4176,7 +4283,7 @@ function help() {
     echo -e "${COLOR_SECTION}${SYM_SERVER} OpenSim Grundbefehle:${COLOR_RESET}"
     echo -e "\t${COLOR_START}opensimstart${COLOR_RESET}\t\t# Startet OpenSimulator komplett"
     echo -e "\t${COLOR_STOP}opensimstop${COLOR_RESET}\t\t# Stoppt OpenSimulator komplett"
-    echo -e "\t${COLOR_START}opensimrestart${COLOR_RESET}\t\t# Startet den OpenSimulator neu"
+    echo -e "\t${COLOR_START}opensimrestart${COLOR_RESET}\t\t# Startet den OpenSimulator komplett neu"
     echo
     echo -e "\t${COLOR_START}simstart${COLOR_RESET}\t\t# simX angeben - startet einen Regionsserver"
     echo -e "\t${COLOR_STOP}simstop${COLOR_RESET}\t\t\t# simX angeben - stoppt einen Regionsserver"
@@ -4417,6 +4524,10 @@ case $KOMMANDO in
     colortest)         colortest ;;
     clean_linux_logs)  clean_linux_logs ;;
     delete_opensim)    delete_opensim ;;
+
+    # Tests                  #
+    opensimstartParallel) opensimstartParallel ;;
+    opensimstopParallel)  opensimstopParallel ;;
 
     #  HILFE & SONSTIGES      #
     generate_all_name) generate_all_name ;;
