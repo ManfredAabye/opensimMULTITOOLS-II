@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.89.360"
+VERSION="V25.5.89.361"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -1500,7 +1500,7 @@ function opensimcopy() {
 }
 
 function database_setup() {
-    # 30.04.2025
+    # 06.05.2025
     log "${COLOR_SECTION}=== MariaDB/MySQL Datenbank-Setup ===${COLOR_RESET}"
     
     # 1. Distribution Detection
@@ -1517,7 +1517,8 @@ function database_setup() {
     }
 
     current_distro=$(detect_distro)
-    supported_distros=("debian" "ubuntu" "linuxmint" "pop" "mx" "kali" "zorin" "elementary" "raspbian" "centos" "fedora")
+    #supported_distros=("debian" "ubuntu" "linuxmint" "pop" "mx" "kali" "zorin" "elementary" "raspbian" "centos" "fedora")
+    supported_distros=("debian" "ubuntu" "linuxmint" "pop" "mx" "kali" "zorin" "elementary" "raspbian" "centos" "fedora" "arch" "manjaro")
 
     # 2. Support-Check
     if ! printf '%s\n' "${supported_distros[@]}" | grep -q "^${current_distro}$"; then
@@ -1526,26 +1527,44 @@ function database_setup() {
         return 1
     fi
 
-    # 3. Installation Check
+    # 3. Installation Check (angepasste Version)
     if ! command -v mariadb &> /dev/null && ! command -v mysql &> /dev/null; then
         log "${SYM_WAIT} ${COLOR_WARNING}MariaDB/MySQL ist nicht installiert${COLOR_RESET}"
         echo -ne "${COLOR_ACTION}MariaDB installieren? (j/n) [j] ${COLOR_RESET}"
         read -r install_choice
         install_choice=${install_choice:-j}
-        [[ "$install_choice" =~ ^[jJ] ]] || { log "${SYM_BAD} Installation abgebrochen"; return 0; }
         
-        case $current_distro in
-            debian|ubuntu|*mint|pop|zorin|elementary|kali|mx|raspbian)
-                log "${SYM_INFO} ${COLOR_ACTION}Installiere MariaDB...${COLOR_RESET}"
-                sudo apt-get update && sudo apt-get install -y mariadb-server ;;
-            centos|fedora)
-                log "${SYM_INFO} ${COLOR_ACTION}Installiere MariaDB...${COLOR_RESET}"
-                sudo yum install -y mariadb-server
-                sudo systemctl start mariadb
-                sudo systemctl enable mariadb ;;
-            *) log "${SYM_BAD} ${COLOR_BAD}Automatische Installation nicht verfügbar${COLOR_RESET}"; return 1 ;;
-        esac
-        sudo mysql_secure_installation
+        if [[ "$install_choice" =~ ^[jJ] ]]; then
+            case $current_distro in
+                debian|ubuntu|*mint|pop|zorin|elementary|kali|mx|raspbian)
+                    log "${SYM_INFO} ${COLOR_ACTION}Installiere MariaDB (apt)...${COLOR_RESET}"
+                    sudo apt-get update && sudo apt-get install -y mariadb-server
+                    ;;
+                centos|fedora)
+                    log "${SYM_INFO} ${COLOR_ACTION}Installiere MariaDB (yum)...${COLOR_RESET}"
+                    sudo yum install -y mariadb-server
+                    sudo systemctl start mariadb
+                    sudo systemctl enable mariadb
+                    ;;
+                arch|manjaro)
+                    log "${SYM_INFO} ${COLOR_ACTION}Installiere MariaDB (pacman)...${COLOR_RESET}"
+                    sudo pacman -Sy --noconfirm mariadb
+                    sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+                    sudo systemctl enable --now mariadb
+                    ;;
+                *) 
+                    log "${SYM_BAD} ${COLOR_BAD}Automatische Installation nicht verfügbar${COLOR_RESET}"
+                    return 1
+                    ;;
+            esac
+            
+            # Sicherheitskonfiguration für alle Distros
+            log "${SYM_INFO} ${COLOR_ACTION}Führe mysql_secure_installation aus...${COLOR_RESET}"
+            sudo mysql_secure_installation
+        else
+            log "${SYM_BAD} Installation abgebrochen"
+            return 0
+        fi
     else
         log "${SYM_OK} ${COLOR_OK}MariaDB/MySQL ist bereits installiert${COLOR_RESET}"
     fi
