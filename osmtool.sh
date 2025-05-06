@@ -8,8 +8,8 @@
 #* Debug-Log-System
 # 1. Logging ein/aus schalten  
 
-#    LOG_ENABLED=true   # Logging ist AKTIV (standard)
-     LOG_ENABLED=false  # Logging ist AUS
+#LOG_ENABLED=true   # Logging ist AKTIV (standard)
+LOG_ENABLED=false  # Logging ist AUS
 
 
 # 2. Alte Log-Datei löschen  
@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.89.351"
+VERSION="V25.5.92.356"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -175,6 +175,27 @@ KOMMANDO=$1 # Eingabeauswertung fuer Funktionen.
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Abhängigkeiten installieren
 #?──────────────────────────────────────────────────────────────────────────────────────────
+
+# Nach git clone/pull prüfen
+check_repo_integrity() {
+    local repo_dir=${1:-.}
+    
+    pushd "$repo_dir" > /dev/null || return 1
+    
+    if ! git fsck --no-progress; then
+        log "${SYM_BAD} ${COLOR_ERROR}Repository-Prüfung fehlgeschlagen!${COLOR_RESET}"
+        popd > /dev/null
+        return 1
+    fi
+    
+    if [ "$(git status --porcelain)" ]; then
+        log "${COLOR_WARNING}Uncommittete Änderungen vorhanden.${COLOR_RESET}"
+    fi
+    
+    popd > /dev/null
+    log "${SYM_OK} ${COLOR_ACTION}Repository-Integrität OK.${COLOR_RESET}"
+    return 0
+}
 
 function servercheck() {
     # Direkt kompatible Distributionen:
@@ -647,7 +668,6 @@ function check_screens() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 function opensimgitcopy() {
-    # 30.04.2025: Funktion um OpenSimulator von GitHub zu kopieren
     log "${COLOR_HEADING}🔄 OpenSimulator GitHub-Verwaltung${COLOR_RESET}"
     
     # Benutzerabfrage für Hauptaktion
@@ -664,19 +684,52 @@ function opensimgitcopy() {
         fi
 
         log "${COLOR_ACTION}OpenSimulator wird von GitHub geholt...${COLOR_RESET}"
-        git clone git://opensimulator.org/git/opensim opensim
+        if ! git clone git://opensimulator.org/git/opensim opensim; then
+            log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen des Repositories!${COLOR_RESET}"
+            return 1
+        fi
+        
+        # Integritätsprüfung
+        if ! check_repo_integrity "opensim"; then
+            log "${SYM_BAD} ${COLOR_ERROR}Repository beschädigt - bitte erneut versuchen!${COLOR_RESET}"
+            return 1
+        fi
+        
         log "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde erfolgreich heruntergeladen.${COLOR_RESET}"
 
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "opensim/.git" ]]; then
             log "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
             cd opensim || { log "${SYM_BAD} ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
-            git pull origin master
+            
+            # Vor dem Pull den aktuellen Zustand speichern
+            old_head=$(git rev-parse HEAD)
+            
+            if ! git pull origin master; then
+                log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Pull-Vorgang!${COLOR_RESET}"
+                cd ..
+                return 1
+            fi
+            
+            # Prüfen ob Änderungen tatsächlich angekommen sind
+            if [ "$old_head" == "$(git rev-parse HEAD)" ]; then
+                log "${COLOR_WARNING}Keine neuen Änderungen vorhanden.${COLOR_RESET}"
+            fi
+            
+            if ! check_repo_integrity; then
+                log "${SYM_BAD} ${COLOR_ERROR}Repository beschädigt nach Pull!${COLOR_RESET}"
+                cd ..
+                return 1
+            fi
+            
             log "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich aktualisiert!${COLOR_RESET}"
             cd ..
         else
             log "${COLOR_WARNING}⚠ ${COLOR_ACTION}OpenSimulator-Verzeichnis nicht gefunden. Klone Repository neu...${COLOR_RESET}"
-            git clone git://opensimulator.org/git/opensim opensim
+            if ! git clone git://opensimulator.org/git/opensim opensim; then
+                log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
+                return 1
+            fi
             log "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich heruntergeladen!${COLOR_RESET}"
         fi
     else
@@ -684,27 +737,31 @@ function opensimgitcopy() {
         return 1
     fi
 
-    # Automatische .NET-Version-Erkennung mit klarer Ausgabe
-    log "${COLOR_ACTION}Erkenne installierte .NET-Version...${COLOR_RESET}"
-    if dotnet_version=$(dotnet --version 2>/dev/null | awk -F. '{if($1==6)print"6";else print"8"}'); then
-        log "${SYM_OK} ${COLOR_ACTION}Erkannte .NET-Version: ${COLOR_OK}$dotnet_version${COLOR_RESET}"
+    # Erweiterte Integritätsprüfung für .NET-Versionen
+    check_dotnet_compatibility() {
+        cd opensim || return 1
+        local dotnet_version
+        dotnet_version=$(dotnet --version 2>/dev/null | awk -F. '{print $1}')
         
-        cd opensim || { log "${SYM_BAD} ${COLOR_ERROR}Fehler: Verzeichnis 'opensim' nicht gefunden.${COLOR_RESET}"; return 1; }
-        
-        if [[ "$dotnet_version" == "6" ]]; then
-            git checkout dotnet6
-            log "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde für .NET 6 umgebaut.${COLOR_RESET}"
-        else
-            log "${SYM_OK} ${COLOR_ACTION}Verwende Standard .NET 8.${COLOR_RESET}"
-        fi
+        case $dotnet_version in
+            6) 
+                git checkout dotnet6
+                log "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde für .NET 6 umgebaut.${COLOR_RESET}"
+                ;;
+            7|8)
+                log "${SYM_OK} ${COLOR_ACTION}Verwende Standard .NET $dotnet_version.${COLOR_RESET}"
+                ;;
+            *)
+                log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Keine .NET-Version erkannt, verwende Standard .NET 8.${COLOR_RESET}"
+                ;;
+        esac
         cd ..
-    else
-        log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Keine .NET-Version erkannt, verwende Standard .NET 8.${COLOR_RESET}"
-    fi
-    
-    versionrevision # Versionierung des OpenSimulators von Flavour.Dev zu Flavour.Extended
+    }
 
-    #blankline
+    check_dotnet_compatibility
+    versionrevision
+
+    blankline
 }
 
 function moneygitcopy() {
@@ -720,46 +777,199 @@ function moneygitcopy() {
             rm -rf opensimcurrencyserver
             log "${SYM_OK} ${COLOR_ACTION}Alte MoneyServer-Version wurde erfolgreich entfernt.${COLOR_RESET}"
         fi
+        
         log "${COLOR_ACTION}MONEYSERVER: MoneyServer wird vom GIT geholt...${COLOR_RESET}"
-        git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver
+        if ! git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver; then
+            log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
+            return 1
+        fi
+        
+        if ! check_repo_integrity "opensimcurrencyserver"; then
+            log "${SYM_BAD} ${COLOR_ERROR}MoneyServer-Repository beschädigt!${COLOR_RESET}"
+            return 1
+        fi
+        
         log "${SYM_OK} ${COLOR_ACTION}MoneyServer wurde erfolgreich heruntergeladen.${COLOR_RESET}"
+        
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "opensimcurrencyserver/.git" ]]; then
             log "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
             cd opensimcurrencyserver || { log "${SYM_BAD} ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
             
-            # Automatische Branch-Erkennung
-            branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-            git pull origin "$branch_name" && log "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer erfolgreich aktualisiert!${COLOR_RESET}"
+            # Branch-Erkennung mit Fehlerbehandlung
+            branch_name=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+            if [ -z "$branch_name" ]; then
+                branch_name="master"
+                log "${COLOR_WARNING}Standard-Branch 'master' wird verwendet.${COLOR_RESET}"
+            fi
+            
+            old_head=$(git rev-parse HEAD)
+            
+            if ! git pull origin "$branch_name"; then
+                log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Aktualisieren!${COLOR_RESET}"
+                cd ..
+                return 1
+            fi
+            
+            if [ "$old_head" == "$(git rev-parse HEAD)" ]; then
+                log "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer ist bereits aktuell.${COLOR_RESET}"
+            else
+                log "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer erfolgreich aktualisiert!${COLOR_RESET}"
+            fi
+            
+            if ! check_repo_integrity; then
+                log "${SYM_BAD} ${COLOR_ERROR}Repository beschädigt nach Pull!${COLOR_RESET}"
+                cd ..
+                return 1
+            fi
             
             cd ..
         else
             log "${COLOR_WARNING}⚠ ${COLOR_ACTION}MoneyServer-Verzeichnis nicht gefunden. Klone Repository neu...${COLOR_RESET}"
-            git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver && log "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer erfolgreich heruntergeladen!${COLOR_RESET}"
+            if ! git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver; then
+                log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
+                return 1
+            fi
+            log "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer erfolgreich heruntergeladen!${COLOR_RESET}"
         fi
     else
         log "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
         return 1
     fi
 
-    # Prüfen, ob das Verzeichnis existiert, bevor es kopiert wird
-    if [[ -d "opensimcurrencyserver/addon-modules" ]]; then
-        cp -r opensimcurrencyserver/addon-modules opensim/
-        log "${SYM_OK} ${COLOR_ACTION}MONEYSERVER: addon-modules wurde nach opensim kopiert${COLOR_RESET}"
-    else
-        log "${SYM_BAD} ${COLOR_ERROR}MONEYSERVER: addon-modules existiert nicht${COLOR_RESET}"
-    fi
+    # Verbesserte Dateikopierfunktion mit Prüfungen
+    copy_with_checks() {
+        local src=$1
+        local dest=$2
+        
+        if [ ! -d "$src" ]; then
+            log "${SYM_BAD} ${COLOR_ERROR}Quellverzeichnis $src nicht gefunden!${COLOR_RESET}"
+            return 1
+        fi
+        
+        mkdir -p "$dest"
+        if ! cp -r "$src" "$dest"; then
+            log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Kopieren von $src!${COLOR_RESET}"
+            return 1
+        fi
+        
+        log "${SYM_OK} ${COLOR_ACTION}Erfolgreich kopiert: $src → $dest${COLOR_RESET}"
+        return 0
+    }
 
-    if [[ -d "opensimcurrencyserver/bin" ]]; then
-        cp -r opensimcurrencyserver/bin opensim/
-        log "${SYM_OK} ${COLOR_ACTION}MONEYSERVER: bin wurde nach opensim kopiert${COLOR_RESET}"
-    else
-        log "${SYM_BAD} ${COLOR_ERROR}MONEYSERVER: bin existiert nicht${COLOR_RESET}"
-    fi
+    # Kopiervorgänge mit Fehlerbehandlung
+    copy_with_checks "opensimcurrencyserver/addon-modules" "opensim/" || return 1
+    copy_with_checks "opensimcurrencyserver/bin" "opensim/" || return 1
     
     blankline
     return 0
 }
+
+function osslscriptsgit() {
+    log "${COLOR_HEADING}📜 OSSL Beispiel-Skripte GitHub-Verwaltung${COLOR_RESET}"
+    
+    log "${COLOR_LABEL}Möchten Sie die OpenSim OSSL Beispiel-Skripte vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
+    read -r user_choice
+    user_choice=${user_choice:-upgrade}
+
+    repo_name="opensim-ossl-example-scripts"
+    repo_url="https://github.com/ManfredAabye/opensim-ossl-example-scripts.git"
+
+    if [[ "$user_choice" == "new" ]]; then
+        if [[ -d "$repo_name" ]]; then
+            log "${COLOR_ACTION}Vorhandene Version wird gelöscht...${COLOR_RESET}"
+            rm -rf "$repo_name"
+            log "${SYM_OK} ${COLOR_ACTION}Alte Version wurde erfolgreich entfernt.${COLOR_RESET}"
+        fi
+        
+        log "${COLOR_ACTION}Beispiel-Skripte werden vom GitHub heruntergeladen...${COLOR_RESET}"
+        if ! git clone "$repo_url" "$repo_name"; then
+            log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
+            return 1
+        fi
+        
+        if ! check_repo_integrity "$repo_name"; then
+            log "${SYM_BAD} ${COLOR_ERROR}Repository beschädigt!${COLOR_RESET}"
+            return 1
+        fi
+        
+        log "${SYM_OK} ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
+        
+    elif [[ "$user_choice" == "upgrade" ]]; then
+        if [[ -d "$repo_name/.git" ]]; then
+            log "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
+            cd "$repo_name" || { log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Wechsel ins Verzeichnis!${COLOR_RESET}"; return 1; }
+            
+            branch_name=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+            [ -z "$branch_name" ] && branch_name="main"
+            
+            old_head=$(git rev-parse HEAD)
+            
+            if ! git pull origin "$branch_name"; then
+                log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Pull!${COLOR_RESET}"
+                cd ..
+                return 1
+            fi
+            
+            if [ "$old_head" != "$(git rev-parse HEAD)" ]; then
+                log "${COLOR_OK}✅ ${COLOR_ACTION}Neue Updates wurden installiert.${COLOR_RESET}"
+            else
+                log "${COLOR_OK}✅ ${COLOR_ACTION}Repository ist bereits aktuell.${COLOR_RESET}"
+            fi
+            
+            if ! check_repo_integrity; then
+                log "${SYM_BAD} ${COLOR_ERROR}Repository beschädigt nach Pull!${COLOR_RESET}"
+                cd ..
+                return 1
+            fi
+            
+            cd ..
+        else
+            log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Verzeichnis nicht gefunden oder kein Git-Repo. Klone Repository neu...${COLOR_RESET}"
+            if ! git clone "$repo_url" "$repo_name"; then
+                log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
+                return 1
+            fi
+            log "${COLOR_OK}✅ ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
+        fi
+    else
+        log "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
+        return 1
+    fi
+
+    # Verbesserte Kopierfunktion
+    safe_copy() {
+        local src=$1
+        local dest=$2
+        
+        if [ ! -e "$src" ]; then
+            log "${SYM_BAD} ${COLOR_ERROR}Quelle '$src' existiert nicht!${COLOR_RESET}"
+            return 1
+        fi
+        
+        mkdir -p "$(dirname "$dest")"
+        if ! cp -r "$src" "$dest"; then
+            log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Kopieren von '$src'!${COLOR_RESET}"
+            return 1
+        fi
+        
+        log "${SYM_OK} ${COLOR_ACTION}Erfolgreich kopiert: $src → $dest${COLOR_RESET}"
+        return 0
+    }
+
+    # Zielverzeichnisse erstellen mit Fehlerbehandlung
+    mkdir -p opensim/bin/assets/ || { log "${SYM_BAD} ${COLOR_ERROR}Konnte Verzeichnis nicht erstellen!${COLOR_RESET}"; return 1; }
+    mkdir -p opensim/bin/inventory/ || { log "${SYM_BAD} ${COLOR_ERROR}Konnte Verzeichnis nicht erstellen!${COLOR_RESET}"; return 1; }
+
+    # Kopiervorgänge mit Fehlerbehandlung
+    safe_copy "$repo_name/ScriptsAssetSet" "opensim/bin/assets/" || return 1
+    safe_copy "$repo_name/inventory/ScriptsLibrary" "opensim/bin/inventory/" || return 1
+    
+    blankline
+    return 0
+}
+
+#######################################
 
 #* Das ist erst halb fertig.
 function ruthrothgit() {
@@ -821,63 +1031,6 @@ function ruthrothgit() {
     python3 updatelibrary.py -n "Ruth2-v4" -s "Ruth2-v4" -a Ruth2-v4 -i Ruth2-v4
     cd ..
     # Schritt 3 das kopieren der Daten. Das einfügen der Daten in den Dateien ähnlich wie bei PBR.
-}
-
-function osslscriptsgit() {
-    log "${COLOR_HEADING}📜 OSSL Beispiel-Skripte GitHub-Verwaltung${COLOR_RESET}"
-    
-    log "${COLOR_LABEL}Möchten Sie die OpenSim OSSL Beispiel-Skripte vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
-    read -r user_choice
-    user_choice=${user_choice:-upgrade}
-
-    repo_name="opensim-ossl-example-scripts"
-    repo_url="https://github.com/ManfredAabye/opensim-ossl-example-scripts.git"
-
-    if [[ "$user_choice" == "new" ]]; then
-        if [[ -d "$repo_name" ]]; then
-            log "${COLOR_ACTION}Vorhandene Version wird gelöscht...${COLOR_RESET}"
-            rm -rf "$repo_name"
-            log "${SYM_OK} ${COLOR_ACTION}Alte Version wurde erfolgreich entfernt.${COLOR_RESET}"
-        fi
-        log "${COLOR_ACTION}Beispiel-Skripte werden vom GitHub heruntergeladen...${COLOR_RESET}"
-        git clone "$repo_url" "$repo_name" && log "${SYM_OK} ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
-    elif [[ "$user_choice" == "upgrade" ]]; then
-        if [[ -d "$repo_name/.git" ]]; then
-            log "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
-            cd "$repo_name" || { log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Wechsel ins Verzeichnis!${COLOR_RESET}"; return 1; }
-            branch_name=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-            git pull origin "$branch_name" && log "${COLOR_OK}✅ ${COLOR_ACTION}Repository erfolgreich aktualisiert.${COLOR_RESET}"
-            cd ..
-        else
-            log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Verzeichnis nicht gefunden oder kein Git-Repo. Klone Repository neu...${COLOR_RESET}"
-            git clone "$repo_url" "$repo_name" && log "${COLOR_OK}✅ ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
-        fi
-    else
-        log "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
-        return 1
-    fi
-
-    # Zielverzeichnisse erstellen falls nicht vorhanden
-    mkdir -p opensim/bin/assets/
-    mkdir -p opensim/bin/inventory/
-
-    # Kopieren der Verzeichnisse
-    if [[ -d "$repo_name/ScriptsAssetSet" ]]; then
-        cp -r "$repo_name/ScriptsAssetSet" opensim/bin/assets/
-        log "${SYM_OK} ${COLOR_ACTION}ScriptsAssetSet wurde nach opensim/bin/assets kopiert.${COLOR_RESET}"
-    else
-        log "${SYM_BAD} ${COLOR_ERROR}ScriptsAssetSet Verzeichnis nicht gefunden!${COLOR_RESET}"
-    fi
-
-    if [[ -d "$repo_name/inventory/ScriptsLibrary" ]]; then
-        cp -r "$repo_name/inventory/ScriptsLibrary" opensim/bin/inventory/
-        log "${SYM_OK} ${COLOR_ACTION}ScriptsLibrary wurde nach opensim/bin/inventory kopiert.${COLOR_RESET}"
-    else
-        log "${SYM_BAD} ${COLOR_ERROR}ScriptsLibrary Verzeichnis nicht gefunden!${COLOR_RESET}"
-    fi
-    
-    blankline
-    return 0
 }
 
 # Es werden die Konfiguartionen jetzt auch geändert.
