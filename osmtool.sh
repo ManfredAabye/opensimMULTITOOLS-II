@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.89.361"
+VERSION="V25.5.91.363"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -342,6 +342,64 @@ function servercheck() {
     done
 
     log "${SYM_OK} ${COLOR_HEADING}Alle benötigten Pakete wurden installiert.${COLOR_RESET}"
+    blankline
+}
+
+function setup_webserver() {
+    log "${COLOR_SECTION}=== Web Server Setup (Apache/PHP) ===${COLOR_RESET}"
+
+    # 1. Paketlisten je nach Distribution
+    declare -A web_packages=(
+        ["ubuntu"]="apache2 php libapache2-mod-php php-mysql php-gd php-curl php-mbstring"
+        ["debian"]="apache2 php libapache2-mod-php php-mysql php-gd php-curl php-mbstring"
+        ["arch"]="apache php php-apache php-gd php-curl mariadb-libs"
+        ["manjaro"]="apache php php-apache php-gd php-curl mariadb-libs"
+        ["centos"]="httpd php php-mysqlnd php-gd php-curl"
+        ["fedora"]="httpd php php-mysqlnd php-gd php-curl"
+    )
+
+    # 2. Installation
+    case $current_distro in
+        ubuntu|debian|linuxmint|pop|raspbian)
+            log "${SYM_INFO} ${COLOR_ACTION}Installiere Apache/PHP (apt)...${COLOR_RESET}"
+            sudo apt-get update
+            sudo apt-get install -y "${web_packages[ubuntu]}"
+            sudo a2enmod rewrite
+            sudo systemctl enable --now apache2
+            ;;
+
+        arch|manjaro)
+            log "${SYM_INFO} ${COLOR_ACTION}Installiere Apache/PHP (pacman)...${COLOR_RESET}"
+            sudo pacman -Sy --noconfirm "${web_packages[arch]}"
+            
+            # Apache-Konfiguration für PHP
+            sudo sed -i 's/LoadModule mpm_event_module modules\/mod_mpm_event.so/#LoadModule mpm_event_module modules\/mod_mpm_event.so/' /etc/httpd/conf/httpd.conf
+            sudo sed -i 's/#LoadModule mpm_prefork_module modules\/mod_mpm_prefork.so/LoadModule mpm_prefork_module modules\/mod_mpm_prefork.so/' /etc/httpd/conf/httpd.conf
+            echo -e "\nLoadModule php_module modules/libphp.so\nAddHandler php-script .php\nInclude conf/extra/php_module.conf" | sudo tee -a /etc/httpd/conf/httpd.conf >/dev/null
+            
+            sudo systemctl enable --now httpd
+            ;;
+
+        centos|fedora)
+            log "${SYM_INFO} ${COLOR_ACTION}Installiere Apache/PHP (yum/dnf)...${COLOR_RESET}"
+            sudo yum install -y "${web_packages[centos]}"
+            sudo systemctl enable --now httpd
+            sudo firewall-cmd --permanent --add-service=http
+            sudo firewall-cmd --reload
+            ;;
+    esac
+
+    # 3. PHP-Test erstellen
+    echo "<?php phpinfo(); ?>" | sudo tee /var/www/html/info.php >/dev/null
+    log "${SYM_OK} ${COLOR_OK}PHP-Testseite erstellt: ${COLOR_VALUE}http://$(hostname -I | awk '{print $1}')/info.php${COLOR_RESET}"
+
+    # 4. osWebinterface spezifisch
+    if [[ -d "oswebinterface" ]]; then
+        sudo cp -r oswebinterface/* /var/www/html/
+        log "${SYM_OK} ${COLOR_OK}osWebinterface wurde nach ${COLOR_VALUE}/var/www/html/${COLOR_RESET} kopiert"
+    fi
+
+    log "${COLOR_SUCCESS}Webserver-Setup abgeschlossen!${COLOR_RESET}"
     blankline
 }
 
@@ -1136,6 +1194,8 @@ function osWebinterfacegit() {
         blankline
         return 0
     fi
+
+    setup_webserver
     
     # 1. PHP-Check mit Distro-Erkennung
     if ! command -v php &>/dev/null; then
@@ -4469,9 +4529,16 @@ function downloadallgit() {
     # OpenSimulator erstellen aus dem Source Code.
     opensimbuild
 }
-
+function webinstall() {
+# Nach database_setup()
+echo -ne "${COLOR_ACTION}Webserver (Apache/PHP) installieren? (j/n) [n] ${COLOR_RESET}"
+read -r web_choice
+if [[ "$web_choice" =~ ^[jJ] ]]; then
+    setup_webserver
+fi
+}
 function autoinstall() {
-    # 30.04.2025
+    # 06.05.2025
 
     # Server vorbereiten
     servercheck
@@ -4489,7 +4556,9 @@ function autoinstall() {
     opensimgitcopy
     moneygitcopy
 
-    # Webinterface aus dem Github holen
+    # PHP installieren
+    # webinstall
+    # Webinterface aus dem Github holen    
     osWebinterfacegit
 
     # Neue standartavatare einfügen
@@ -4753,6 +4822,7 @@ case $KOMMANDO in
     opensimcopy)       opensimcopy ;;
     opensimupgrade)    opensimupgrade ;;
     database_setup)    database_setup ;;
+    setup_webserver)   setup_webserver ;;
     removeconfigfiles) removeconfigfiles ;;
     autoinstall) autoinstall ;;
 
