@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.92.356"
+VERSION="V25.5.89.360"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -667,8 +667,32 @@ function check_screens() {
 #* Erstellen eines OpenSimulators
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
+opensim_clone() {
+    # Stille Klon-Funktion mit automatischem Fallback
+    local max_retries=3
+    local retry_delay=2
+    
+    for ((i=1; i<=max_retries; i++)); do
+        # 1. Versuch: HTTPS (standard)
+        if git clone https://opensimulator.org/git/opensim opensim --quiet 2>/dev/null; then
+            return 0
+        fi
+        
+        # 2. Versuch: Git-Protokoll (falls HTTPS blockiert)
+        if git clone git://opensimulator.org/git/opensim opensim --quiet 2>/dev/null; then
+            return 0
+        fi
+
+        # Bei Fehler temporäres Verzeichnis bereinigen
+        rm -rf opensim &>/dev/null
+        sleep $retry_delay
+    done
+    
+    return 1
+}
+
 function opensimgitcopy() {
-    log "${COLOR_HEADING}🔄 OpenSimulator GitHub-Verwaltung${COLOR_RESET}"
+    log "${SYM_SYNC}${COLOR_HEADING} OpenSimulator GitHub-Verwaltung${COLOR_RESET}"
     
     # Benutzerabfrage für Hauptaktion
     log "${COLOR_LABEL}Möchten Sie den OpenSimulator vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
@@ -683,85 +707,80 @@ function opensimgitcopy() {
             log "${SYM_OK} ${COLOR_ACTION}Alte OpenSimulator-Version wurde erfolgreich entfernt.${COLOR_RESET}"
         fi
 
-        log "${COLOR_ACTION}OpenSimulator wird von GitHub geholt...${COLOR_RESET}"
-        if ! git clone git://opensimulator.org/git/opensim opensim; then
-            log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen des Repositories!${COLOR_RESET}"
+        log "${SYM_WAIT} ${COLOR_ACTION}OpenSimulator wird von GitHub geholt...${COLOR_RESET}"
+        if opensim_clone; then
+            log "${SYM_OK} ${COLOR_SUCCESS}Download erfolgreich!${COLOR_RESET}"
+            log "${SYM_WAIT} ${COLOR_ACTION}Überprüfe Repository-Integrität...${COLOR_RESET}"
+            
+            # Integritätsprüfung
+            if check_repo_integrity "opensim"; then
+                log "${SYM_OK} ${COLOR_ACTION}Repository ist intakt.${COLOR_RESET}"
+            else
+                log "${SYM_BAD} ${COLOR_ERROR}Repository beschädigt!${COLOR_RESET}"
+                return 1
+            fi
+        else
+            log "${SYM_BAD} ${COLOR_ERROR}Download fehlgeschlagen!${COLOR_RESET}"
+            log "${COLOR_WARNING}Bitte Netzwerkverbindung prüfen und später erneut versuchen.${COLOR_RESET}"
             return 1
         fi
-        
-        # Integritätsprüfung
-        if ! check_repo_integrity "opensim"; then
-            log "${SYM_BAD} ${COLOR_ERROR}Repository beschädigt - bitte erneut versuchen!${COLOR_RESET}"
-            return 1
-        fi
-        
-        log "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde erfolgreich heruntergeladen.${COLOR_RESET}"
 
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "opensim/.git" ]]; then
-            log "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Aktualisiere mit 'git pull'...${COLOR_RESET}"
-            cd opensim || { log "${SYM_BAD} ${COLOR_ERROR}Fehler: Kann nicht ins Verzeichnis wechseln!${COLOR_RESET}"; return 1; }
+            log "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Starte Update...${COLOR_RESET}"
+            cd opensim || {
+                log "${SYM_BAD} ${COLOR_ERROR}Verzeichniswechsel fehlgeschlagen!${COLOR_RESET}"
+                return 1
+            }
             
-            # Vor dem Pull den aktuellen Zustand speichern
             old_head=$(git rev-parse HEAD)
-            
-            if ! git pull origin master; then
-                log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Pull-Vorgang!${COLOR_RESET}"
+            if git pull origin master; then
+                if [ "$old_head" == "$(git rev-parse HEAD)" ]; then
+                    log "${SYM_OK} ${COLOR_ACTION}Keine neuen Updates verfügbar.${COLOR_RESET}"
+                else
+                    log "${SYM_OK} ${COLOR_SUCCESS}Update erfolgreich durchgeführt!${COLOR_RESET}"
+                fi
+            else
+                log "${SYM_BAD} ${COLOR_ERROR}Update fehlgeschlagen!${COLOR_RESET}"
                 cd ..
                 return 1
             fi
-            
-            # Prüfen ob Änderungen tatsächlich angekommen sind
-            if [ "$old_head" == "$(git rev-parse HEAD)" ]; then
-                log "${COLOR_WARNING}Keine neuen Änderungen vorhanden.${COLOR_RESET}"
-            fi
-            
-            if ! check_repo_integrity; then
-                log "${SYM_BAD} ${COLOR_ERROR}Repository beschädigt nach Pull!${COLOR_RESET}"
-                cd ..
-                return 1
-            fi
-            
-            log "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich aktualisiert!${COLOR_RESET}"
             cd ..
         else
-            log "${COLOR_WARNING}⚠ ${COLOR_ACTION}OpenSimulator-Verzeichnis nicht gefunden. Klone Repository neu...${COLOR_RESET}"
-            if ! git clone git://opensimulator.org/git/opensim opensim; then
-                log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
-                return 1
-            fi
-            log "${COLOR_OK}✅ ${COLOR_ACTION}OpenSimulator erfolgreich heruntergeladen!${COLOR_RESET}"
+            log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Kein Repository gefunden. Starte Neuinstallation...${COLOR_RESET}"
+            opensimgitcopy "new"
+            return $?
         fi
     else
-        log "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
+        log "${SYM_BAD} ${COLOR_ERROR}Ungültige Eingabe!${COLOR_RESET}"
         return 1
     fi
 
-    # Erweiterte Integritätsprüfung für .NET-Versionen
-    check_dotnet_compatibility() {
-        cd opensim || return 1
-        local dotnet_version
-        dotnet_version=$(dotnet --version 2>/dev/null | awk -F. '{print $1}')
-        
-        case $dotnet_version in
-            6) 
-                git checkout dotnet6
-                log "${SYM_OK} ${COLOR_ACTION}OpenSimulator wurde für .NET 6 umgebaut.${COLOR_RESET}"
-                ;;
-            7|8)
-                log "${SYM_OK} ${COLOR_ACTION}Verwende Standard .NET $dotnet_version.${COLOR_RESET}"
-                ;;
-            *)
-                log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Keine .NET-Version erkannt, verwende Standard .NET 8.${COLOR_RESET}"
-                ;;
-        esac
-        cd ..
-    }
-
+    # .NET-Kompatibilität prüfen
     check_dotnet_compatibility
     versionrevision
 
-    blankline
+    log  # Leerzeile für bessere Lesbarkeit
+}
+
+check_dotnet_compatibility() {
+    cd opensim || return 1
+    local dotnet_version
+    dotnet_version=$(dotnet --version 2>/dev/null | awk -F. '{print $1}')
+    
+    case $dotnet_version in
+        6) 
+            git checkout -q dotnet6
+            log "${SYM_OK} ${COLOR_ACTION}Für .NET 6 konfiguriert.${COLOR_RESET}"
+            ;;
+        7|8)
+            log "${SYM_OK} ${COLOR_ACTION}Kompatibel mit .NET $dotnet_version.${COLOR_RESET}"
+            ;;
+        *)
+            log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Keine .NET-Version erkannt. Verwende Standard.${COLOR_RESET}"
+            ;;
+    esac
+    cd ..
 }
 
 function moneygitcopy() {
@@ -4591,6 +4610,12 @@ function prohelp() {
     log "\t${COLOR_STOP}opensimstop${COLOR_RESET} \t\t\t # OpenSim stoppen"
     log "\t${COLOR_START}opensimrestart${COLOR_RESET} \t\t\t # OpenSim neu starten"
     log "\t${COLOR_OK}check_screens${COLOR_RESET} \t\t\t # Laufende OpenSim-Prozesse prüfen und neu starten"
+    log "\t${COLOR_OK}autoupgrade${COLOR_RESET} \t\t\t # Automatisches OpenSim upgrade"
+
+    log "\t${COLOR_START}opensimstartParallel${COLOR_RESET} \t\t\t # OpenSim Parallel starten"
+    log "\t${COLOR_STOP}opensimstopParallel${COLOR_RESET} \t\t\t # OpenSim Parallel stoppen"
+    log "\t${COLOR_START}opensimrestartParallel${COLOR_RESET} \t\t\t # OpenSim Parallel neu starten"    
+    log "\t${COLOR_OK}autoupgradefast${COLOR_RESET} \t\t\t # Automatisches OpenSim Parallel upgraden"
     echo " "
 
     #* System-Checks & Setup
