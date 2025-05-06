@@ -32,12 +32,12 @@ if $LOG_ENABLED; then
 fi
 
 # Verbesserte Funktion zum Entfernen von ANSI-Codes
-clean_ansi() {
+function clean_ansi() {
     echo -e "$1" | sed -E 's/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g'
 }
 
 # Log-Funktion
-log() {
+function log() {
     local message="$1"
     local level="${2:-INFO}"
     timestamp=$(date "+%Y-%m-%d %H:%M:%S")
@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.84.348"
+VERSION="V25.5.89.351"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -4339,6 +4339,34 @@ function autoinstall() {
 
 }
 
+function autoupgrade() {
+    # 05.05.2025
+    opensimgitcopy
+    moneygitcopy
+    osslscriptsgit
+    opensimbuild
+
+    sleep 5
+
+    opensimstop
+    opensimcopy
+    opensimstart
+}
+
+function autoupgradefast() {
+    # 05.05.2025
+    opensimgitcopy
+    moneygitcopy
+    osslscriptsgit
+    opensimbuild
+
+    sleep 5
+
+    opensimstopParallel
+    opensimcopy
+    opensimstartParallel
+}
+
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Hilfefunktionen
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -4591,14 +4619,16 @@ case $KOMMANDO in
     delete_opensim)    delete_opensim ;;
 
     # Tests                  #
-    opensimstartParallel) opensimstartParallel ;;
-    opensimstopParallel)  opensimstopParallel ;;
-    opensimrestartParallel) opensimrestartParallel ;;
+    opensimstartParallel)           opensimstartParallel ;;
+    faststop|opensimstopParallel)   opensimstopParallel ;;
+    opensimrestartParallel)         opensimrestartParallel ;;
+    autoupgrade)                    autoupgrade ;;
+    autoupgradefast)                autoupgradefast ;;
 
     #  HILFE & SONSTIGES      #
-    generate_all_name) generate_all_name ;;
-    prohelp)           prohelp ;;
-    h|help|hilfe|*)   help ;;
+    generate_all_name)  generate_all_name ;;
+    prohelp)            prohelp ;;
+    h|help|hilfe|*)     help ;;
 esac
 
 # Programm Ende mit Zeitstempel
