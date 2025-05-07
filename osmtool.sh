@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.91.363"
+VERSION="V25.5.91.364"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -752,12 +752,39 @@ opensim_clone() {
 function opensimgitcopy() {
     log "${SYM_SYNC}${COLOR_HEADING} OpenSimulator GitHub-Verwaltung${COLOR_RESET}"
     
-    # Benutzerabfrage für Hauptaktion
+    # Zuerst versuchen, ein einfaches git pull durchzuführen, falls Repository existiert
+    if [[ -d "opensim/.git" ]]; then
+        log "${SYM_WAIT} ${COLOR_ACTION}Versuche einfaches Update via git pull...${COLOR_RESET}"
+        cd opensim || {
+            log "${SYM_BAD} ${COLOR_ERROR}Verzeichniswechsel fehlgeschlagen!${COLOR_RESET}"
+            return 1
+        }
+        
+        old_head=$(git rev-parse HEAD)
+        if git pull origin master; then
+            if [ "$old_head" == "$(git rev-parse HEAD)" ]; then
+                log "${SYM_OK} ${COLOR_ACTION}Keine neuen Updates verfügbar.${COLOR_RESET}"
+            else
+                log "${SYM_OK} ${COLOR_SUCCESS}Update erfolgreich durchgeführt!${COLOR_RESET}"
+            fi
+            cd ..
+            
+            # Nach erfolgreichem Update Kompatibilität prüfen
+            check_dotnet_compatibility
+            versionrevision
+            log  # Leerzeile für bessere Lesbarkeit
+            return 0
+        else
+            log "${SYM_BAD} ${COLOR_WARNING}Einfaches Update fehlgeschlagen, fahre mit Standardverfahren fort...${COLOR_RESET}"
+            cd ..
+        fi
+    fi
+
+    # Falls einfaches git pull nicht möglich ist, normale Abfrage durchführen
     log "${COLOR_LABEL}Möchten Sie den OpenSimulator vom GitHub verwenden oder aktualisieren? (${COLOR_OK}[upgrade]${COLOR_LABEL}/new)${COLOR_RESET}"
     read -r user_choice
     user_choice=${user_choice:-upgrade}
 
-    # Verarbeitung der Benutzerauswahl
     if [[ "$user_choice" == "new" ]]; then
         if [[ -d "opensim" ]]; then
             log "${COLOR_ACTION}Vorhandene OpenSimulator-Version wird gelöscht...${COLOR_RESET}"
@@ -770,7 +797,6 @@ function opensimgitcopy() {
             log "${SYM_OK} ${COLOR_SUCCESS}Download erfolgreich!${COLOR_RESET}"
             log "${SYM_WAIT} ${COLOR_ACTION}Überprüfe Repository-Integrität...${COLOR_RESET}"
             
-            # Integritätsprüfung
             if check_repo_integrity "opensim"; then
                 log "${SYM_OK} ${COLOR_ACTION}Repository ist intakt.${COLOR_RESET}"
             else
@@ -785,25 +811,22 @@ function opensimgitcopy() {
 
     elif [[ "$user_choice" == "upgrade" ]]; then
         if [[ -d "opensim/.git" ]]; then
-            log "${SYM_OK} ${COLOR_ACTION}Repository gefunden. Starte Update...${COLOR_RESET}"
-            cd opensim || {
-                log "${SYM_BAD} ${COLOR_ERROR}Verzeichniswechsel fehlgeschlagen!${COLOR_RESET}"
-                return 1
-            }
-            
-            old_head=$(git rev-parse HEAD)
+            # Erneuter Versuch (falls vorheriger pull fehlgeschlagen)
+            cd opensim || return 1
             if git pull origin master; then
-                if [ "$old_head" == "$(git rev-parse HEAD)" ]; then
-                    log "${SYM_OK} ${COLOR_ACTION}Keine neuen Updates verfügbar.${COLOR_RESET}"
-                else
-                    log "${SYM_OK} ${COLOR_SUCCESS}Update erfolgreich durchgeführt!${COLOR_RESET}"
-                fi
+                log "${SYM_OK} ${COLOR_SUCCESS}Update erfolgreich durchgeführt!${COLOR_RESET}"
+                cd ..
+                
+                # Nach erfolgreichem Update Kompatibilität prüfen
+                check_dotnet_compatibility
+                versionrevision
+                log  # Leerzeile für bessere Lesbarkeit
+                return 0
             else
                 log "${SYM_BAD} ${COLOR_ERROR}Update fehlgeschlagen!${COLOR_RESET}"
                 cd ..
                 return 1
             fi
-            cd ..
         else
             log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Kein Repository gefunden. Starte Neuinstallation...${COLOR_RESET}"
             opensimgitcopy "new"
@@ -818,7 +841,7 @@ function opensimgitcopy() {
     check_dotnet_compatibility
     versionrevision
 
-    log  # Leerzeile für bessere Lesbarkeit
+    blankline
 }
 
 check_dotnet_compatibility() {
