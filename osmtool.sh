@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.91.364"
+VERSION="V25.5.91.366"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -348,14 +348,14 @@ function servercheck() {
 function setup_webserver() {
     log "${COLOR_SECTION}=== Web Server Setup (Apache/PHP) ===${COLOR_RESET}"
 
-    # 1. Paketlisten je nach Distribution
+    # 1. Paketlisten mit erweiterten PHP-Modulen
     declare -A web_packages=(
-        ["ubuntu"]="apache2 php libapache2-mod-php php-mysql php-gd php-curl php-mbstring"
-        ["debian"]="apache2 php libapache2-mod-php php-mysql php-gd php-curl php-mbstring"
-        ["arch"]="apache php php-apache php-gd php-curl mariadb-libs"
-        ["manjaro"]="apache php php-apache php-gd php-curl mariadb-libs"
-        ["centos"]="httpd php php-mysqlnd php-gd php-curl"
-        ["fedora"]="httpd php php-mysqlnd php-gd php-curl"
+        ["ubuntu"]="apache2 php libapache2-mod-php php-mysql php-gd php-curl php-mbstring php-xml php-zip"
+        ["debian"]="apache2 php libapache2-mod-php php-mysql php-gd php-curl php-mbstring php-xml php-zip"
+        ["arch"]="apache php php-apache php-gd php-curl php-mysql mariadb-libs php-mbstring php-xml"
+        ["manjaro"]="apache php php-apache php-gd php-curl php-mysql mariadb-libs php-mbstring php-xml"
+        ["centos"]="httpd php php-mysqlnd php-gd php-curl php-mbstring php-xml"
+        ["fedora"]="httpd php php-mysqlnd php-gd php-curl php-mbstring php-xml"
     )
 
     # 2. Installation
@@ -363,40 +363,75 @@ function setup_webserver() {
         ubuntu|debian|linuxmint|pop|raspbian)
             log "${SYM_INFO} ${COLOR_ACTION}Installiere Apache/PHP (apt)...${COLOR_RESET}"
             sudo apt-get update
-            sudo apt-get install -y "${web_packages[ubuntu]}"
+            sudo apt-get install -y "${web_packages[ubuntu]}" || {
+                log "${SYM_BAD} ${COLOR_ERROR}Installation fehlgeschlagen!${COLOR_RESET}";
+                return 1;
+            }
             sudo a2enmod rewrite
-            sudo systemctl enable --now apache2
+            sudo systemctl restart apache2
             ;;
 
         arch|manjaro)
             log "${SYM_INFO} ${COLOR_ACTION}Installiere Apache/PHP (pacman)...${COLOR_RESET}"
-            sudo pacman -Sy --noconfirm "${web_packages[arch]}"
+            sudo pacman -Sy --noconfirm "${web_packages[arch]}" || {
+                log "${SYM_BAD} ${COLOR_ERROR}Installation fehlgeschlagen!${COLOR_RESET}";
+                return 1;
+            }
             
             # Apache-Konfiguration für PHP
-            sudo sed -i 's/LoadModule mpm_event_module modules\/mod_mpm_event.so/#LoadModule mpm_event_module modules\/mod_mpm_event.so/' /etc/httpd/conf/httpd.conf
-            sudo sed -i 's/#LoadModule mpm_prefork_module modules\/mod_mpm_prefork.so/LoadModule mpm_prefork_module modules\/mod_mpm_prefork.so/' /etc/httpd/conf/httpd.conf
-            echo -e "\nLoadModule php_module modules/libphp.so\nAddHandler php-script .php\nInclude conf/extra/php_module.conf" | sudo tee -a /etc/httpd/conf/httpd.conf >/dev/null
+            sudo sed -i 's/LoadModule mpm_event_module/#LoadModule mpm_event_module/' /etc/httpd/conf/httpd.conf
+            sudo sed -i 's/#LoadModule mpm_prefork_module/LoadModule mpm_prefork_module/' /etc/httpd/conf/httpd.conf
+            echo -e "\n# PHP-Konfiguration\nLoadModule php_module modules/libphp.so\nAddHandler php-script .php\nInclude conf/extra/php_module.conf" | sudo tee -a /etc/httpd/conf/httpd.conf >/dev/null
             
-            sudo systemctl enable --now httpd
+            sudo systemctl restart httpd
             ;;
 
         centos|fedora)
             log "${SYM_INFO} ${COLOR_ACTION}Installiere Apache/PHP (yum/dnf)...${COLOR_RESET}"
-            sudo yum install -y "${web_packages[centos]}"
-            sudo systemctl enable --now httpd
+            [[ "$current_distro" == "centos" ]] && sudo yum install -y epel-release
+            sudo yum install -y "${web_packages[centos]}" || {
+                log "${SYM_BAD} ${COLOR_ERROR}Installation fehlgeschlagen!${COLOR_RESET}";
+                return 1;
+            }
+            sudo systemctl restart httpd
             sudo firewall-cmd --permanent --add-service=http
             sudo firewall-cmd --reload
             ;;
     esac
 
-    # 3. PHP-Test erstellen
-    echo "<?php phpinfo(); ?>" | sudo tee /var/www/html/info.php >/dev/null
-    log "${SYM_OK} ${COLOR_OK}PHP-Testseite erstellt: ${COLOR_VALUE}http://$(hostname -I | awk '{print $1}')/info.php${COLOR_RESET}"
+    # 3. PHP-Check (OHNE Dateianlage)
+    log "${SYM_INFO} ${COLOR_ACTION}Prüfe PHP-Konfiguration...${COLOR_RESET}"
+    php_check() {
+        echo -e "${COLOR_HEADING}=== PHP-Status ===${COLOR_RESET}"
+        echo -e "Version: ${COLOR_VALUE}$(php -r 'echo PHP_VERSION;')${COLOR_RESET}"
+        
+        declare -A modules=(
+            ["mysqli"]="MySQL-Datenbank"
+            ["gd"]="GD-Grafikbibliothek"
+            ["curl"]="cURL"
+            ["xml"]="XML-Unterstützung"
+            ["mbstring"]="Multibyte-Strings"
+        )
+        
+        for mod in "${!modules[@]}"; do
+            if php -m | grep -q "^$mod$"; then
+                echo -e "${SYM_OK} ${COLOR_OK}${modules[$mod]} (${mod})${COLOR_RESET}"
+            else
+                echo -e "${SYM_BAD} ${COLOR_ERROR}Fehlend: ${modules[$mod]} (${mod})${COLOR_RESET}"
+            fi
+        done
+    }
+    
+    # Führe Check aus und protokolliere Ausgabe
+    php_check | while IFS= read -r line; do log "$line"; done
 
-    # 4. osWebinterface spezifisch
+    # 4. osWebinterface Deployment
     if [[ -d "oswebinterface" ]]; then
+        log "${SYM_INFO} ${COLOR_ACTION}Kopiere osWebinterface...${COLOR_RESET}"
         sudo cp -r oswebinterface/* /var/www/html/
-        log "${SYM_OK} ${COLOR_OK}osWebinterface wurde nach ${COLOR_VALUE}/var/www/html/${COLOR_RESET} kopiert"
+        sudo chown -R www-data:www-data /var/www/html 2>/dev/null || sudo chown -R apache:apache /var/www/html
+        
+        log "${SYM_OK} ${COLOR_OK}osWebinterface erfolgreich deployt${COLOR_RESET}"
     fi
 
     log "${COLOR_SUCCESS}Webserver-Setup abgeschlossen!${COLOR_RESET}"
@@ -4552,14 +4587,16 @@ function downloadallgit() {
     # OpenSimulator erstellen aus dem Source Code.
     opensimbuild
 }
+
 function webinstall() {
 # Nach database_setup()
-echo -ne "${COLOR_ACTION}Webserver (Apache/PHP) installieren? (j/n) [n] ${COLOR_RESET}"
-read -r web_choice
-if [[ "$web_choice" =~ ^[jJ] ]]; then
-    setup_webserver
-fi
+    echo -e "${COLOR_ACTION}Webserver (Apache/PHP) installieren? (j/n) [n] ${COLOR_RESET}"
+    read -r web_choice
+    if [[ -n "$web_choice" && "$web_choice" =~ ^[jJ] ]]; then
+        setup_webserver
+    fi
 }
+
 function autoinstall() {
     # 06.05.2025
 
@@ -4580,7 +4617,7 @@ function autoinstall() {
     moneygitcopy
 
     # PHP installieren
-    # webinstall
+    #webinstall
     # Webinterface aus dem Github holen    
     osWebinterfacegit
 
@@ -4847,6 +4884,7 @@ case $KOMMANDO in
     database_setup)    database_setup ;;
     setup_webserver)   setup_webserver ;;
     removeconfigfiles) removeconfigfiles ;;
+    webinstall)        webinstall ;;
     autoinstall) autoinstall ;;
 
     #  KONFIGURATIONS-MGMT AUTOKONFIGURATION    #
