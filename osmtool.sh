@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.99.406"
+VERSION="V25.5.101.412"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -111,7 +111,7 @@ SYM_CLEAN="${COLOR_VALUE}🧹${COLOR_RESET}"       # Bereinigung, Aufräumen, L�
 # shellcheck disable=SC2034
 SYM_WARNING="${COLOR_VALUE}⚠${COLOR_RESET}"     # Achtung, Gefahr, Hinweis
 SYM_PUZZLE="${COLOR_VALUE}🧩${COLOR_RESET}"      # Rätsel, Aufgabe, Aufgabenstellung
-SYM_PACKAGE="${COLOR_VALUE}📦${COLOR_RESET}"      # 
+SYM_PACKAGE="${COLOR_VALUE}📦${COLOR_RESET}"      # Package
 
 #* WARTEZEITEN muessen leider sein damit der Server nicht überfordert wird.
 Simulator_Start_wait=15 # Sekunden
@@ -2359,9 +2359,12 @@ function regionbackup() {
     blankline
 }
 
+# todo: Testen, ob alles funktioniert.
 # Erstellt ein strukturiertes Backup der Robust-Datenbank sowie wichtiger Konfigurationsdateien.
 # Aufruf:
 #* robustbackup <dbuser> <dbpass>
+# dbuser: SQL-Benutzername
+# dbpass: Passwort des SQL-Benutzers
 function robustbackup() {
     local DB_USER=$1
     local DB_PASS=$2
@@ -2446,6 +2449,146 @@ function robustbackup() {
     tar czf "$BACKUP_DIR/robustbackup_${TIMESTAMP}.tgz" -C "$BACKUP_DIR" .
     log "✅ Backup abgeschlossen: $BACKUP_DIR/robustbackup_${TIMESTAMP}.tgz${COLOR_RESET}"
     fi
+}
+
+# todo: Testen, ob alles funktioniert.
+# robustrestore <dbuser> <dbpass> <all|tables|assets|assettype>
+# dbuser: SQL-Benutzername
+# dbpass: Passwort des SQL-Benutzers
+# all: Wiederherstellung aller Nicht-Asset-Tabellen und Konfig-Dateien
+# tables: Wiederherstellung aller Nicht-Asset-Tabellen
+# assets: Wiederherstellung der assetType-Tabellen und Konfig-Dateien
+# assettype: Wiederherstellung der angegebenen assetType-Tabellen
+function robustrestore() {
+    local DB_USER=$1
+    local DB_PASS=$2
+    local DB_NAME="robust"
+    local RESTORE_SCOPE=$3  # "all", "tables", "assets" oder Asset-Typ-Name
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local BACKUP_DIR="$SCRIPT_DIR/backup/robust"
+
+    echo -e "${COLOR_HEADING}${SYM_PACKAGE} Starte Wiederherstellung für: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
+
+    case "$RESTORE_SCOPE" in
+        all)
+            echo -e "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung aller Nicht-Asset-Tabellen...${COLOR_RESET}"
+            for file in "$BACKUP_DIR/tables/"*.sql.gz; do
+                table_name=$(basename "$file" .sql.gz)
+                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Tabelle: ${COLOR_LABEL}${table_name}${COLOR_RESET}"
+                gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+            done
+
+            echo -e "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung aller Asset-Typen...${COLOR_RESET}"
+            for file in "$BACKUP_DIR/assettypen/"*.sql.gz; do
+                asset_name=$(basename "$file" .sql.gz)
+                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Asset-Typ: ${COLOR_LABEL}${asset_name}${COLOR_RESET}"
+                gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+            done
+            ;;
+        tables)
+            echo -e "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung nur der Nicht-Asset-Tabellen...${COLOR_RESET}"
+            for file in "$BACKUP_DIR/tables/"*.sql.gz; do
+                table_name=$(basename "$file" .sql.gz)
+                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Tabelle: ${COLOR_LABEL}${table_name}${COLOR_RESET}"
+                gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+            done
+            ;;
+        assets)
+            echo -e "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung aller Asset-Typen...${COLOR_RESET}"
+            for file in "$BACKUP_DIR/assettypen/"*.sql.gz; do
+                asset_name=$(basename "$file" .sql.gz)
+                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Asset-Typ: ${COLOR_LABEL}${asset_name}${COLOR_RESET}"
+                gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+            done
+            ;;
+        *)
+            local file="$BACKUP_DIR/assettypen/assets_${RESTORE_SCOPE}.sql.gz"
+            if [[ -f "$file" ]]; then
+                echo -e "${SYM_FOLDER} ${COLOR_LABEL}Wiederherstellung für Asset-Typ: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
+                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET}"
+                gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+            else
+                echo -e "${SYM_BAD} ${COLOR_BAD}Fehler: Kein Backup für Asset-Typ '${RESTORE_SCOPE}' gefunden!${COLOR_RESET}"
+                return 1
+            fi
+            ;;
+    esac
+
+    echo -e "${SYM_OK} ${COLOR_OK}Wiederherstellung erfolgreich abgeschlossen für Bereich: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
+}
+
+# todo: Testen, ob alles funktioniert.
+# robustrepair <dbuser> <dbpass> <check|repair|truncate|dropassets|dropall>
+# dbuser: SQL-Benutzername
+# dbpass: Passwort des SQL-Benutzers
+# check: Prüft alle Tabellen auf Fehler
+# repair: Repariert alle Tabellen automatisch
+# truncate: Leert alle Inhalte, behält aber Tabellenstrukturen
+# dropassets: Löscht alle Assets und Asset-Typen
+# dropall: Löscht alle Tabelleninhalte
+function robustrepair() {
+    local DB_USER=$1
+    local DB_PASS=$2
+    local DB_NAME="robust"
+    local ACTION=$3  # "check", "repair", "truncate", "dropassets", "dropall"
+
+    echo -e "${COLOR_HEADING}${SYM_TOOLS} Starte Datenbankwartung: ${COLOR_VALUE}${ACTION}${COLOR_RESET}"
+
+    case "$ACTION" in
+        check)
+            echo -e "${SYM_WAIT} ${COLOR_LABEL}Überprüfe Tabellen auf Fehler...${COLOR_RESET}"
+            mysqlcheck -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
+            ;;
+        repair)
+            echo -e "${SYM_SYNC} ${COLOR_LABEL}Repariere beschädigte Tabellen automatisch...${COLOR_RESET}"
+            mysqlcheck -u"$DB_USER" -p"$DB_PASS" --auto-repair "$DB_NAME"
+            ;;
+        truncate)
+            echo -e "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Leert alle Inhalte, behält aber Tabellenstrukturen!${COLOR_RESET}"
+            read -rp "$(echo -e "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}")" confirm
+            if [[ "$confirm" == "ja" ]]; then
+                local tables
+                tables=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SHOW TABLES IN $DB_NAME;")
+                for t in $tables; do
+                    echo -e "${SYM_CLEAN} Leere Tabelle: ${COLOR_LABEL}${t}${COLOR_RESET}"
+                    mysql -u"$DB_USER" -p"$DB_PASS" -e "TRUNCATE TABLE $DB_NAME.$t;"
+                done
+                echo -e "${SYM_OK} ${COLOR_OK}Alle Tabellen wurden geleert.${COLOR_RESET}"
+            else
+                echo -e "${SYM_BAD} ${COLOR_BAD}Abgebrochen.${COLOR_RESET}"
+            fi
+            ;;
+        dropassets)
+            echo -e "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Löscht ALLE Einträge in der 'assets'-Tabelle!${COLOR_RESET}"
+            read -rp "$(echo -e "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}")" confirm
+            if [[ "$confirm" == "ja" ]]; then
+                mysql -u"$DB_USER" -p"$DB_PASS" -e "DELETE FROM $DB_NAME.assets;"
+                echo -e "${SYM_OK} ${COLOR_OK}Tabelle 'assets' wurde geleert.${COLOR_RESET}"
+            else
+                echo -e "${SYM_BAD} ${COLOR_BAD}Abgebrochen.${COLOR_RESET}"
+            fi
+            ;;
+        dropall)
+            echo -e "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Alle Tabellen der Datenbank werden gelöscht!${COLOR_RESET}"
+            read -rp "$(echo -e "${COLOR_BAD}Wirklich ALLE Tabellen löschen? (ja/nein): ${COLOR_RESET}")" confirm
+            if [[ "$confirm" == "ja" ]]; then
+                local tables
+                tables=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SHOW TABLES IN $DB_NAME;")
+                for t in $tables; do
+                    echo -e "${SYM_CLEAN} Lösche Tabelle: ${COLOR_LABEL}${t}${COLOR_RESET}"
+                    mysql -u"$DB_USER" -p"$DB_PASS" -e "DROP TABLE $DB_NAME.$t;"
+                done
+                echo -e "${SYM_OK} ${COLOR_OK}Alle Tabellen gelöscht.${COLOR_RESET}"
+            else
+                echo -e "${SYM_BAD} ${COLOR_BAD}Abgebrochen.${COLOR_RESET}"
+            fi
+            ;;
+        *)
+            echo -e "${SYM_BAD} ${COLOR_BAD}Unbekannte Aktion: ${ACTION}${COLOR_RESET}"
+            echo -e "${SYM_INFO} Mögliche Optionen: check | repair | truncate | dropassets | dropall"
+            return 1
+            ;;
+    esac
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -4476,7 +4619,7 @@ function regionsiniconfig() {
                 set_ini_key "$config_file" "$region_name" ";DrawPrimOnMapTile" "true"
                 set_ini_key "$config_file" "$region_name" ";GenerateMaptiles" "true"
                 set_ini_key "$config_file" "$region_name" ";MaptileRefresh" "0"
-                set_ini_key "$config_file" "$region_name" ";MaptileStaticFile" "path/to/SomeFile.png"
+                set_ini_key "$config_file" "$region_name" ";MaptileStaticFile" "path/to/SomeFile.png" # Bitte verwenden sie nicht den Pfad des OpenSimulators sondern ein externen Pfad!
                 set_ini_key "$config_file" "$region_name" ";MasterAvatarFirstName" "John"
                 set_ini_key "$config_file" "$region_name" ";MasterAvatarLastName" "Doe"
                 set_ini_key "$config_file" "$region_name" ";MasterAvatarSandboxPassword" "passwd"
@@ -5065,10 +5208,9 @@ function prohelp() {
     log "\t${COLOR_OK}check_screens${COLOR_RESET} \t\t\t # Laufende OpenSim-Prozesse prüfen und neu starten"
     log "\t${COLOR_OK}autoupgrade${COLOR_RESET} \t\t\t # Automatisches OpenSim upgrade"
 
-    log "\t${COLOR_START}opensimstartParallel${COLOR_RESET} \t\t # OpenSim Parallel starten"
-    log "\t${COLOR_STOP}opensimstopParallel${COLOR_RESET} \t\t # OpenSim Parallel stoppen"
-    log "\t${COLOR_START}opensimrestartParallel${COLOR_RESET} \t\t # OpenSim Parallel neu starten"    
-    log "\t${COLOR_OK}autoupgradefast${COLOR_RESET} \t\t # Automatisches OpenSim Parallel upgraden"
+    log "\t${COLOR_OK}opensimstartParallel${COLOR_RESET} \t\t # Startet alle Regionen parallel"
+    log "\t${COLOR_OK}opensimstopParallel${COLOR_RESET} \t\t # Stoppt alle Regionen parallel"
+    log "\t${COLOR_OK}opensimrestartParallel${COLOR_RESET} \t\t # Startet alle Regionen neu (parallel)"
     echo " "
 
     #* System-Checks & Setup
@@ -5083,35 +5225,43 @@ function prohelp() {
     log "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
     log "\t${COLOR_OK}opensimgitcopy${COLOR_RESET} \t\t\t # OpenSim aus Git herunterladen"
     log "\t${COLOR_OK}moneygitcopy${COLOR_RESET} \t\t\t # MoneyServer aus Git holen"
-    log "\t${COLOR_WARNING}ruthrothgit${COLOR_RESET} \t\t\t # Ruth Roth IAR Dateien ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}avatarassetsgit${COLOR_RESET} \t\t # Avatar-Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    #log "\t${COLOR_WARNING}ruthrothgit${COLOR_RESET} \t\t\t # Ruth Roth IAR Dateien ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    #log "\t${COLOR_WARNING}avatarassetsgit${COLOR_RESET} \t\t # Avatar-Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     log "\t${COLOR_OK}osslscriptsgit${COLOR_RESET} \t\t\t # OSSL Beispielskripte herunterladen"
-    log "\t${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} \t\t\t # PBR-Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    #log "\t${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} \t\t\t # PBR-Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     log "\t${COLOR_OK}downloadallgit${COLOR_RESET} \t\t\t # Alle Git-Repos herunterladen"
     log "\t${COLOR_OK}versionrevision${COLOR_RESET} \t\t # Versionsverwaltung aktivieren"
     echo " "
 
     #* OpenSim Build & Deployment
     log "${COLOR_SECTION}${SYM_FOLDER} OpenSim Build & Deploy:${COLOR_RESET}"
-    log "\t${COLOR_OK}opensimbuild${COLOR_RESET} \t\t\t # OpenSim kompilieren"
-    log "\t${COLOR_OK}opensimcopy${COLOR_RESET} \t\t\t # OpenSim Dateien kopieren"
-    log "\t${COLOR_OK}opensimupgrade${COLOR_RESET} \t\t\t # OpenSim aktualisieren"
-    log "\t${COLOR_OK}database_setup${COLOR_RESET} \t\t\t # Datenbank für OpenSim einrichten"
+    log "\t${COLOR_OK}opensimbuild${COLOR_RESET} \t\t\t\t # OpenSim kompilieren"
+    log "\t${COLOR_OK}opensimcopy${COLOR_RESET} \t\t\t\t # OpenSim Dateien kopieren"
+    log "\t${COLOR_OK}opensimupgrade${COLOR_RESET} \t\t\t\t # OpenSim aktualisieren"
+    log "\t${COLOR_OK}database_setup${COLOR_RESET} \t\t\t\t # Datenbank für OpenSim einrichten"
+
+    log "\t${COLOR_OK}autoupgrade${COLOR_RESET} \t\t\t\t # Führt automatisches Update durch"
+    log "\t${COLOR_OK}autoupgradefast${COLOR_RESET} \t\t\t # Automatisches OpenSim Parallel upgraden"
+
+    log "\t${COLOR_OK}regionbackup${COLOR_RESET} \t\t\t\t # Sichert aktuelle Regionen-Daten"
+    log "\t${COLOR_OK}robustbackup${COLOR_RESET} \t\t\t\t # Backup der Robust-Datenbank (mit Zeitraumfilter)"
+    log "\t${COLOR_OK}robustrestore <user> <pass> [teil]${COLOR_RESET} \t # Wiederherstellung aus robustbackup ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    log "\t${COLOR_OK}robustrepair <user> <pass> [aktion]${COLOR_RESET} \t # Reparatur oder Bereinigung der Robust-DB ${COLOR_BAD}(experimentell)${COLOR_RESET}"    
     echo " "
 
     #* Konfigurationsmanagement
     log "${COLOR_SECTION}${SYM_CONFIG} Konfigurationsmanagement:${COLOR_RESET}"
-    log "\t${COLOR_WARNING}moneyserveriniconfig${COLOR_RESET} \t\t # Konfiguriert MoneyServer.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}opensiminiconfig${COLOR_RESET} \t\t # Konfiguriert OpenSim.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}robusthginiconfig${COLOR_RESET} \t\t # Konfiguriert Robust.HG.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}robustiniconfig${COLOR_RESET} \t\t # Konfiguriert Robust.local.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}gridcommoniniconfig${COLOR_RESET} \t\t # Erstellt GridCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}standalonecommoniniconfig${COLOR_RESET} \t # Erstellt StandaloneCommon.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}flotsaminiconfig${COLOR_RESET} \t\t # Erstellt FlotsamCache.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}osslenableiniconfig${COLOR_RESET} \t\t # Konfiguriert osslEnable.ini ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}welcomeiniconfig${COLOR_RESET} \t\t # Konfiguriert Begrüßungsregion ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}regionsiniconfig${COLOR_RESET} \t\t # Startet neue Regionen-Konfigurationen ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "\t${COLOR_WARNING}iniconfig${COLOR_RESET} \t\t\t # Startet ALLE Konfigurationen ${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    log "\t${COLOR_WARNING}moneyserveriniconfig${COLOR_RESET} \t\t # Konfiguriert MoneyServer.ini"
+    log "\t${COLOR_WARNING}opensiminiconfig${COLOR_RESET} \t\t # Konfiguriert OpenSim.ini"
+    log "\t${COLOR_WARNING}robusthginiconfig${COLOR_RESET} \t\t # Konfiguriert Robust.HG.ini"
+    log "\t${COLOR_WARNING}robustiniconfig${COLOR_RESET} \t\t # Konfiguriert Robust.local.ini"
+    log "\t${COLOR_WARNING}gridcommoniniconfig${COLOR_RESET} \t\t # Erstellt GridCommon.ini"
+    log "\t${COLOR_WARNING}standalonecommoniniconfig${COLOR_RESET} \t # Erstellt StandaloneCommon.ini"
+    log "\t${COLOR_WARNING}flotsaminiconfig${COLOR_RESET} \t\t # Erstellt FlotsamCache.ini"
+    log "\t${COLOR_WARNING}osslenableiniconfig${COLOR_RESET} \t\t # Konfiguriert osslEnable.ini"
+    log "\t${COLOR_WARNING}welcomeiniconfig${COLOR_RESET} \t\t # Konfiguriert Begrüßungsregion"
+    log "\t${COLOR_WARNING}regionsiniconfig${COLOR_RESET} \t\t # Startet neue Regionen-Konfigurationen"
+    log "\t${COLOR_WARNING}iniconfig${COLOR_RESET} \t\t\t # Startet ALLE Konfigurationen"
     echo " "
 
     #* XML & INI-Operationen
@@ -5120,14 +5270,14 @@ function prohelp() {
     log "\t${COLOR_OK}verify_ini_key${COLOR_RESET} \t\t\t # INI-Schlüssel verifizieren"
     log "\t${COLOR_OK}add_ini_section${COLOR_RESET} \t\t # INI-Abschnitt hinzufügen"
     log "\t${COLOR_OK}set_ini_key${COLOR_RESET} \t\t\t # INI-Schlüssel setzen"
-    log "\t${COLOR_WARNING}del_ini_section${COLOR_RESET} \t\t # INI-Abschnitt löschen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    log "\t${COLOR_WARNING}del_ini_section${COLOR_RESET} \t\t # INI-Abschnitt löschen"
     echo " "
 
     #* XML-Operationen
     log "${COLOR_SECTION}${SYM_SCRIPT} XML-Operationen:${COLOR_RESET}"
     log "\t${COLOR_OK}verify_xml_section${COLOR_RESET} \t\t # XML-Abschnitt verifizieren"
     log "\t${COLOR_OK}add_xml_section${COLOR_RESET} \t\t # XML-Abschnitt hinzufügen"
-    log "\t${COLOR_WARNING}del_xml_section${COLOR_RESET} \t\t # XML-Abschnitt löschen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    log "\t${COLOR_WARNING}del_xml_section${COLOR_RESET} \t\t # XML-Abschnitt löschen"
     echo " "
 
     #* System-Bereinigung
@@ -5259,6 +5409,8 @@ case $KOMMANDO in
     autoupgradefast)                autoupgradefast ;;
     regionbackup)                   regionbackup ;;
     robustbackup)                   robustbackup "$2" "$3";;
+    robustrestore)                  robustrestore "$2" "$3" "$4" ;;
+    robustrepair)                   robustrepair "$2" "$3" "$4" ;;
 
     #  HILFE & SONSTIGES      #
     generate_all_name)  generate_all_name ;;
@@ -5270,3 +5422,7 @@ esac
 blankline
 log "\e[36m${SCRIPTNAME}\e[0m ${VERSION} wurde beendet $(date +'%Y-%m-%d %H:%M:%S')" >&2
 exit 0
+
+# Ein Metaversum sind viele kleine Räume, die nahtlos aneinander passen, sowie direkt sichtbar und begehbar sind, als wäre es aus einem Guss.
+# Ein Metaversum besteht aus vielen kleinen, nahtlos verbundenen Räumen, die direkt sichtbar und begehbar sind – als wäre alles aus einem Guss erschaffen.
+# Das Metaversum setzt sich aus zahlreichen virtuellen Räumen zusammen, die ohne Ladezeiten oder Übergänge miteinander verbunden sind und sich wie eine zusammenhängende Welt erleben lassen.
