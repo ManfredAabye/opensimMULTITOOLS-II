@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.91.366"
+VERSION="V25.5.98.398"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -2253,7 +2253,7 @@ calculate_relative_time() {
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
-#* Upgrade des OpenSimulators Grids
+#* Backup und Upgrade des OpenSimulators Grids
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 function opensimupgrade() {
@@ -2290,6 +2290,70 @@ function opensimupgrade() {
     else
         log "${COLOR_WARNING}Upgrade vom Benutzer abgebrochen.${COLOR_RESET}"
     fi
+    blankline
+}
+
+function regionbackup() {
+    DATUM=$(date +%Y-%m-%d_%H-%M)
+    BACKUPDIR="$SCRIPT_DIR/backup"
+    mkdir -p "$BACKUPDIR"
+
+    log "${SYM_TOOLS} ${COLOR_HEADING}Starte automatisches Backup aller Regionen...${COLOR_RESET}"
+    
+    for ((i=1; i<=999; i++)); do
+        SIMNAME="sim$i"
+        SIMBIN="$SCRIPT_DIR/$SIMNAME/bin"
+        REGIONSDIR="$SIMBIN/Regions"
+        TARGETDIR="$BACKUPDIR/sim$i"
+
+        if [[ -d "$REGIONSDIR" ]]; then
+            mkdir -p "$TARGETDIR"
+            log "${SYM_SERVER} ${COLOR_START}Backup für ${COLOR_SERVER}$SIMNAME${COLOR_RESET} wird vorbereitet (${COLOR_DIR}$SIMBIN${COLOR_RESET})..."
+
+            # ➕ OpenSim.ini sichern
+            if [[ -f "$SIMBIN/OpenSim.ini" ]]; then
+                cp "$SIMBIN/OpenSim.ini" "$TARGETDIR/${DATUM}-OpenSim.ini"
+                log "${SYM_CONFIG} ${COLOR_LABEL}OpenSim.ini gesichert:${COLOR_RESET} ${COLOR_FILE}${DATUM}-OpenSim.ini${COLOR_RESET}"
+            fi
+
+            # ➕ GridCommon.ini sichern
+            if [[ -f "$SIMBIN/config-include/GridCommon.ini" ]]; then
+                cp "$SIMBIN/config-include/GridCommon.ini" "$TARGETDIR/${DATUM}-GridCommon.ini"
+                log "${SYM_CONFIG} ${COLOR_LABEL}GridCommon.ini gesichert:${COLOR_RESET} ${COLOR_FILE}${DATUM}-GridCommon.ini${COLOR_RESET}"
+            fi
+
+            for ini_file in "$REGIONSDIR"/*.ini; do
+                [[ -f "$ini_file" ]] || continue
+                
+                region_names=$(grep -oP '^\[\K[^\]]+' "$ini_file")
+
+                for REGIONNAME in $region_names; do
+                    blankline
+                    log "${SYM_FOLDER} ${COLOR_LABEL}Sichere Region:${COLOR_RESET} ${COLOR_VALUE}$REGIONNAME${COLOR_RESET}"
+
+                    screen -S "$SIMNAME" -p 0 -X eval "stuff 'change region ${REGIONNAME//\"/}'^M"
+                    sleep 1
+
+                    screen -S "$SIMNAME" -p 0 -X eval "stuff 'save oar ${TARGETDIR}/${DATUM}-${REGIONNAME}.oar'^M"
+                    log "${SYM_FILE} ${COLOR_LABEL}OAR gespeichert:${COLOR_RESET} ${COLOR_FILE}${DATUM}-${REGIONNAME}.oar${COLOR_RESET}"
+
+                    screen -S "$SIMNAME" -p 0 -X eval "stuff 'save xml2 ${TARGETDIR}/${DATUM}-${REGIONNAME}.xml2'^M"
+                    log "${SYM_FILE} ${COLOR_LABEL}XML2 gespeichert:${COLOR_RESET} ${COLOR_FILE}${DATUM}-${REGIONNAME}.xml2${COLOR_RESET}"
+
+                    screen -S "$SIMNAME" -p 0 -X eval "stuff 'terrain save ${TARGETDIR}/${DATUM}-${REGIONNAME}.png'^M"
+                    screen -S "$SIMNAME" -p 0 -X eval "stuff 'terrain save ${TARGETDIR}/${DATUM}-${REGIONNAME}.raw'^M"
+                    log "${SYM_FILE} ${COLOR_LABEL}Terrain (PNG & RAW) gespeichert:${COLOR_RESET} ${COLOR_FILE}${DATUM}-${REGIONNAME}.{png,raw}${COLOR_RESET}"
+
+                    cp "$ini_file" "$TARGETDIR/${DATUM}-$(basename "$ini_file")"
+                    log "${SYM_CONFIG} ${COLOR_LABEL}Konfig gesichert:${COLOR_RESET} ${COLOR_FILE}${DATUM}-$(basename "$ini_file")${COLOR_RESET}"
+
+                    sleep 1
+                done
+            done
+        fi
+    done
+
+    log "${SYM_OK} ${COLOR_ACTION}Automatisches Regionen-Backup abgeschlossen.${COLOR_RESET}"
     blankline
 }
 
@@ -4007,10 +4071,141 @@ function standalonecommoniniconfig() {
     blankline
 }
 
+# Random Position (mit Simulator-Offset)
+function random_position() {
+    local center_x=$1
+    local center_y=$2
+    local n=$3           # Region-Nummer
+    local sim_offset=$4   # Simulator-Offset
+    
+    # Zufallsposition mit Simulator-basiertem Seed
+    RANDOM=$(( n + sim_offset * 1000 ))  # Reproduzierbarer Zufall
+    local offset_x=$(( (RANDOM % 200) - 100 ))  # Kleinerer Bereich (±100 Einheiten)
+    local offset_y=$(( (RANDOM % 200) - 100 ))
+    
+    echo "$((center_x + offset_x + sim_offset * 10)),$((center_y + offset_y + sim_offset * 10))"
+}
+
+# Fibonacci Grid (mit Simulator-Offset)
+function fibonacci_grid_position() {
+    local center_x=$1
+    local center_y=$2
+    local n=$3
+    local sim_offset=$4
+    
+    local a=0; local b=1
+    for ((i=0; i<n + sim_offset; i++)); do
+        local tmp=$((a + b))
+        a=$b; b=$tmp
+    done
+
+    local grid_size=$((b * 10))  # Kleinere Skalierung
+    local pos_x=$((center_x + (n % 2 == 0 ? grid_size : -grid_size) + sim_offset * 20))
+    local pos_y=$((center_y + ((n / 2) % 2 == 0 ? grid_size : -grid_size) + sim_offset * 20))
+
+    echo "$pos_x,$pos_y"
+}
+
+# Diamond Grid (Rautenmuster)
+function diamond_position() {
+    local center_x=$1
+    local center_y=$2
+    local n=$3
+    local sim_offset=$4
+    
+    local ring=$(( (n / 4) + 1 ))
+    local side=$(( n % 4 ))
+    local grid_size=$(( ring * 100 + sim_offset * 50 ))  # Simulator-Offset integriert
+    
+    case $side in
+        0) pos_x=$((center_x + grid_size));         pos_y=$center_y;;
+        1) pos_x=$center_x;                         pos_y=$((center_y + grid_size));;
+        2) pos_x=$((center_x - grid_size));         pos_y=$center_y;;
+        3) pos_x=$center_x;                         pos_y=$((center_y - grid_size));;
+    esac
+
+    echo "$pos_x,$pos_y"
+}
+
+# Square Grid
+function square_grid_position() {
+    local center_x=$1
+    local center_y=$2
+    local n=$3
+    local sim_offset=$4
+    
+    local cols=10
+    local x=$(( center_x + (n % cols) * 100 + sim_offset * 5 ))  # 100m Abstand
+    local y=$(( center_y + (n / cols) * 100 + sim_offset * 5 ))
+
+    echo "$x,$y"
+}
+
+# Hex Grid (Hexagonales Muster)
+function hex_grid_position() {
+    local center_x=$1
+    local center_y=$2
+    local n=$3
+    local sim_offset=$4
+    
+    local ring=$(( (n / 6) + 1 ))
+    local side=$(( n % 6 ))
+    local size=$(( 50 + sim_offset * 10 ))  # Basisgröße + Offset
+
+    case $side in
+        0) x=$(( center_x + size*2 ));      y=$center_y;;
+        1) x=$(( center_x + size ));        y=$(( center_y + size*1732/1000 ));;  # sin(60°)*2
+        2) x=$(( center_x - size ));        y=$(( center_y + size*1732/1000 ));;
+        3) x=$(( center_x - size*2 ));      y=$center_y;;
+        4) x=$(( center_x - size ));        y=$(( center_y - size*1732/1000 ));;
+        5) x=$(( center_x + size ));        y=$(( center_y - size*1732/1000 ));;
+    esac
+
+    echo "$x,$y"
+}
+# Spiral Grid (Mit Simulator-Offset)
+function spiral_grid_position() {
+    local center_x=$1
+    local center_y=$2
+    local n=$3
+    local sim_offset=$4  # Neu: Simulator-basierter Offset
+
+    # Initialisierung mit Simulator-Offset
+    local x=$(( sim_offset * 10 ))  # Jeder Simulator beginnt 10 Einheiten weiter
+    local y=$(( sim_offset * 10 ))
+    local step=1
+    local direction=0
+    local steps_in_direction=0
+    local step_change=0
+
+    for ((i=0; i<n; i++)); do
+        case $direction in
+            0) x=$((x + 1));;  # Rechts
+            1) y=$((y + 1));;  # Oben
+            2) x=$((x - 1));;  # Links
+            3) y=$((y - 1));;  # Unten
+        esac
+        
+        ((steps_in_direction++))
+        
+        if (( steps_in_direction == step )); then
+            direction=$(( (direction + 1) % 4 ))
+            steps_in_direction=0
+            ((step_change++))
+            
+            if (( step_change % 2 == 0 )); then
+                ((step++))
+            fi
+        fi
+    done
+
+    echo "$((center_x + x)),$((center_y + y))"
+}
+
 function regionsiniconfig() {
     # Konstanten
-    local center_x=4000
-    local center_y=4000
+    local center_x=3000
+    local center_y=3000
     local base_port=9000
     
     # Variablen
@@ -4029,9 +4224,10 @@ function regionsiniconfig() {
     local config_file
     declare -A used_locations
     declare -A used_ports
+    local position="Spiral" # Random Fibonacci Raute Square Hexagon Spiral
 
     # Benutzereingabe mit Symbol und Farbe
-    log "${SYM_INFO}${COLOR_LABEL} Wie viele Zufallsregionen sollen pro Simulator erstellt werden? ${COLOR_OK}[1]${COLOR_RESET}"
+    log "${SYM_INFO}${COLOR_LABEL} Wie viele Zufallsregionen sollen pro Simulator im $position style erstellt werden? ${COLOR_OK}[1]${COLOR_RESET}"
     read -r regions_per_sim    
 
     # Eingabeprüfung
@@ -4069,18 +4265,36 @@ function regionsiniconfig() {
                 done
             fi
             
-            # Regionen erstellen
+            # Regionen erstellen Random Fibonacci Raute Square Hexagon Spiral Checkerboard
             for ((region_num=1; region_num<=regions_per_sim; region_num++)); do
                 # Position berechnen (mit Kollisionsprüfung)
                 local attempts=0
                 local max_attempts=100
                 
                 while true; do
-                    offset=$(( (RANDOM % 2000) - 1000 ))
-                    pos_x=$((center_x + offset))
-                    offset=$(( (RANDOM % 2000) - 1000 ))
-                    pos_y=$((center_y + offset))
-                    location="$pos_x,$pos_y"
+                    # Hier wird die entsprechende externe Funktion aufgerufen
+                    if [[ "$position" == "Random" ]]; then
+                        # Zufalls-Gitter:
+                        location=$(random_position "$center_x" "$center_y" "$region_num" "$sim_num")
+                    elif [[ "$position" == "Fibonacci" ]]; then
+                        # Fibonacci-Gitter:
+                        location=$(fibonacci_grid_position "$center_x" "$center_y" "$region_num" "$sim_num")
+                    elif [[ "$position" == "Raute" ]]; then
+                        # Rauten-Gitter:
+                        location=$(diamond_position "$center_x" "$center_y" "$region_num" "$sim_num")
+                    elif [[ "$position" == "Square" ]]; then
+                        # Square-Gitter:
+                        location=$(square_grid_position "$center_x" "$center_y" "$region_num" "$sim_num")
+                    elif [[ "$position" == "Hexagon" ]]; then
+                        # Hexagon-Gitter:
+                        location=$(hex_grid_position "$center_x" "$center_y" "$region_num" "$sim_num")
+                    elif [[ "$position" == "Spiral" ]]; then
+                        # Spirale-Gitter:
+                        location=$(spiral_grid_position "$center_x" "$center_y" "$region_num" "$sim_num")                       
+                    else
+                        # Fallback zu Random bei ungültiger Eingabe
+                        location=$(random_position "$center_x" "$center_y" "$region_num" "$sim_num")
+                    fi
                     
                     if [[ -z "${used_locations[$location]}" ]]; then
                         used_locations[$location]=1
@@ -4097,29 +4311,29 @@ function regionsiniconfig() {
                 # Eindeutigen Port finden
                 local port_attempts=0
                 local max_port_attempts=100
+                local port_base=$((base_port + sim_num * 100))  # 9100, 9200, 9300 usw.
+
                 while true; do
-                    # Port-Berechnung basierend auf Sim-Nummer, Region-Nummer und bestehenden Ports
-                    port=$((base_port + sim_num * 100 + region_num + existing_port_count))
+                    # Port innerhalb des reservierten Blocks (9100-9199 etc.)
+                    port=$((port_base + region_num + existing_port_count))
                     
-                    # Falls Port bereits vergeben, erhöhen wir ihn
-                    while [[ -n "${used_ports[$port]}" ]]; do
-                        ((port++))
-                        ((port_attempts++))
-                        if (( port_attempts >= max_port_attempts )); then
-                            log "${SYM_BAD} ${COLOR_WARNING}Fehler: Konnte nach ${max_port_attempts} Versuchen keinen freien Port finden${COLOR_RESET}" >&2
-                            return 1
-                        fi
-                    done
+                    # Sicherstellen, dass wir im Block bleiben
+                    if (( port >= port_base + 100 )); then
+                        log "${SYM_BAD} ${COLOR_WARNING}Fehler: Keine freien Ports mehr im Block ${port_base}-$((port_base+99))${COLOR_RESET}" >&2
+                        return 1
+                    fi
                     
                     # Prüfen ob Port verfügbar ist
-                    if ! nc -z localhost "$port" 2>/dev/null; then
+                    if [[ -z "${used_ports[$port]}" ]] && ! nc -z localhost "$port" 2>/dev/null; then
                         used_ports["$port"]=1
                         break
                     fi
                     
+                    ((existing_port_count++))
                     ((port_attempts++))
+                    
                     if (( port_attempts >= max_port_attempts )); then
-                        log "${SYM_BAD} ${COLOR_WARNING}Fehler: Konnte nach ${max_port_attempts} Versuchen keinen freien Port finden${COLOR_RESET}" >&2
+                        log "${SYM_BAD} ${COLOR_WARNING}Fehler: Konnte in Simulator ${sim_num} nach ${max_port_attempts} Versuchen keinen freien Port finden (Block ${port_base}-$((port_base+99))${COLOR_RESET}" >&2
                         return 1
                     fi
                 done
@@ -4760,10 +4974,10 @@ function prohelp() {
     log "\t${COLOR_OK}check_screens${COLOR_RESET} \t\t\t # Laufende OpenSim-Prozesse prüfen und neu starten"
     log "\t${COLOR_OK}autoupgrade${COLOR_RESET} \t\t\t # Automatisches OpenSim upgrade"
 
-    log "\t${COLOR_START}opensimstartParallel${COLOR_RESET} \t\t\t # OpenSim Parallel starten"
-    log "\t${COLOR_STOP}opensimstopParallel${COLOR_RESET} \t\t\t # OpenSim Parallel stoppen"
-    log "\t${COLOR_START}opensimrestartParallel${COLOR_RESET} \t\t\t # OpenSim Parallel neu starten"    
-    log "\t${COLOR_OK}autoupgradefast${COLOR_RESET} \t\t\t # Automatisches OpenSim Parallel upgraden"
+    log "\t${COLOR_START}opensimstartParallel${COLOR_RESET} \t\t # OpenSim Parallel starten"
+    log "\t${COLOR_STOP}opensimstopParallel${COLOR_RESET} \t\t # OpenSim Parallel stoppen"
+    log "\t${COLOR_START}opensimrestartParallel${COLOR_RESET} \t\t # OpenSim Parallel neu starten"    
+    log "\t${COLOR_OK}autoupgradefast${COLOR_RESET} \t\t # Automatisches OpenSim Parallel upgraden"
     echo " "
 
     #* System-Checks & Setup
@@ -4833,12 +5047,12 @@ function prohelp() {
     log "\t${COLOR_OK}mapclean${COLOR_RESET} \t\t\t # OpenSimulator Maptiles bereinigen"
     log "\t${COLOR_OK}renamefiles${COLOR_RESET} \t\t\t # OpenSimulator Beispieldateien umbenennen"
     log "\t${COLOR_OK}clean_linux_logs${COLOR_RESET} \t\t # Linux-Logs bereinigen"
-    log "\t${COLOR_OK}delete_opensim${COLOR_RESET} \t\t # OpenSimulator mit Verzeichnisse entfernen"
+    log "\t${COLOR_OK}delete_opensim${COLOR_RESET} \t\t\t # OpenSimulator mit Verzeichnisse entfernen"
     echo " "
 
     #* Hilfe
     log "${COLOR_SECTION}${SYM_INFO} Hilfe:${COLOR_RESET}"
-    log "\t${COLOR_OK}help${COLOR_RESET} \t\t\t\t # Diese Hilfeseite anzeigen"
+    log "\t${COLOR_OK}help${COLOR_RESET} \t\t\t\t # Einfache Hilfeseite anzeigen"
     echo " "
 }
 
@@ -4952,6 +5166,7 @@ case $KOMMANDO in
     opensimrestartParallel)         opensimrestartParallel ;;
     autoupgrade)                    autoupgrade ;;
     autoupgradefast)                autoupgradefast ;;
+    regionbackup)                   regionbackup ;;
 
     #  HILFE & SONSTIGES      #
     generate_all_name)  generate_all_name ;;
