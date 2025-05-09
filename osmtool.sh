@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.98.398"
+VERSION="V25.5.99.406"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -110,6 +110,8 @@ SYM_SERVER="${COLOR_VALUE}🖥️${COLOR_RESET}"      # Server, Computer
 SYM_CLEAN="${COLOR_VALUE}🧹${COLOR_RESET}"       # Bereinigung, Aufräumen, Löschen
 # shellcheck disable=SC2034
 SYM_WARNING="${COLOR_VALUE}⚠${COLOR_RESET}"     # Achtung, Gefahr, Hinweis
+SYM_PUZZLE="${COLOR_VALUE}🧩${COLOR_RESET}"      # Rätsel, Aufgabe, Aufgabenstellung
+SYM_PACKAGE="${COLOR_VALUE}📦${COLOR_RESET}"      # 
 
 #* WARTEZEITEN muessen leider sein damit der Server nicht überfordert wird.
 Simulator_Start_wait=15 # Sekunden
@@ -315,7 +317,7 @@ function servercheck() {
     fi
 
     # Fehlende Pakete prüfen und installieren
-    log "${COLOR_HEADING}📦 Überprüfe fehlende Pakete...${COLOR_RESET}"
+    log "${COLOR_HEADING}${SYM_PACKAGE} Überprüfe fehlende Pakete...${COLOR_RESET}"
     
     # Paketliste basierend auf Distribution auswählen
     if [[ -n "${required_packages[$os_id]}" ]]; then
@@ -1584,7 +1586,7 @@ function createdirectory() {
 }
 
 function opensimcopy() {
-    log "${COLOR_HEADING}📦 OpenSim Dateikopie${COLOR_RESET}"
+    log "${COLOR_HEADING}${SYM_PACKAGE} OpenSim Dateikopie${COLOR_RESET}"
     
     # Prüfen, ob das Verzeichnis "opensim" existiert
     if [[ ! -d "opensim" ]]; then
@@ -2355,6 +2357,95 @@ function regionbackup() {
 
     log "${SYM_OK} ${COLOR_ACTION}Automatisches Regionen-Backup abgeschlossen.${COLOR_RESET}"
     blankline
+}
+
+# Erstellt ein strukturiertes Backup der Robust-Datenbank sowie wichtiger Konfigurationsdateien.
+# Aufruf:
+#* robustbackup <dbuser> <dbpass>
+function robustbackup() {
+    local DB_USER=$1
+    local DB_PASS=$2
+    local DB_NAME="robust"
+    local BACKUP_YEARS=30
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local BACKUP_DIR="$SCRIPT_DIR/backup/robust"
+    local ROBUST_INI_DIR="$SCRIPT_DIR/robust/bin"
+    TIMESTAMP=$(date +%F_%H-%M)
+    TIMESTAMP_GRENZE=$(date -d "-$BACKUP_YEARS years" +%s)
+    ARCHIVIEREN="nein"
+
+    declare -A ASSET_NAMES=(
+        [-1]="NoneUnknown" [-2]="LLmaterialIAR" [0]="Texture" [1]="Sound" [2]="CallingCard" [3]="Landmark"
+        [4]="Unknown4" [5]="Clothing" [6]="Object" [7]="Notecard" [8]="Folder" [9]="Unknown9"
+        [10]="LSLText" [11]="LSLBytecode" [12]="TextureTGA" [13]="Bodypart" [14]="Unknown14"
+        [15]="Unknown15" [16]="Unknown16" [17]="SoundWAV" [18]="ImageTGA" [19]="ImageJPEG"
+        [20]="Animation" [21]="Gesture" [22]="Simstate" [23]="Unknown23" [24]="Link"
+        [25]="LinkFolder" [26]="MarketplaceFolder" [49]="Mesh" [56]="Settings" [57]="Material"
+    )
+
+    mkdir -p "$BACKUP_DIR/tables" "$BACKUP_DIR/assettypen" "$BACKUP_DIR/configs"
+
+    log "${COLOR_HEADING}${SYM_PACKAGE} Starte Robust-Datenbank-Backup mit Zeitraumfilter ($BACKUP_YEARS Jahre)${COLOR_RESET}"
+
+    #* Reparatur
+    mysqlcheck -u"$DB_USER" -p"$DB_PASS" --auto-repair "$DB_NAME"
+
+    #* Tabellen sichern (außer assets) mit Zählung
+    local tabellen
+    local total_nonasset_rows=0
+    tabellen=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SHOW TABLES IN $DB_NAME;" | grep -v '^assets$')
+    for table in $tabellen; do
+        row_count=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SELECT COUNT(*) FROM $table;" "$DB_NAME")
+        ((total_nonasset_rows += row_count))
+        log "${SYM_LOG} Tabelleneinträge: $table (${row_count} Einträge)${COLOR_RESET}"
+        mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" "$table" | gzip > "$BACKUP_DIR/tables/${table}.sql.gz"
+    done
+
+    log "${COLOR_INFO}✔️ Tabellen (außer assets): Insgesamt $total_nonasset_rows Einträge gesichert${COLOR_RESET}"
+
+
+    #* Assettypen sichern mit Zählung
+    log "${SYM_PUZZLE} Starte assetType-Datensicherung mit Zeitraumfilter ab $(date -d "@$TIMESTAMP_GRENZE")"
+    
+    total_found=0
+    total_saved=0
+
+    for assettype in "${!ASSET_NAMES[@]}"; do
+        local name="${ASSET_NAMES[$assettype]}"
+        log "${SYM_FOLDER}  Exportiere assetType=$assettype ($name)${COLOR_RESET}"
+
+        # Anzahl Datensätze in diesem Typ und Zeitraum
+        count=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e \
+            "SELECT COUNT(*) FROM assets WHERE assetType = $assettype AND create_time >= $TIMESTAMP_GRENZE;" "$DB_NAME")
+        
+        if [[ "$count" -gt 0 ]]; then
+            ((total_found += count))
+            ((total_saved += count))
+            mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" assets \
+                --where="assetType = $assettype AND create_time >= $TIMESTAMP_GRENZE" \
+                | gzip > "$BACKUP_DIR/assettypen/assets_${name}.sql.gz"
+            log "💾 Gespeichert: $count Einträge für $name"
+        else
+            log "⏭️  Keine Daten für assetType=$assettype ($name)"
+        fi
+    done
+
+    log "${COLOR_INFO}✔️ Asset-Sicherung abgeschlossen: $total_found gefunden, $total_saved gespeichert, Differenz: $((total_found - total_saved))${COLOR_RESET}"
+
+
+    #* Konfig-Dateien sichern
+    log "${SYM_LOG} Sicherung der Konfigurationsdateien im robust/bin Verzeichnis${COLOR_RESET}"
+    find "$ROBUST_INI_DIR" -maxdepth 1 -type f \( \
+        -name "MoneyServer.ini" -o -name "MoneyServer.ini.*" \
+        -o -name "Robust.ini" -o -name "Robust.HG.*" -o -name "Robust.local.*" \) \
+        -exec cp {} "$BACKUP_DIR/configs/" \;
+
+    #* Archiv erstellen (Was passiert hier wird das unützerweise alles in einer Datei gepackt?)
+    if [ "$ARCHIVIEREN" = "ja" ]; then
+    log "${COLOR_HEADING}${SYM_PACKAGE} Erstelle tgz-Archiv: robustbackup_${TIMESTAMP}.tgz${COLOR_RESET}"
+    tar czf "$BACKUP_DIR/robustbackup_${TIMESTAMP}.tgz" -C "$BACKUP_DIR" .
+    log "✅ Backup abgeschlossen: $BACKUP_DIR/robustbackup_${TIMESTAMP}.tgz${COLOR_RESET}"
+    fi
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -5167,6 +5258,7 @@ case $KOMMANDO in
     autoupgrade)                    autoupgrade ;;
     autoupgradefast)                autoupgradefast ;;
     regionbackup)                   regionbackup ;;
+    robustbackup)                   robustbackup "$2" "$3";;
 
     #  HILFE & SONSTIGES      #
     generate_all_name)  generate_all_name ;;
