@@ -65,6 +65,22 @@ function log() {
     fi
 }
 
+function rootrights() {
+    # Root-Privilegien erforderlich
+    if [[ "$EUID" -ne 0 ]]; then
+        echo "Dieses Skript muss als Root ausgeführt werden (z. B. mit sudo)." >&2
+        echo "Ohne Root-Privilegien müssen Sie z.B. das Passwort der Datenbank bei jedem Mal eingeben." >&2
+        echo "Um dies zu verhindern, kann das Skript mit sudo ausgeführt werden." >&2
+        echo -n "Möchten Sie trotzdem ohne Root-Privilegien fortfahren? (ja/N): " >&2
+        read -r answer
+        # Standardantwort "Nein", falls der Benutzer nichts eingibt oder "ja" falsch geschrieben wird
+        if [[ ! "$answer" =~ ^[Jj]a$ ]]; then
+            echo "Abbruch." >&2
+            exit 1
+        fi
+    fi
+}
+
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Informationen Kopfzeile
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -78,7 +94,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.102.419"
+VERSION="V25.5.103.420"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -233,6 +249,8 @@ function servercheck() {
     # Raspberry Pi OS (Debian-basiert, erfordert manuelle Installation für .NET)
 
     log "${COLOR_HEADING}🔍 Server-Kompatibilitätscheck wird durchgeführt...${COLOR_RESET}"
+
+    rootrights
 
     # Ermitteln der Distribution und Version
     os_id=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
@@ -5517,10 +5535,11 @@ case $KOMMANDO in
     autoupgrade)                    autoupgrade ;;
     autoupgradefast)                autoupgradefast ;;
     regionbackup)                   regionbackup ;;
-    robustbackup)                   robustbackup "$2" "$3";;
+    robustbackup)                   robustbackup ;;
     robustrestore)                  robustrestore "$2" "$3" "$4" ;;
     robustrepair)                   robustrepair "$2" "$3" "$4" ;;
     restoreRobustDump)              restoreRobustDump "$2" "$3" "$4" "$5" ;;
+    rootrights)                     rootrights ;;
 
     #  HILFE & SONSTIGES      #
     generate_all_name)  generate_all_name ;;
