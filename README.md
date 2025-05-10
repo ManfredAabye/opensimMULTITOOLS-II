@@ -55,87 +55,87 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## **🛠️ OpenSim-Grid erstellen oder aktualisieren**
 
-| Befehl                                | Beschreibung                                       |
-| ------------------------------------- | -------------------------------------------------- |
-| `servercheck`                         | Prüft, ob der Server für OpenSim bereit ist.       |
-| `createdirectory`                     | Erstellt die benötigten Verzeichnisse.             |
-| `opensimbuild`                        | OpenSim-Programm erstellen.                        |
-| `opensimcopy`                         | OpenSim kopieren/upgraden.                         |
-| `database_setup`                      | SQL-Datenbanken erstellen.                         |
-| `opensimupgrade`                      | OpenSim aktualisieren (*Experimentelle Funktion*). |
-| `autoupgrade`                         | Führt automatisches Upgrade durch.                 |
-| `autoupgradefast`                     | Führt automatisches paralleles Upgrade durch.      |
-| `regionbackup`                        | Backup aller Regionsdaten.                         |
-| `robustbackup`                        | Backup der Robust-Datenbank mit Zeitraumfilter.    |
-| `robustrestore <user> <pass> [teil]`  | Wiederherstellung aus Backup (*experimentell*).    |
-| `robustrepair <user> <pass> [aktion]` | Reparatur oder Bereinigung (*experimentell*).      |
-| `setcrontab`                          | Crontab Automatisierungen erstellen.               |
+| Befehl                                | Beschreibung                                    |
+| ------------------------------------- | ----------------------------------------------- |
+| `servercheck`                         | Prüft, ob der Server für OpenSim bereit ist.    |
+| `createdirectory`                     | Erstellt die benötigten Verzeichnisse.          |
+| `opensimbuild`                        | OpenSim-Programm erstellen.                     |
+| `opensimcopy`                         | OpenSim kopieren/upgraden.                      |
+| `database_setup`                      | SQL-Datenbanken erstellen.                      |
+| `opensimupgrade`                      | OpenSim aktualisieren.                          |
+| `autoupgrade`                         | Führt automatisches Upgrade durch.              |
+| `autoupgradefast`                     | Führt automatisches paralleles Upgrade durch.   |
+| `regionbackup`                        | Backup aller Regionsdaten.                      |
+| `robustbackup`                        | Backup der Robust-Datenbank mit Zeitraumfilter. |
+| `robustrestore <user> <pass> [teil]`  | Wiederherstellung aus Backup.                   |
+| `robustrepair <user> <pass> [aktion]` | Reparatur oder Bereinigung.                     |
+| `setcrontab`                          | Crontab Automatisierungen erstellen.            |
 
 ---
 
 ## **📂 Diverse Git-Downloads**
 
-| Befehl            | Beschreibung                                                     |
-| ----------------- | ---------------------------------------------------------------- |
-| `opensimgitcopy`  | OpenSim aus Git herunterladen.                                   |
-| `moneygitcopy`    | MoneyServer aus Git herunterladen.                               |
-| `ruthrothgit`     | Ruth/Roth IAR-Dateien aus Git (*Experimentelle Funktion*).       |
-| `avatarassetsgit` | Ruth/Roth Assets aus Git (*Experimentelle Funktion*).            |
-| `osslscriptsgit`  | OSSL Beispiel-Skripte herunterladen.                             |
-| `pbrtexturesgit`  | PBR Texturen aus Git (*Experimentelle Funktion*).                |
-| `downloadallgit`  | Alle Git-Repositories herunterladen (*Experimentelle Funktion*). |
-| `versionrevision` | Versionsrevision auf Expanded setzen.                            |
+| Befehl            | Beschreibung                          |
+| ----------------- | ------------------------------------- |
+| `opensimgitcopy`  | OpenSim aus Git herunterladen.        |
+| `moneygitcopy`    | MoneyServer aus Git herunterladen.    |
+| `ruthrothgit`     | Ruth/Roth IAR-Dateien aus Git.        |
+| `avatarassetsgit` | Ruth/Roth Assets aus Git.             |
+| `osslscriptsgit`  | OSSL Beispiel-Skripte herunterladen.  |
+| `pbrtexturesgit`  | PBR Texturen aus Git.                 |
+| `downloadallgit`  | Alle Git-Repositories herunterladen.  |
+| `versionrevision` | Versionsrevision auf Expanded setzen. |
 
 ---
 
 ## **⚙️ Konfiguration**
 
-| Befehl                      | Beschreibung                                                       |
-| --------------------------- | ------------------------------------------------------------------ |
-| `moneyserveriniconfig`      | Konfiguriert MoneyServer.ini (*Experimentelle Funktion*).          |
-| `opensiminiconfig`          | Konfiguriert OpenSim.ini (*Experimentelle Funktion*).              |
-| `robusthginiconfig`         | Konfiguriert Robust.HG.ini (*Experimentelle Funktion*).            |
-| `robustiniconfig`           | Konfiguriert Robust.ini (*Experimentelle Funktion*).               |
-| `gridcommoniniconfig`       | Erstellt GridCommon.ini (*Experimentelle Funktion*).               |
-| `standalonecommoniniconfig` | Erstellt StandaloneCommon.ini (*Experimentelle Funktion*).         |
-| `flotsaminiconfig`          | Erstellt FlotsamCache.ini (*Experimentelle Funktion*).             |
-| `osslenableiniconfig`       | Konfiguriert osslEnable.ini (*Experimentelle Funktion*).           |
-| `welcomeiniconfig`          | Konfiguriert Begrüßungsregion (*Experimentelle Funktion*).         |
-| `regionsiniconfig`          | Startet neue Regionen-Konfigurationen (*Experimentelle Funktion*). |
-| `iniconfig`                 | Startet ALLE Konfigurationen (*Experimentelle Funktion*).          |
+| Befehl                      | Beschreibung                           |
+| --------------------------- | -------------------------------------- |
+| `moneyserveriniconfig`      | Konfiguriert MoneyServer.ini.          |
+| `opensiminiconfig`          | Konfiguriert OpenSim.ini.              |
+| `robusthginiconfig`         | Konfiguriert Robust.HG.ini.            |
+| `robustiniconfig`           | Konfiguriert Robust.ini.               |
+| `gridcommoniniconfig`       | Erstellt GridCommon.ini.               |
+| `standalonecommoniniconfig` | Erstellt StandaloneCommon.ini.         |
+| `flotsaminiconfig`          | Erstellt FlotsamCache.ini.             |
+| `osslenableiniconfig`       | Konfiguriert osslEnable.ini.           |
+| `welcomeiniconfig`          | Konfiguriert Begrüßungsregion.         |
+| `regionsiniconfig`          | Startet neue Regionen-Konfigurationen. |
+| `iniconfig`                 | Startet ALLE Konfigurationen.          |
 
 ---
 
 ## **📜 INI-Operationen**
 
-| Befehl               | Beschreibung                                            |
-| -------------------- | ------------------------------------------------------- |
-| `verify_ini_section` | INI-Abschnitt verifizieren (*Experimentelle Funktion*). |
-| `verify_ini_key`     | INI-Schlüssel verifizieren (*Experimentelle Funktion*). |
-| `add_ini_section`    | INI-Abschnitt hinzufügen (*Experimentelle Funktion*).   |
-| `set_ini_key`        | INI-Schlüssel setzen (*Experimentelle Funktion*).       |
-| `del_ini_section`    | INI-Abschnitt löschen (*Experimentelle Funktion*).      |
+| Befehl               | Beschreibung                |
+| -------------------- | --------------------------- |
+| `verify_ini_section` | INI-Abschnitt verifizieren. |
+| `verify_ini_key`     | INI-Schlüssel verifizieren. |
+| `add_ini_section`    | INI-Abschnitt hinzufügen.   |
+| `set_ini_key`        | INI-Schlüssel setzen.       |
+| `del_ini_section`    | INI-Abschnitt löschen.      |
 
 ---
 
 ## **📄 XML-Operationen**
 
-| Befehl               | Beschreibung                                            |
-| -------------------- | ------------------------------------------------------- |
-| `verify_xml_section` | XML-Abschnitt verifizieren (*Experimentelle Funktion*). |
-| `add_xml_section`    | XML-Abschnitt hinzufügen (*Experimentelle Funktion*).   |
-| `del_xml_section`    | XML-Abschnitt löschen (*Experimentelle Funktion*).      |
+| Befehl               | Beschreibung                |
+| -------------------- | --------------------------- |
+| `verify_xml_section` | XML-Abschnitt verifizieren. |
+| `add_xml_section`    | XML-Abschnitt hinzufügen.   |
+| `del_xml_section`    | XML-Abschnitt löschen.      |
 
 ---
 
 ## **🖥️ Standalone-Modus**
 
-| Befehl              | Beschreibung                                                     |
-| ------------------- | ---------------------------------------------------------------- |
-| `standalone`        | Standalone-Menü.                                                 |
-| `standalonestart`   | Startet OpenSim im Standalone-Modus (*Experimentelle Funktion*). |
-| `standalonestop`    | Stoppt OpenSim im Standalone-Modus (*Experimentelle Funktion*).  |
-| `standalonerestart` | Startet OpenSim Standalone neu (*Experimentelle Funktion*).      |
+| Befehl              | Beschreibung                         |
+| ------------------- | ------------------------------------ |
+| `standalone`        | Standalone-Menü.                     |
+| `standalonestart`   | Startet OpenSim im Standalone-Modus. |
+| `standalonestop`    | Stoppt OpenSim im Standalone-Modus.  |
+| `standalonerestart` | Startet OpenSim Standalone neu.      |
 
 ---
 
@@ -143,19 +143,19 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ⚠ **Warnung:** Einige Befehle erfordern eine **Neuinstallation** von OpenSim!
 
-| Befehl             | Beschreibung                                                                             |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| `dataclean`        | Alte Dateien löschen (⚡ Neuinstallation erforderlich!) (*Experimentelle Funktion*)       |
-| `pathclean`        | Alte Verzeichnisse löschen (⚡ Neuinstallation erforderlich!) (*Experimentelle Funktion*) |
-| `cacheclean`       | Cache bereinigen.                                                                        |
-| `logclean`         | Logs löschen.                                                                            |
-| `mapclean`         | Maptiles löschen.                                                                        |
-| `autoallclean`     | Komplettbereinigung (⚡ Neuinstallation erforderlich!) (*Experimentelle Funktion*)        |
-| `regionsclean`     | Alle Regionen löschen (*Experimentelle Funktion*)                                        |
-| `cleanall`         | Alles bereinigen (⚡ Neuinstallation erforderlich!) (*Experimentelle Funktion*)           |
-| `renamefiles`      | Umbenennung aller \*.example Dateien.                                                    |
-| `clean_linux_logs` | Linux-Systemlogs bereinigen.                                                             |
-| `delete_opensim`   | Entfernt OpenSimulator komplett inkl. Verzeichnissen.                                    |
+| Befehl             | Beschreibung                                                 |
+| ------------------ | ------------------------------------------------------------ |
+| `dataclean`        | Alte Dateien löschen (⚡ Neuinstallation erforderlich!)       |
+| `pathclean`        | Alte Verzeichnisse löschen (⚡ Neuinstallation erforderlich!) |
+| `cacheclean`       | Cache bereinigen.                                            |
+| `logclean`         | Logs löschen.                                                |
+| `mapclean`         | Maptiles löschen.                                            |
+| `autoallclean`     | Komplettbereinigung (⚡ Neuinstallation erforderlich!)        |
+| `regionsclean`     | Alle Regionen löschen.                                       |
+| `cleanall`         | Alles bereinigen (⚡ Neuinstallation erforderlich!)           |
+| `renamefiles`      | Umbenennung aller \*.example Dateien.                        |
+| `clean_linux_logs` | Linux-Systemlogs bereinigen.                                 |
+| `delete_opensim`   | Entfernt OpenSimulator komplett inkl. Verzeichnissen.        |
 
 ---
 
