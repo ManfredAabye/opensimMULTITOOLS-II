@@ -78,7 +78,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.102.415"
+VERSION="V25.5.102.416"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -5224,39 +5224,39 @@ function autoupgradefast() {
 function help() {
     # Allgemeine Befehle
     log "${COLOR_SECTION}${SYM_SERVER} OpenSim Grundbefehle:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_START}opensimstart${COLOR_RESET}\t\t# Startet OpenSimulator komplett"
-    log "${SYM_VOR} ${COLOR_STOP}opensimstop${COLOR_RESET}\t\t# Stoppt OpenSimulator komplett"
-    log "${SYM_VOR} ${COLOR_START}opensimrestart${COLOR_RESET}\t\t# Startet den OpenSimulator komplett neu"
+    log "${SYM_VOR} ${COLOR_START}opensimstart${COLOR_RESET} \t\t # Startet OpenSimulator komplett"
+    log "${SYM_VOR} ${COLOR_STOP}opensimstop${COLOR_RESET} \t\t # Stoppt OpenSimulator komplett"
+    log "${SYM_VOR} ${COLOR_START}opensimrestart${COLOR_RESET} \t # Startet den OpenSimulator komplett neu"
     echo
-    log "${SYM_VOR} ${COLOR_START}simstart${COLOR_RESET}\t\t# simX angeben - startet einen Regionsserver"
-    log "${SYM_VOR} ${COLOR_STOP}simstop${COLOR_RESET}\t\t\t# simX angeben - stoppt einen Regionsserver"
-    log "${SYM_VOR} ${COLOR_START}simrestart${COLOR_RESET}\t\t# simX angeben - startet einen Regionsserver neu"
+    log "${SYM_VOR} ${COLOR_START}simstart${COLOR_RESET} \t\t # simX angeben - startet einen Regionsserver"
+    log "${SYM_VOR} ${COLOR_STOP}simstop${COLOR_RESET} \t\t # simX angeben - stoppt einen Regionsserver"
+    log "${SYM_VOR} ${COLOR_START}simrestart${COLOR_RESET} \t\t # simX angeben - startet einen Regionsserver neu"
     echo ""
 
     # System-Checks & Setup
     log "${COLOR_SECTION}${SYM_TOOLS} System-Checks & Setup:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}check_screens${COLOR_RESET}\t\t# Prüft laufende Prozesse und handelt entsprechend"
+    log "${SYM_VOR} ${COLOR_OK}check_screens${COLOR_RESET} \t # Prüft laufende Prozesse und handelt entsprechend"
     echo
-    #log "${SYM_VOR} ${COLOR_OK}servercheck${COLOR_RESET}\t\t# Installiert und Prüft den Server"
-    #log "${SYM_VOR} ${COLOR_OK}createdirectory${COLOR_RESET}\t\t# Erstellt alle benötigten Verzeichnisse"
-    log "${SYM_VOR} ${COLOR_OK}autoinstall${COLOR_RESET}\t\t# OpenSimulator Automatisiert installieren und einrichten"
-    log "${SYM_VOR} ${COLOR_OK}setcrontab${COLOR_RESET}\t\t# Richtet Crontab ein damit der Server wartungsfrei laeuft"
+    #log "${SYM_VOR} ${COLOR_OK}servercheck${COLOR_RESET} \t\t # Installiert und Prüft den Server"
+    #log "${SYM_VOR} ${COLOR_OK}createdirectory${COLOR_RESET} \t\t # Erstellt alle benötigten Verzeichnisse"
+    log "${SYM_VOR} ${COLOR_OK}autoinstall${COLOR_RESET} \t\t # OpenSimulator Automatisiert installieren und einrichten"
+    log "${SYM_VOR} ${COLOR_OK}setcrontab${COLOR_RESET} \t\t # Richtet Crontab ein damit der Server wartungsfrei laeuft"
     echo ""
 
     # Git-Operationen
     #log "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
-    #log "${SYM_VOR} ${COLOR_OK}opensimgitcopy${COLOR_RESET}\t\t# Klont den OpenSim Code"
-    #log "${SYM_VOR} ${COLOR_OK}moneygitcopy${COLOR_RESET}\t\t# Baut den MoneyServer in den OpenSimulator ein"
-    #log "${SYM_VOR} ${COLOR_OK}osslscriptsgit${COLOR_RESET}\t\t# Klont OSSL-Skripte"
-    #log "${SYM_VOR} ${COLOR_OK}versionrevision${COLOR_RESET}\t\t# Setzt Versionsrevision"
+    #log "${SYM_VOR} ${COLOR_OK}opensimgitcopy${COLOR_RESET} \t\t # Klont den OpenSim Code"
+    #log "${SYM_VOR} ${COLOR_OK}moneygitcopy${COLOR_RESET} \t\t # Baut den MoneyServer in den OpenSimulator ein"
+    #log "${SYM_VOR} ${COLOR_OK}osslscriptsgit${COLOR_RESET} \t\t # Klont OSSL-Skripte"
+    #log "${SYM_VOR} ${COLOR_OK}versionrevision${COLOR_RESET} \t\t # Setzt Versionsrevision"
     #echo ""
 
     # OpenSim Build & Deploy
     #log "${COLOR_SECTION}${SYM_FOLDER} OpenSim Build & Deploy:${COLOR_RESET}"
-    #log "${SYM_VOR} ${COLOR_OK}opensimbuild${COLOR_RESET}\t\t# Kompiliert OpenSim zu ausführbaren Dateien"
-    #log "${SYM_VOR} ${COLOR_OK}opensimcopy${COLOR_RESET}\t\t# Kopiert OpenSim in alle Verzeichnisse"
-    #log "${SYM_VOR} ${COLOR_OK}opensimupgrade${COLOR_RESET}\t\t# Upgradet OpenSim"
-    #log "${SYM_VOR} ${COLOR_OK}database_setup${COLOR_RESET}\t\t# Erstellt alle Datenbanken"
+    #log "${SYM_VOR} ${COLOR_OK}opensimbuild${COLOR_RESET} \t\t # Kompiliert OpenSim zu ausführbaren Dateien"
+    #log "${SYM_VOR} ${COLOR_OK}opensimcopy${COLOR_RESET} \t\t # Kopiert OpenSim in alle Verzeichnisse"
+    #log "${SYM_VOR} ${COLOR_OK}opensimupgrade${COLOR_RESET} \t\t # Upgradet OpenSim"
+    #log "${SYM_VOR} ${COLOR_OK}database_setup${COLOR_RESET} \t\t # Erstellt alle Datenbanken"
     #echo ""
 
     # Konfigurationsmanagement
@@ -5268,68 +5268,68 @@ function help() {
 
     # Systembereinigung
     log "${COLOR_SECTION}${SYM_CLEAN} Systembereinigung:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}cacheclean${COLOR_RESET}\t\t# Bereinigt OpenSimulator Cache"
-    log "${SYM_VOR} ${COLOR_OK}logclean${COLOR_RESET}\t\t# Bereinigt OpenSimulator Logs"
-    log "${SYM_VOR} ${COLOR_OK}mapclean${COLOR_RESET}\t\t# Bereinigt OpenSimulator Maptiles"
+    log "${SYM_VOR} ${COLOR_OK}cacheclean${COLOR_RESET} \t\t # Bereinigt OpenSimulator Cache"
+    log "${SYM_VOR} ${COLOR_OK}logclean${COLOR_RESET} \t\t # Bereinigt OpenSimulator Logs"
+    log "${SYM_VOR} ${COLOR_OK}mapclean${COLOR_RESET} \t\t # Bereinigt OpenSimulator Maptiles"
     #log "${SYM_VOR} ${COLOR_OK}clean_linux_logs${COLOR_RESET}\t# Bereinigt Systemlogs"
     echo ""
 
     # Hilfe
     log "${COLOR_SECTION}${SYM_INFO} Hilfe:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}help${COLOR_RESET}\t\t\t# Zeigt diese Hilfe"
-    log "${SYM_VOR} ${COLOR_OK}prohelp${COLOR_RESET}\t\t\t# Zeigt die Pro Hilfe"
+    log "${SYM_VOR} ${COLOR_OK}help${COLOR_RESET} \t\t\t # Zeigt diese Hilfe"
+    log "${SYM_VOR} ${COLOR_OK}prohelp${COLOR_RESET} \t\t # Zeigt die Pro Hilfe"
     echo ""
 }
 
 function prohelp() {
     #* OpenSim Grundbefehle
     log "${COLOR_SECTION}${SYM_SERVER} OpenSim Grundbefehle:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_START}opensimstart${COLOR_RESET} \t\t\t # OpenSim starten"
-    log "${SYM_VOR} ${COLOR_STOP}opensimstop${COLOR_RESET} \t\t\t # OpenSim stoppen"
-    log "${SYM_VOR} ${COLOR_START}opensimrestart${COLOR_RESET} \t\t\t # OpenSim neu starten"
-    log "${SYM_VOR} ${COLOR_OK}check_screens${COLOR_RESET} \t\t\t # Laufende OpenSim-Prozesse prüfen und neu starten"
-    log "${SYM_VOR} ${COLOR_OK}autoupgrade${COLOR_RESET} \t\t\t # Automatisches OpenSim upgrade"
+    log "${SYM_VOR} ${COLOR_START}opensimstart${COLOR_RESET} \t\t # OpenSim starten"
+    log "${SYM_VOR} ${COLOR_STOP}opensimstop${COLOR_RESET} \t\t # OpenSim stoppen"
+    log "${SYM_VOR} ${COLOR_START}opensimrestart${COLOR_RESET} \t # OpenSim neu starten"
+    log "${SYM_VOR} ${COLOR_OK}check_screens${COLOR_RESET} \t # Laufende OpenSim-Prozesse prüfen und neu starten"
+    log "${SYM_VOR} ${COLOR_OK}autoupgrade${COLOR_RESET} \t\t # Automatisches OpenSim upgrade"
 
-    log "${SYM_VOR} ${COLOR_OK}opensimstartParallel${COLOR_RESET} \t\t # Startet alle Regionen parallel"
-    log "${SYM_VOR} ${COLOR_OK}opensimstopParallel${COLOR_RESET} \t\t # Stoppt alle Regionen parallel"
-    log "${SYM_VOR} ${COLOR_OK}opensimrestartParallel${COLOR_RESET} \t\t # Startet alle Regionen neu (parallel)"
+    log "${SYM_VOR} ${COLOR_OK}opensimstartParallel${COLOR_RESET} \t # Startet alle Regionen parallel"
+    log "${SYM_VOR} ${COLOR_OK}opensimstopParallel${COLOR_RESET} \t # Stoppt alle Regionen parallel"
+    log "${SYM_VOR} ${COLOR_OK}opensimrestartParallel${COLOR_RESET}  # Startet alle Regionen neu (parallel)"
     echo " "
 
     #* System-Checks & Setup
     log "${COLOR_SECTION}${SYM_TOOLS} System-Checks & Setup:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}servercheck${COLOR_RESET} \t\t\t # Serverbereitschaft prüfen und Abhängigkeiten installieren"
-    log "${SYM_VOR} ${COLOR_OK}createdirectory${COLOR_RESET} \t\t # OpenSim-Verzeichnisse erstellen"
-    log "${SYM_VOR} ${COLOR_OK}setcrontab${COLOR_RESET} \t\t\t # Crontab Automatisierungen einrichten"
-    log "${SYM_VOR} ${COLOR_OK}autoinstall${COLOR_RESET} \t\t\t # OpenSimulator Automatisiert installieren und einrichten"
+    log "${SYM_VOR} ${COLOR_OK}servercheck${COLOR_RESET} \t\t # Serverbereitschaft prüfen und Abhängigkeiten installieren"
+    log "${SYM_VOR} ${COLOR_OK}createdirectory${COLOR_RESET} \t # OpenSim-Verzeichnisse erstellen"
+    log "${SYM_VOR} ${COLOR_OK}setcrontab${COLOR_RESET} \t\t # Crontab Automatisierungen einrichten"
+    log "${SYM_VOR} ${COLOR_OK}autoinstall${COLOR_RESET} \t\t # OpenSimulator Automatisiert installieren und einrichten"
     echo " "
 
     #* Git-Operationen
     log "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}opensimgitcopy${COLOR_RESET} \t\t\t # OpenSim aus Git herunterladen"
-    log "${SYM_VOR} ${COLOR_OK}moneygitcopy${COLOR_RESET} \t\t\t # MoneyServer aus Git holen"
-    #log "${SYM_VOR} ${COLOR_WARNING}ruthrothgit${COLOR_RESET} \t\t\t # Ruth Roth IAR Dateien ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_OK}opensimgitcopy${COLOR_RESET} \t # OpenSim aus Git herunterladen"
+    log "${SYM_VOR} ${COLOR_OK}moneygitcopy${COLOR_RESET} \t\t # MoneyServer aus Git holen"
+    #log "${SYM_VOR} ${COLOR_WARNING}ruthrothgit${COLOR_RESET} \t\t # Ruth Roth IAR Dateien ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     #log "${SYM_VOR} ${COLOR_WARNING}avatarassetsgit${COLOR_RESET} \t\t # Avatar-Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}osslscriptsgit${COLOR_RESET} \t\t\t # OSSL Beispielskripte herunterladen"
-    #log "${SYM_VOR} ${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} \t\t\t # PBR-Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}downloadallgit${COLOR_RESET} \t\t\t # Alle Git-Repos herunterladen"
-    log "${SYM_VOR} ${COLOR_OK}versionrevision${COLOR_RESET} \t\t # Versionsverwaltung aktivieren"
+    log "${SYM_VOR} ${COLOR_OK}osslscriptsgit${COLOR_RESET} \t # OSSL Beispielskripte herunterladen"
+    #log "${SYM_VOR} ${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} \t\t # PBR-Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_OK}downloadallgit${COLOR_RESET} \t # Alle Git-Repos herunterladen"
+    log "${SYM_VOR} ${COLOR_OK}versionrevision${COLOR_RESET} \t # Versionsverwaltung aktivieren"
     echo " "
 
     #* OpenSim Build & Deployment
     log "${COLOR_SECTION}${SYM_FOLDER} OpenSim Build & Deploy:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}opensimbuild${COLOR_RESET} \t\t\t\t # OpenSim kompilieren"
-    log "${SYM_VOR} ${COLOR_OK}opensimcopy${COLOR_RESET} \t\t\t\t # OpenSim Dateien kopieren"
-    log "${SYM_VOR} ${COLOR_OK}opensimupgrade${COLOR_RESET} \t\t\t\t # OpenSim aktualisieren"
-    log "${SYM_VOR} ${COLOR_OK}database_setup${COLOR_RESET} \t\t\t\t # Datenbank für OpenSim einrichten"
+    log "${SYM_VOR} ${COLOR_OK}opensimbuild${COLOR_RESET} \t\t\t # OpenSim kompilieren"
+    log "${SYM_VOR} ${COLOR_OK}opensimcopy${COLOR_RESET} \t\t\t # OpenSim Dateien kopieren"
+    log "${SYM_VOR} ${COLOR_OK}opensimupgrade${COLOR_RESET} \t\t # OpenSim aktualisieren"
+    log "${SYM_VOR} ${COLOR_OK}database_setup${COLOR_RESET} \t\t # Datenbank für OpenSim einrichten"
+    echo " "
+    log "${SYM_VOR} ${COLOR_OK}autoupgrade${COLOR_RESET} \t\t\t # Führt automatisches Update durch"
+    log "${SYM_VOR} ${COLOR_OK}autoupgradefast${COLOR_RESET} \t\t # Automatisches OpenSim Parallel upgraden"
 
-    log "${SYM_VOR} ${COLOR_OK}autoupgrade${COLOR_RESET} \t\t\t\t # Führt automatisches Update durch"
-    log "${SYM_VOR} ${COLOR_OK}autoupgradefast${COLOR_RESET} \t\t\t # Automatisches OpenSim Parallel upgraden"
-
-    log "${SYM_VOR} ${COLOR_OK}regionbackup${COLOR_RESET} \t\t\t\t # Sichert aktuelle Regionen-Daten"
-    log "${SYM_VOR} ${COLOR_OK}robustbackup${COLOR_RESET} \t\t\t\t # Backup der Robust-Datenbank (mit Zeitraumfilter)"
-    log "${SYM_VOR} ${COLOR_OK}robustrestore <user> <pass> [teil]${COLOR_RESET}  # Wiederherstellung aus robustbackup ${COLOR_BAD}(experimentell)${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}robustrepair <user> <pass> [aktion]${COLOR_RESET} # Reparatur oder Bereinigung der Robust-DB ${COLOR_BAD}(experimentell)${COLOR_RESET}"    
-    log "${SYM_VOR} ${COLOR_OK}restoreRobustDump <dbuser> <dbpass> <dumpfile> <targetdb>${COLOR_RESET} # Robust Wiederherstellung${COLOR_BAD}(experimentell)${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_OK}regionbackup${COLOR_RESET} \t\t\t # Sichert aktuelle Regionen-Daten"
+    log "${SYM_VOR} ${COLOR_OK}robustbackup${COLOR_RESET} \t\t\t # Backup der Robust-Datenbank (mit Zeitraumfilter)"
+    log "${SYM_VOR} ${COLOR_OK}robustrestore <user> <pass> [teil]${COLOR_RESET}  # Wiederherstellung aus robustbackup ${COLOR_BAD} experimentell${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_OK}robustrepair <user> <pass> [aktion]${COLOR_RESET} # Reparatur oder Bereinigung der Robust-DB ${COLOR_BAD} experimentell${COLOR_RESET}"    
+    log "${SYM_VOR} ${COLOR_OK}restoreRobustDump <dbuser> <dbpass> <dumpfile> <targetdb>${COLOR_RESET} # Robust Wiederherstellung${COLOR_BAD} experimentell${COLOR_RESET}"
     echo " "
 
     #* Konfigurationsmanagement
@@ -5350,7 +5350,7 @@ function prohelp() {
     #* XML & INI-Operationen
     log "${COLOR_SECTION}${SYM_SCRIPT} INI-Operationen:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}verify_ini_section${COLOR_RESET} \t\t # INI-Abschnitt verifizieren"
-    log "${SYM_VOR} ${COLOR_OK}verify_ini_key${COLOR_RESET} \t\t\t # INI-Schlüssel verifizieren"
+    log "${SYM_VOR} ${COLOR_OK}verify_ini_key${COLOR_RESET} \t\t # INI-Schlüssel verifizieren"
     log "${SYM_VOR} ${COLOR_OK}add_ini_section${COLOR_RESET} \t\t # INI-Abschnitt hinzufügen"
     log "${SYM_VOR} ${COLOR_OK}set_ini_key${COLOR_RESET} \t\t\t # INI-Schlüssel setzen"
     log "${SYM_VOR} ${COLOR_WARNING}del_ini_section${COLOR_RESET} \t\t # INI-Abschnitt löschen"
@@ -5365,18 +5365,18 @@ function prohelp() {
 
     #* System-Bereinigung
     log "${COLOR_SECTION}${SYM_CLEAN} Systembereinigung:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}reboot${COLOR_RESET} \t\t\t\t # Linux Server neu starten"
-    log "${SYM_VOR} ${COLOR_OK}cacheclean${COLOR_RESET} \t\t\t # OpenSimulator Cache bereinigen"
-    log "${SYM_VOR} ${COLOR_OK}logclean${COLOR_RESET} \t\t\t # OpenSimulator Logs bereinigen"
-    log "${SYM_VOR} ${COLOR_OK}mapclean${COLOR_RESET} \t\t\t # OpenSimulator Maptiles bereinigen"
-    log "${SYM_VOR} ${COLOR_OK}renamefiles${COLOR_RESET} \t\t\t # OpenSimulator Beispieldateien umbenennen"
-    log "${SYM_VOR} ${COLOR_OK}clean_linux_logs${COLOR_RESET} \t\t # Linux-Logs bereinigen"
-    log "${SYM_VOR} ${COLOR_OK}delete_opensim${COLOR_RESET} \t\t\t # OpenSimulator mit Verzeichnisse entfernen"
+    log "${SYM_VOR} ${COLOR_OK}reboot${COLOR_RESET} \t\t # Linux Server neu starten"
+    log "${SYM_VOR} ${COLOR_OK}cacheclean${COLOR_RESET} \t\t # OpenSimulator Cache bereinigen"
+    log "${SYM_VOR} ${COLOR_OK}logclean${COLOR_RESET} \t\t # OpenSimulator Logs bereinigen"
+    log "${SYM_VOR} ${COLOR_OK}mapclean${COLOR_RESET} \t\t # OpenSimulator Maptiles bereinigen"
+    log "${SYM_VOR} ${COLOR_OK}renamefiles${COLOR_RESET} \t\t # OpenSimulator Beispieldateien umbenennen"
+    log "${SYM_VOR} ${COLOR_OK}clean_linux_logs${COLOR_RESET} \t # Linux-Logs bereinigen"
+    log "${SYM_VOR} ${COLOR_OK}delete_opensim${COLOR_RESET} \t # OpenSimulator mit Verzeichnisse entfernen"
     echo " "
 
     #* Hilfe
     log "${COLOR_SECTION}${SYM_INFO} Hilfe:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}help${COLOR_RESET} \t\t\t\t # Einfache Hilfeseite anzeigen"
+    log "${SYM_VOR} ${COLOR_OK}help${COLOR_RESET} \t\t # Einfache Hilfeseite anzeigen"
     echo " "
 }
 
