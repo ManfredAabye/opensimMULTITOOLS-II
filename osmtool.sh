@@ -78,7 +78,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.102.416"
+VERSION="V25.5.102.419"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -2379,20 +2379,47 @@ function regionbackup() {
 # todo: Testen, ob alles funktioniert.
 # Erstellt ein strukturiertes Backup der Robust-Datenbank sowie wichtiger Konfigurationsdateien.
 # Aufruf:
-#* robustbackup <dbuser> <dbpass>
-# dbuser: SQL-Benutzername
-# dbpass: Passwort des SQL-Benutzers
 function robustbackup() {
-    local DB_USER=$1
-    local DB_PASS=$2
+    # Variablen der Funktion.
     local DB_NAME="robust"
     local BACKUP_YEARS=30
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local ini_file="$SCRIPT_DIR/UserInfo.ini"
     local BACKUP_DIR="$SCRIPT_DIR/backup/robust"
     local ROBUST_INI_DIR="$SCRIPT_DIR/robust/bin"
     TIMESTAMP=$(date +%F_%H-%M)
     TIMESTAMP_GRENZE=$(date -d "-$BACKUP_YEARS years" +%s)
     ARCHIVIEREN="nein"
+
+    # Root-Privilegien erforderlich
+    if [[ "$EUID" -ne 0 ]]; then
+        echo "Dieses Skript muss als Root ausgeführt werden (z.B. mit sudo)." >&2
+        echo "Ohne Root-Privilegien müssen Sie das Passwort der Datenbank bei jedem Mal eingeben." >&2
+        echo -n "Möchten Sie trotzdem ohne Root-Privilegien fortfahren? (ja/N): " >&2
+        read -r answer
+        if [[ "$answer" != "ja" ]]; then
+            echo "Abbruch." >&2
+            exit 1
+        fi
+    fi
+
+    # Zugangsdaten auslesen, falls vorhanden
+    local DB_USER DB_PASS
+    if [[ -f "$ini_file" ]]; then
+        DB_USER=$(grep -oP '^DB_Benutzername\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+        DB_PASS=$(grep -oP '^DB_Passwort\s*=\s*\K\S+' "$ini_file" | tr -d '\r\n')
+    fi
+
+    # Falls nicht vorhanden: Benutzer fragen
+    if [[ -z "$DB_USER" ]]; then
+        echo "Bitte DB-Benutzername eingeben:"
+        read -r DB_USER
+    fi
+
+    if [[ -z "$DB_PASS" ]]; then
+        echo "Bitte DB-Passwort eingeben:"
+        read -r DB_PASS
+    fi
 
     declare -A ASSET_NAMES=(
         [-1]="NoneUnknown" [-2]="LLmaterialIAR" [0]="Texture" [1]="Sound" [2]="CallingCard" [3]="Landmark"
@@ -2451,7 +2478,6 @@ function robustbackup() {
     done
 
     log "${SYM_OKN}${COLOR_INFO} Asset-Sicherung abgeschlossen: $total_found gefunden, $total_saved gespeichert, Differenz: $((total_found - total_saved))${COLOR_RESET}"
-
 
     #* Konfig-Dateien sichern
     log "${SYM_LOG} Sicherung der Konfigurationsdateien im robust/bin Verzeichnis${COLOR_RESET}"
