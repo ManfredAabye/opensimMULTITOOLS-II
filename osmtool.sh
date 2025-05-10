@@ -65,7 +65,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.101.412"
+VERSION="V25.5.102.414"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -109,9 +109,12 @@ SYM_FILE="${COLOR_VALUE}📄${COLOR_RESET}"        # Datei, Bericht
 SYM_SERVER="${COLOR_VALUE}🖥️${COLOR_RESET}"      # Server, Computer
 SYM_CLEAN="${COLOR_VALUE}🧹${COLOR_RESET}"       # Bereinigung, Aufräumen, Löschen
 # shellcheck disable=SC2034
-SYM_WARNING="${COLOR_VALUE}⚠${COLOR_RESET}"     # Achtung, Gefahr, Hinweis
+SYM_WARNING="${COLOR_VALUE}⚠${COLOR_RESET}"      # Achtung, Gefahr, Hinweis
 SYM_PUZZLE="${COLOR_VALUE}🧩${COLOR_RESET}"      # Rätsel, Aufgabe, Aufgabenstellung
-SYM_PACKAGE="${COLOR_VALUE}📦${COLOR_RESET}"      # Package
+SYM_PACKAGE="${COLOR_VALUE}📦${COLOR_RESET}"     # Package
+SYM_OKN="${COLOR_VALUE}✔️${COLOR_RESET}"         # OK
+SYM_FORWARD="${COLOR_VALUE}⏭️${COLOR_RESET}"     # Weiter
+SYM_OKNN="${COLOR_VALUE}✅${COLOR_RESET}"        # OK
 
 #* WARTEZEITEN muessen leider sein damit der Server nicht überfordert wird.
 Simulator_Start_wait=15 # Sekunden
@@ -949,9 +952,9 @@ function moneygitcopy() {
             fi
             
             if [ "$old_head" == "$(git rev-parse HEAD)" ]; then
-                log "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer ist bereits aktuell.${COLOR_RESET}"
+                log "${COLOR_OK}${SYM_OKNN} ${COLOR_ACTION}MoneyServer ist bereits aktuell.${COLOR_RESET}"
             else
-                log "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer erfolgreich aktualisiert!${COLOR_RESET}"
+                log "${COLOR_OK}${SYM_OKNN} ${COLOR_ACTION}MoneyServer erfolgreich aktualisiert!${COLOR_RESET}"
             fi
             
             if ! check_repo_integrity; then
@@ -967,7 +970,7 @@ function moneygitcopy() {
                 log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
                 return 1
             fi
-            log "${COLOR_OK}✅ ${COLOR_ACTION}MoneyServer erfolgreich heruntergeladen!${COLOR_RESET}"
+            log "${COLOR_OK}${SYM_OKNN} ${COLOR_ACTION}MoneyServer erfolgreich heruntergeladen!${COLOR_RESET}"
         fi
     else
         log "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
@@ -1049,9 +1052,9 @@ function osslscriptsgit() {
             fi
             
             if [ "$old_head" != "$(git rev-parse HEAD)" ]; then
-                log "${COLOR_OK}✅ ${COLOR_ACTION}Neue Updates wurden installiert.${COLOR_RESET}"
+                log "${COLOR_OK}${SYM_OKNN} ${COLOR_ACTION}Neue Updates wurden installiert.${COLOR_RESET}"
             else
-                log "${COLOR_OK}✅ ${COLOR_ACTION}Repository ist bereits aktuell.${COLOR_RESET}"
+                log "${COLOR_OK}${SYM_OKNN} ${COLOR_ACTION}Repository ist bereits aktuell.${COLOR_RESET}"
             fi
             
             if ! check_repo_integrity; then
@@ -1067,7 +1070,7 @@ function osslscriptsgit() {
                 log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
                 return 1
             fi
-            log "${COLOR_OK}✅ ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
+            log "${COLOR_OK}${SYM_OKNN} ${COLOR_ACTION}Repository wurde erfolgreich heruntergeladen.${COLOR_RESET}"
         fi
     else
         log "${SYM_BAD} ${COLOR_ERROR}Abbruch: Keine Aktion durchgeführt.${COLOR_RESET}"
@@ -1127,9 +1130,9 @@ function ruthrothgit() {
 
         if [[ ! -d "$target_dir" ]]; then
             log "  ${COLOR_ACTION}➜ Klone ${COLOR_SERVER}$avatar${COLOR_ACTION} von GitHub...${COLOR_RESET}"
-            git clone "$repo_url" "$target_dir" && log "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}wurde heruntergeladen.${COLOR_RESET}"
+            git clone "$repo_url" "$target_dir" && log "  ${COLOR_OK}${SYM_OKNN} ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}wurde heruntergeladen.${COLOR_RESET}"
         else
-            log "  ${COLOR_OK}✅ ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}ist bereits vorhanden, überspringe Download.${COLOR_RESET}"
+            log "  ${COLOR_OK}${SYM_OKNN} ${COLOR_SERVER}$avatar${COLOR_RESET} ${COLOR_ACTION}ist bereits vorhanden, überspringe Download.${COLOR_RESET}"
         fi
 
         # Kopiere nur die relevanten IAR-Dateien direkt nach ruthroth
@@ -1158,7 +1161,7 @@ function ruthrothgit() {
         fi
     done
 
-    log "${COLOR_OK}✅ ${COLOR_ACTION}Grundlage für die OpenSimulator-Pakete wurde erfolgreich erstellt!${COLOR_RESET}"
+    log "${COLOR_OK}${SYM_OKNN} ${COLOR_ACTION}Grundlage für die OpenSimulator-Pakete wurde erfolgreich erstellt!${COLOR_RESET}"
 
     # Schritt 2 die verwendung von updatelibrary.py.
     cd ruthroth
@@ -1292,13 +1295,13 @@ function osWebinterfacegit() {
                 log "${SYM_BAD} ${COLOR_ERROR}PHP-Installation fehlgeschlagen!${COLOR_RESET}"
                 return 1
             fi
-            log "${COLOR_OK}✅ PHP erfolgreich installiert!${COLOR_RESET}"
+            log "${COLOR_OK}${SYM_OKNN} PHP erfolgreich installiert!${COLOR_RESET}"
         else
             log "${SYM_BAD} ${COLOR_ERROR}Abbruch: PHP ist erforderlich.${COLOR_RESET}"
             return 1
         fi
     else
-        log "${COLOR_OK}✅ PHP ist installiert ($(php -v | head -n 1))${COLOR_RESET}"
+        log "${COLOR_OK}${SYM_OKNN} PHP ist installiert ($(php -v | head -n 1))${COLOR_RESET}"
     fi
 
     # 2. Webverzeichnis-Check mit automatischer User/Group-Erkennung
@@ -1381,7 +1384,7 @@ function osWebinterfacegit() {
         return 1
     fi
 
-    log "${COLOR_OK}✅ Erfolgreich installiert nach: ${COLOR_DIR}$webroot/$webverzeichnis${COLOR_RESET}"
+    log "${COLOR_OK}${SYM_OKNN} Erfolgreich installiert nach: ${COLOR_DIR}$webroot/$webverzeichnis${COLOR_RESET}"
     log "   Benutzer/Gruppe: ${COLOR_INFO}$target_user:$target_group${COLOR_RESET}"
     blankline
     return 0
@@ -2404,7 +2407,7 @@ function robustbackup() {
         mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" "$table" | gzip > "$BACKUP_DIR/tables/${table}.sql.gz"
     done
 
-    log "${COLOR_INFO}✔️ Tabellen (außer assets): Insgesamt $total_nonasset_rows Einträge gesichert${COLOR_RESET}"
+    log "${SYM_OKN}${COLOR_INFO} Tabellen (außer assets): Insgesamt $total_nonasset_rows Einträge gesichert${COLOR_RESET}"
 
 
     #* Assettypen sichern mit Zählung
@@ -2427,13 +2430,13 @@ function robustbackup() {
             mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" assets \
                 --where="assetType = $assettype AND create_time >= $TIMESTAMP_GRENZE" \
                 | gzip > "$BACKUP_DIR/assettypen/assets_${name}.sql.gz"
-            log "💾 Gespeichert: $count Einträge für $name"
+            log "${SYM_OKN} Gespeichert: $count Einträge für $name"
         else
-            log "⏭️  Keine Daten für assetType=$assettype ($name)"
+            log "${SYM_FORWARD}  Keine Daten für assetType=$assettype ($name)"
         fi
     done
 
-    log "${COLOR_INFO}✔️ Asset-Sicherung abgeschlossen: $total_found gefunden, $total_saved gespeichert, Differenz: $((total_found - total_saved))${COLOR_RESET}"
+    log "${SYM_OKN}${COLOR_INFO} Asset-Sicherung abgeschlossen: $total_found gefunden, $total_saved gespeichert, Differenz: $((total_found - total_saved))${COLOR_RESET}"
 
 
     #* Konfig-Dateien sichern
@@ -2447,9 +2450,71 @@ function robustbackup() {
     if [ "$ARCHIVIEREN" = "ja" ]; then
     log "${COLOR_HEADING}${SYM_PACKAGE} Erstelle tgz-Archiv: robustbackup_${TIMESTAMP}.tgz${COLOR_RESET}"
     tar czf "$BACKUP_DIR/robustbackup_${TIMESTAMP}.tgz" -C "$BACKUP_DIR" .
-    log "✅ Backup abgeschlossen: $BACKUP_DIR/robustbackup_${TIMESTAMP}.tgz${COLOR_RESET}"
+    log "${SYM_OKNN} Backup abgeschlossen: $BACKUP_DIR/robustbackup_${TIMESTAMP}.tgz${COLOR_RESET}"
     fi
 }
+
+# todo: Testen, ob alles funktioniert.
+# Wiederherstellt eine Robust-Datenbank aus einer Dump-Datei.
+# Aufruf:
+#* restoreRobustDump <dbuser> <dbpass> <dumpfile> <targetdb>
+function restoreRobustDump() {
+    local DB_USER=$1
+    local DB_PASS=$2
+    local DUMP_FILE=$3
+    local TARGET_DB=$4
+
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local TMPDIR
+    TMPDIR=$(mktemp -d)
+    local total_tables=0
+
+    log "${COLOR_HEADING}${SYM_PACKAGE} Starte Wiederherstellung von Dump-Datei ${COLOR_FILE}${DUMP_FILE}${COLOR_RESET} in Datenbank ${COLOR_VALUE}${TARGET_DB}${COLOR_RESET}"
+
+    if [[ ! -f "$DUMP_FILE" ]]; then
+        log "${SYM_BAD} ${COLOR_BAD}Fehler:${COLOR_RESET} Dump-Datei nicht gefunden: ${COLOR_FILE}$DUMP_FILE${COLOR_RESET}"
+        return 1
+    fi
+
+    #* Datenbank vorbereiten
+    log "${SYM_TOOLS} Entferne vorhandene Datenbank (falls vorhanden) und erstelle neu: ${COLOR_VALUE}$TARGET_DB${COLOR_RESET}"
+    mysql -u"$DB_USER" -p"$DB_PASS" -e "DROP DATABASE IF EXISTS \`$TARGET_DB\`; CREATE DATABASE \`$TARGET_DB\`;"
+
+    #* Dump-Datei aufteilen
+    log "${SYM_SCRIPT} Zerlege Dump-Datei in einzelne Tabellen im Temp-Verzeichnis: ${COLOR_FILE}$TMPDIR${COLOR_RESET}"
+    csplit -z -f "$TMPDIR/table_" -b "%03d.sql" "$DUMP_FILE" '/DROP TABLE IF EXISTS/' '{*}' > /dev/null
+
+    #* Import der Tabellen
+    for sqlfile in "$TMPDIR"/table_*.sql; do
+        local tablename
+        tablename=$(grep -i "CREATE TABLE" "$sqlfile" | awk -F'\`' '{print $2}')
+        if [[ -n "$tablename" ]]; then
+            log "${SYM_FILE} Importiere Tabelle: ${COLOR_FILE}$tablename${COLOR_RESET}"
+            mysql -u"$DB_USER" -p"$DB_PASS" "$TARGET_DB" < "$sqlfile"
+            ((total_tables++))
+        fi
+    done
+
+    log "${SYM_OKN}${COLOR_INFO} Import abgeschlossen: $total_tables Tabellen importiert${COLOR_RESET}"
+
+    #* Asset-Typen prüfen und reparieren
+    log "${SYM_PUZZLE} Prüfe asset.assetType auf ungültige Werte..."
+    invalid_count=$(mysql -u"$DB_USER" -p"$DB_PASS" -sse "SELECT COUNT(*) FROM asset WHERE assetType NOT BETWEEN 0 AND 49;" "$TARGET_DB")
+
+    if ((invalid_count > 0)); then
+        log "${SYM_WARNING} Ungültige assetType-Werte gefunden: $invalid_count — korrigiere auf 0"
+        mysql -u"$DB_USER" -p"$DB_PASS" -e "UPDATE asset SET assetType = 0 WHERE assetType NOT BETWEEN 0 AND 49;" "$TARGET_DB"
+    else
+        log "${SYM_OK} Alle assetType-Werte sind gültig"
+    fi
+
+    #* Datenbank reparieren
+    log "${SYM_TOOLS} Führe mysqlcheck mit Reparatur durch..."
+    mysqlcheck -u"$DB_USER" -p"$DB_PASS" --auto-repair "$TARGET_DB"
+
+    log "${SYM_OK} ${COLOR_OK}Wiederherstellung erfolgreich abgeschlossen für:${COLOR_RESET} ${COLOR_VALUE}$TARGET_DB${COLOR_RESET}"
+}
+
 
 # todo: Testen, ob alles funktioniert.
 # robustrestore <dbuser> <dbpass> <all|tables|assets|assettype>
@@ -2467,54 +2532,54 @@ function robustrestore() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local BACKUP_DIR="$SCRIPT_DIR/backup/robust"
 
-    echo -e "${COLOR_HEADING}${SYM_PACKAGE} Starte Wiederherstellung für: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
+    log "${COLOR_HEADING}${SYM_PACKAGE} Starte Wiederherstellung für: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
 
     case "$RESTORE_SCOPE" in
         all)
-            echo -e "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung aller Nicht-Asset-Tabellen...${COLOR_RESET}"
+            log "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung aller Nicht-Asset-Tabellen...${COLOR_RESET}"
             for file in "$BACKUP_DIR/tables/"*.sql.gz; do
                 table_name=$(basename "$file" .sql.gz)
-                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Tabelle: ${COLOR_LABEL}${table_name}${COLOR_RESET}"
+                log "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Tabelle: ${COLOR_LABEL}${table_name}${COLOR_RESET}"
                 gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
             done
 
-            echo -e "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung aller Asset-Typen...${COLOR_RESET}"
+            log "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung aller Asset-Typen...${COLOR_RESET}"
             for file in "$BACKUP_DIR/assettypen/"*.sql.gz; do
                 asset_name=$(basename "$file" .sql.gz)
-                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Asset-Typ: ${COLOR_LABEL}${asset_name}${COLOR_RESET}"
+                log "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Asset-Typ: ${COLOR_LABEL}${asset_name}${COLOR_RESET}"
                 gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
             done
             ;;
         tables)
-            echo -e "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung nur der Nicht-Asset-Tabellen...${COLOR_RESET}"
+            log "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung nur der Nicht-Asset-Tabellen...${COLOR_RESET}"
             for file in "$BACKUP_DIR/tables/"*.sql.gz; do
                 table_name=$(basename "$file" .sql.gz)
-                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Tabelle: ${COLOR_LABEL}${table_name}${COLOR_RESET}"
+                log "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Tabelle: ${COLOR_LABEL}${table_name}${COLOR_RESET}"
                 gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
             done
             ;;
         assets)
-            echo -e "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung aller Asset-Typen...${COLOR_RESET}"
+            log "${SYM_LOG} ${COLOR_LABEL}Wiederherstellung aller Asset-Typen...${COLOR_RESET}"
             for file in "$BACKUP_DIR/assettypen/"*.sql.gz; do
                 asset_name=$(basename "$file" .sql.gz)
-                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Asset-Typ: ${COLOR_LABEL}${asset_name}${COLOR_RESET}"
+                log "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET} ${COLOR_ACTION}→ Importiere Asset-Typ: ${COLOR_LABEL}${asset_name}${COLOR_RESET}"
                 gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
             done
             ;;
         *)
             local file="$BACKUP_DIR/assettypen/assets_${RESTORE_SCOPE}.sql.gz"
             if [[ -f "$file" ]]; then
-                echo -e "${SYM_FOLDER} ${COLOR_LABEL}Wiederherstellung für Asset-Typ: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
-                echo -e "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET}"
+                log "${SYM_FOLDER} ${COLOR_LABEL}Wiederherstellung für Asset-Typ: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
+                log "${SYM_FILE} ${COLOR_FILE}${file}${COLOR_RESET}"
                 gunzip -c "$file" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
             else
-                echo -e "${SYM_BAD} ${COLOR_BAD}Fehler: Kein Backup für Asset-Typ '${RESTORE_SCOPE}' gefunden!${COLOR_RESET}"
+                log "${SYM_BAD} ${COLOR_BAD}Fehler: Kein Backup für Asset-Typ '${RESTORE_SCOPE}' gefunden!${COLOR_RESET}"
                 return 1
             fi
             ;;
     esac
 
-    echo -e "${SYM_OK} ${COLOR_OK}Wiederherstellung erfolgreich abgeschlossen für Bereich: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
+    log "${SYM_OK} ${COLOR_OK}Wiederherstellung erfolgreich abgeschlossen für Bereich: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
 }
 
 # todo: Testen, ob alles funktioniert.
@@ -2532,60 +2597,63 @@ function robustrepair() {
     local DB_NAME="robust"
     local ACTION=$3  # "check", "repair", "truncate", "dropassets", "dropall"
 
-    echo -e "${COLOR_HEADING}${SYM_TOOLS} Starte Datenbankwartung: ${COLOR_VALUE}${ACTION}${COLOR_RESET}"
+    log "${COLOR_HEADING}${SYM_TOOLS} Starte Datenbankwartung: ${COLOR_VALUE}${ACTION}${COLOR_RESET}"
 
     case "$ACTION" in
         check)
-            echo -e "${SYM_WAIT} ${COLOR_LABEL}Überprüfe Tabellen auf Fehler...${COLOR_RESET}"
+            log "${SYM_WAIT} ${COLOR_LABEL}Überprüfe Tabellen auf Fehler...${COLOR_RESET}"
             mysqlcheck -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
             ;;
         repair)
-            echo -e "${SYM_SYNC} ${COLOR_LABEL}Repariere beschädigte Tabellen automatisch...${COLOR_RESET}"
+            log "${SYM_SYNC} ${COLOR_LABEL}Repariere beschädigte Tabellen automatisch...${COLOR_RESET}"
             mysqlcheck -u"$DB_USER" -p"$DB_PASS" --auto-repair "$DB_NAME"
             ;;
         truncate)
-            echo -e "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Leert alle Inhalte, behält aber Tabellenstrukturen!${COLOR_RESET}"
-            read -rp "$(echo -e "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}")" confirm
+            log "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Leert alle Inhalte, behält aber Tabellenstrukturen!${COLOR_RESET}"
+            echo -ne "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}"
+            read -r confirm
             if [[ "$confirm" == "ja" ]]; then
                 local tables
                 tables=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SHOW TABLES IN $DB_NAME;")
                 for t in $tables; do
-                    echo -e "${SYM_CLEAN} Leere Tabelle: ${COLOR_LABEL}${t}${COLOR_RESET}"
+                    log "${SYM_CLEAN} Leere Tabelle: ${COLOR_LABEL}${t}${COLOR_RESET}"
                     mysql -u"$DB_USER" -p"$DB_PASS" -e "TRUNCATE TABLE $DB_NAME.$t;"
                 done
-                echo -e "${SYM_OK} ${COLOR_OK}Alle Tabellen wurden geleert.${COLOR_RESET}"
+                log "${SYM_OK} ${COLOR_OK}Alle Tabellen wurden geleert.${COLOR_RESET}"
             else
-                echo -e "${SYM_BAD} ${COLOR_BAD}Abgebrochen.${COLOR_RESET}"
+                log "${SYM_BAD} ${COLOR_BAD}Abgebrochen.${COLOR_RESET}"
             fi
             ;;
         dropassets)
-            echo -e "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Löscht ALLE Einträge in der 'assets'-Tabelle!${COLOR_RESET}"
-            read -rp "$(echo -e "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}")" confirm
+            log "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Löscht ALLE Einträge in der 'assets'-Tabelle!${COLOR_RESET}"
+            echo -ne "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}"
+            read -r confirm
             if [[ "$confirm" == "ja" ]]; then
                 mysql -u"$DB_USER" -p"$DB_PASS" -e "DELETE FROM $DB_NAME.assets;"
-                echo -e "${SYM_OK} ${COLOR_OK}Tabelle 'assets' wurde geleert.${COLOR_RESET}"
+                log "${SYM_OK} ${COLOR_OK}Tabelle 'assets' wurde geleert.${COLOR_RESET}"
             else
-                echo -e "${SYM_BAD} ${COLOR_BAD}Abgebrochen.${COLOR_RESET}"
+                log "${SYM_BAD} ${COLOR_BAD}Abgebrochen.${COLOR_RESET}"
             fi
             ;;
         dropall)
-            echo -e "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Alle Tabellen der Datenbank werden gelöscht!${COLOR_RESET}"
-            read -rp "$(echo -e "${COLOR_BAD}Wirklich ALLE Tabellen löschen? (ja/nein): ${COLOR_RESET}")" confirm
+            log "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Alle Tabellen der Datenbank werden gelöscht!${COLOR_RESET}"
+            echo -ne "${COLOR_BAD}Wirklich ALLE Tabellen löschen? (ja/nein): ${COLOR_RESET}"
+            read -r confirm
             if [[ "$confirm" == "ja" ]]; then
                 local tables
                 tables=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SHOW TABLES IN $DB_NAME;")
                 for t in $tables; do
-                    echo -e "${SYM_CLEAN} Lösche Tabelle: ${COLOR_LABEL}${t}${COLOR_RESET}"
+                    log "${SYM_CLEAN} Lösche Tabelle: ${COLOR_LABEL}${t}${COLOR_RESET}"
                     mysql -u"$DB_USER" -p"$DB_PASS" -e "DROP TABLE $DB_NAME.$t;"
                 done
-                echo -e "${SYM_OK} ${COLOR_OK}Alle Tabellen gelöscht.${COLOR_RESET}"
+                log "${SYM_OK} ${COLOR_OK}Alle Tabellen gelöscht.${COLOR_RESET}"
             else
-                echo -e "${SYM_BAD} ${COLOR_BAD}Abgebrochen.${COLOR_RESET}"
+                log "${SYM_BAD} ${COLOR_BAD}Abgebrochen.${COLOR_RESET}"
             fi
             ;;
         *)
-            echo -e "${SYM_BAD} ${COLOR_BAD}Unbekannte Aktion: ${ACTION}${COLOR_RESET}"
-            echo -e "${SYM_INFO} Mögliche Optionen: check | repair | truncate | dropassets | dropall"
+            log "${SYM_BAD} ${COLOR_BAD}Unbekannte Aktion: ${ACTION}${COLOR_RESET}"
+            log "${SYM_INFO} Mögliche Optionen: check | repair | truncate | dropassets | dropall"
             return 1
             ;;
     esac
@@ -2613,7 +2681,7 @@ function dataclean() {
             sleep 1
         fi
     done
-    log "${COLOR_HEADING}✅ Datenbereinigung abgeschlossen${COLOR_RESET}"    
+    log "${COLOR_HEADING}${SYM_OKNN} Datenbereinigung abgeschlossen${COLOR_RESET}"    
     blankline
 }
 
@@ -2674,7 +2742,7 @@ function pathclean() {
             done
         fi
     done
-    log "${COLOR_HEADING}✅ Verzeichnisbereinigung abgeschlossen${COLOR_RESET}"
+    log "${COLOR_HEADING}${SYM_OKNN} Verzeichnisbereinigung abgeschlossen${COLOR_RESET}"
     blankline
 }
 
@@ -2711,7 +2779,7 @@ function cacheclean() {
             done
         fi
     done
-    log "${COLOR_HEADING}✅ Cache-Bereinigung abgeschlossen${COLOR_RESET}"
+    log "${COLOR_HEADING}${SYM_OKNN} Cache-Bereinigung abgeschlossen${COLOR_RESET}"
     blankline
 }
 
@@ -2758,7 +2826,7 @@ function mapclean() {
         fi
     done
 
-    log "${COLOR_HEADING}✅ Map-Tile-Bereinigung abgeschlossen${COLOR_RESET}"
+    log "${COLOR_HEADING}${SYM_OKNN} Map-Tile-Bereinigung abgeschlossen${COLOR_RESET}"
     blankline
 }
 
@@ -2857,7 +2925,7 @@ function delete_opensim() {
         fi
     done
 
-    log "${COLOR_HEADING}✅ Das komplette löschen vom OpenSimulator abgeschlossen${COLOR_RESET}"
+    log "${COLOR_HEADING}${SYM_OKNN} Das komplette löschen vom OpenSimulator abgeschlossen${COLOR_RESET}"
     blankline
 }
 
@@ -5411,6 +5479,7 @@ case $KOMMANDO in
     robustbackup)                   robustbackup "$2" "$3";;
     robustrestore)                  robustrestore "$2" "$3" "$4" ;;
     robustrepair)                   robustrepair "$2" "$3" "$4" ;;
+    restoreRobustDump)              restoreRobustDump "$2" "$3" "$4" "$5" ;;
 
     #  HILFE & SONSTIGES      #
     generate_all_name)  generate_all_name ;;
