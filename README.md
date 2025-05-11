@@ -85,52 +85,52 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 | ----------------- | ------------------------------------- | ------------------------ |
 | `opensimgitcopy`  | OpenSim aus Git herunterladen.        | Stabil                   |
 | `moneygitcopy`    | MoneyServer aus Git herunterladen.    | Stabil                   |
-| `ruthrothgit`     | Ruth/Roth IAR-Dateien aus Git.        |
-| `avatarassetsgit` | Ruth/Roth Assets aus Git.             |
+| `ruthrothgit`     | Ruth/Roth IAR-Dateien aus Git.        | in Arbeit                |
+| `avatarassetsgit` | Ruth/Roth Assets aus Git.             | in Arbeit                |
 | `osslscriptsgit`  | OSSL Beispiel-Skripte herunterladen.  | Stabil                   |
-| `pbrtexturesgit`  | PBR Texturen aus Git.                 |
-| `downloadallgit`  | Alle Git-Repositories herunterladen.  |
+| `pbrtexturesgit`  | PBR Texturen aus Git.                 | in Arbeit                |
+| `downloadallgit`  | Alle Git-Repositories herunterladen.  | Voricht test             |
 | `versionrevision` | Versionsrevision auf Expanded setzen. | Stabil                   |
 
 ---
 
 ## **⚙️ Konfiguration**
 
-| Befehl                      | Beschreibung                           | Status                   |
-| --------------------------- | -------------------------------------- | ------------------------ |
-| `moneyserveriniconfig`      | Konfiguriert MoneyServer.ini.          |
-| `opensiminiconfig`          | Konfiguriert OpenSim.ini.              |
-| `robusthginiconfig`         | Konfiguriert Robust.HG.ini.            |
-| `robustiniconfig`           | Konfiguriert Robust.ini.               |
-| `gridcommoniniconfig`       | Erstellt GridCommon.ini.               |
-| `standalonecommoniniconfig` | Erstellt StandaloneCommon.ini.         |
-| `flotsaminiconfig`          | Erstellt FlotsamCache.ini.             |
-| `osslenableiniconfig`       | Konfiguriert osslEnable.ini.           |
-| `welcomeiniconfig`          | Konfiguriert Begrüßungsregion.         |
-| `regionsiniconfig`          | Startet neue Regionen-Konfigurationen. |
-| `iniconfig`                 | Startet ALLE Konfigurationen.          |
+| Befehl                      | Beschreibung                           | Status                                    |
+| --------------------------- | -------------------------------------- | ----------------------------------------- |
+| `moneyserveriniconfig`      | Konfiguriert MoneyServer.ini.          | Konfigurationen müssen Optimiert werden.  |
+| `opensiminiconfig`          | Konfiguriert OpenSim.ini.              | Konfigurationen müssen Optimiert werden.  |
+| `robusthginiconfig`         | Konfiguriert Robust.HG.ini.            | Konfigurationen müssen Optimiert werden.  |
+| `robustiniconfig`           | Konfiguriert Robust.ini.               | Konfigurationen müssen Optimiert werden.  |
+| `gridcommoniniconfig`       | Erstellt GridCommon.ini.               | Konfigurationen müssen Optimiert werden.  |
+| `standalonecommoniniconfig` | Erstellt StandaloneCommon.ini.         | Konfigurationen müssen Optimiert werden.  |
+| `flotsaminiconfig`          | Erstellt FlotsamCache.ini.             | Konfigurationen müssen Optimiert werden.  |
+| `osslenableiniconfig`       | Konfiguriert osslEnable.ini.           | Konfigurationen müssen Optimiert werden.  |
+| `welcomeiniconfig`          | Konfiguriert Begrüßungsregion.         | Konfigurationen müssen Optimiert werden.  |
+| `regionsiniconfig`          | Startet neue Regionen-Konfigurationen. | Konfigurationen müssen Optimiert werden.  |
+| `iniconfig`                 | Startet ALLE Konfigurationen.          | Konfigurationen müssen Optimiert werden.  |
 
 ---
 
-## **📜 INI-Operationen**
+## **📜 INI Konfiguration Operationen**
 
 | Befehl               | Beschreibung                | Status                   |
 | -------------------- | --------------------------- | ------------------------ |
-| `verify_ini_section` | INI-Abschnitt verifizieren. |
-| `verify_ini_key`     | INI-Schlüssel verifizieren. |
-| `add_ini_section`    | INI-Abschnitt hinzufügen.   |
+| `verify_ini_section` | INI-Abschnitt verifizieren. | Test                     |
+| `verify_ini_key`     | INI-Schlüssel verifizieren. | Test                     |
+| `add_ini_section`    | INI-Abschnitt hinzufügen.   | Stabil                   |
 | `set_ini_key`        | INI-Schlüssel setzen.       | Stabil                   |
 | `del_ini_section`    | INI-Abschnitt löschen.      | Stabil                   |
 
 ---
 
-## **📄 XML-Operationen**
+## **📄 XML Assets Operationen**
 
 | Befehl               | Beschreibung                | Status                   |
 | -------------------- | --------------------------- | ------------------------ |
-| `verify_xml_section` | XML-Abschnitt verifizieren. |
-| `add_xml_section`    | XML-Abschnitt hinzufügen.   |
-| `del_xml_section`    | XML-Abschnitt löschen.      |
+| `verify_xml_section` | XML-Abschnitt verifizieren. | ungetestet               |
+| `add_xml_section`    | XML-Abschnitt hinzufügen.   | ungetestet               |
+| `del_xml_section`    | XML-Abschnitt löschen.      | ungetestet               |
 
 ---
 
@@ -138,10 +138,10 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 | Befehl              | Beschreibung                         | Status                   |
 | ------------------- | ------------------------------------ | ------------------------ |
-| `standalone`        | Standalone-Menü.                     |
-| `standalonestart`   | Startet OpenSim im Standalone-Modus. |
-| `standalonestop`    | Stoppt OpenSim im Standalone-Modus.  |
-| `standalonerestart` | Startet OpenSim Standalone neu.      |
+| `standalone`        | Standalone Vorbereitungen.           | Stabil                   |
+| `standalonestart`   | Startet OpenSim im Standalone-Modus. | Stabil                   |
+| `standalonestop`    | Stoppt OpenSim im Standalone-Modus.  | Stabil                   |
+| `standalonerestart` | Startet OpenSim Standalone neu.      | Stabil                   |
 
 ---
 
@@ -151,17 +151,17 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 | Befehl             | Beschreibung                                                 | Status                   |
 | ------------------ | ------------------------------------------------------------ | ------------------------ |
-| `dataclean`        | Alte Dateien löschen (⚡ Neuinstallation erforderlich!)       |
-| `pathclean`        | Alte Verzeichnisse löschen (⚡ Neuinstallation erforderlich!) |
+| `dataclean`        | Alte Dateien löschen (⚡ Neuinstallation erforderlich!)       | Test                     |
+| `pathclean`        | Alte Verzeichnisse löschen (⚡ Neuinstallation erforderlich!) | Test                     |
 | `cacheclean`       | Cache bereinigen.                                            | Stabil                   |
 | `logclean`         | Logs löschen.                                                | Stabil                   |
 | `mapclean`         | Maptiles löschen.                                            | Stabil                   |
-| `autoallclean`     | Komplettbereinigung (⚡ Neuinstallation erforderlich!)        |
-| `regionsclean`     | Alle Regionen löschen.                                       |
-| `cleanall`         | Alles bereinigen (⚡ Neuinstallation erforderlich!)           |
-| `renamefiles`      | Umbenennung aller \*.example Dateien.                        |
-| `clean_linux_logs` | Linux-Systemlogs bereinigen.                                 |
-| `delete_opensim`   | Entfernt OpenSimulator komplett inkl. Verzeichnissen.        |
+| `autoallclean`     | Komplettbereinigung (⚡ Neuinstallation erforderlich!)        | Test                     |
+| `regionsclean`     | Alle Regionen löschen.                                       | Test                     |
+| `cleanall`         | Alles bereinigen (⚡ Neuinstallation erforderlich!)           | Test                     |
+| `renamefiles`      | Umbenennung aller \*.example Dateien.                        | Test                     |
+| `clean_linux_logs` | Linux-Systemlogs bereinigen.                                 | Test                     |
+| `delete_opensim`   | Entfernt OpenSimulator komplett inkl. Verzeichnissen.        | Test                     |
 
 ---
 
