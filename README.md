@@ -96,19 +96,19 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## **⚙️ Konfiguration**
 
-| Befehl                      | Beschreibung                           | Status                                    |
-| --------------------------- | -------------------------------------- | ----------------------------------------- |
-| `moneyserveriniconfig`      | Konfiguriert MoneyServer.ini.          | Konfigurationen müssen Optimiert werden.  |
-| `opensiminiconfig`          | Konfiguriert OpenSim.ini.              | Konfigurationen müssen Optimiert werden.  |
-| `robusthginiconfig`         | Konfiguriert Robust.HG.ini.            | Konfigurationen müssen Optimiert werden.  |
-| `robustiniconfig`           | Konfiguriert Robust.ini.               | Konfigurationen müssen Optimiert werden.  |
-| `gridcommoniniconfig`       | Erstellt GridCommon.ini.               | Konfigurationen müssen Optimiert werden.  |
-| `standalonecommoniniconfig` | Erstellt StandaloneCommon.ini.         | Konfigurationen müssen Optimiert werden.  |
-| `flotsaminiconfig`          | Erstellt FlotsamCache.ini.             | Konfigurationen müssen Optimiert werden.  |
-| `osslenableiniconfig`       | Konfiguriert osslEnable.ini.           | Konfigurationen müssen Optimiert werden.  |
-| `welcomeiniconfig`          | Konfiguriert Begrüßungsregion.         | Konfigurationen müssen Optimiert werden.  |
-| `regionsiniconfig`          | Startet neue Regionen-Konfigurationen. | Konfigurationen müssen Optimiert werden.  |
-| `iniconfig`                 | Startet ALLE Konfigurationen.          | Konfigurationen müssen Optimiert werden.  |
+| Befehl                      | Beschreibung                           | Status              |
+| --------------------------- | -------------------------------------- | ------------------- |
+| `moneyserveriniconfig`      | Konfiguriert MoneyServer.ini.          | Optimierung fehlt.  |
+| `opensiminiconfig`          | Konfiguriert OpenSim.ini.              | Optimierung fehlt.  |
+| `robusthginiconfig`         | Konfiguriert Robust.HG.ini.            | Optimierung fehlt.  |
+| `robustiniconfig`           | Konfiguriert Robust.ini.               | Optimierung fehlt.  |
+| `gridcommoniniconfig`       | Erstellt GridCommon.ini.               | Optimierung fehlt.  |
+| `standalonecommoniniconfig` | Erstellt StandaloneCommon.ini.         | Optimierung fehlt.  |
+| `flotsaminiconfig`          | Erstellt FlotsamCache.ini.             | Optimierung fehlt.  |
+| `osslenableiniconfig`       | Konfiguriert osslEnable.ini.           | Optimierung fehlt.  |
+| `welcomeiniconfig`          | Konfiguriert Begrüßungsregion.         | Optimierung fehlt.  |
+| `regionsiniconfig`          | Startet neue Regionen-Konfigurationen. | Optimierung fehlt.  |
+| `iniconfig`                 | Startet ALLE Konfigurationen.          | Optimierung fehlt.  |
 
 ---
 
