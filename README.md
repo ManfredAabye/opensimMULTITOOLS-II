@@ -47,57 +47,57 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## **🔄 OpenSim starten, stoppen und neustarten**
 
-| Befehl                   | Beschreibung                                                        |
-| ------------------------ | ------------------------------------------------------------------- |
-| `opensimstart`           | Startet den OpenSim-Server.                                         |
-| `opensimstop`            | Stoppt den OpenSim-Server.                                          |
-| `opensimrestart`         | Startet OpenSim neu.                                                |
-| `opensimstartParallel`   | Startet alle Regionen parallel.                                     |
-| `opensimstopParallel`    | Stoppt alle Regionen parallel.                                      |
-| `opensimrestartParallel` | Startet alle Regionen neu (parallel).                               |
-| `check_screens`          | Überprüft laufende OpenSim-Prozesse und startet sie bei Bedarf neu. |
+| Befehl                   | Beschreibung                                                        | Status                   |
+| ------------------------ | ------------------------------------------------------------------- | ------------------------ |
+| `opensimstart`           | Startet den OpenSim-Server.                                         | Stabil                   |
+| `opensimstop`            | Stoppt den OpenSim-Server.                                          | Stabil                   |
+| `opensimrestart`         | Startet OpenSim neu.                                                | Stabil                   |
+| `opensimstartParallel`   | Startet alle Regionen parallel.                                     | Stabil                   |
+| `opensimstopParallel`    | Stoppt alle Regionen parallel.                                      | Stabil                   |
+| `opensimrestartParallel` | Startet alle Regionen neu (parallel).                               | Stabil                   |
+| `check_screens`          | Überprüft laufende OpenSim-Prozesse und startet sie bei Bedarf neu. | Stabil                   |
 
 ---
 
 ## **🛠️ OpenSim-Grid erstellen oder aktualisieren**
 
-| Befehl                                | Beschreibung                                    |
-| ------------------------------------- | ----------------------------------------------- |
-| `servercheck`                         | Prüft, ob der Server für OpenSim bereit ist.    |
-| `createdirectory`                     | Erstellt die benötigten Verzeichnisse.          |
-| `opensimbuild`                        | OpenSim-Programm erstellen.                     |
-| `opensimcopy`                         | OpenSim kopieren/upgraden.                      |
-| `database_setup`                      | SQL-Datenbanken erstellen.                      |
-| `opensimupgrade`                      | OpenSim aktualisieren.                          |
-| `autoupgrade`                         | Führt automatisches Upgrade durch.              |
-| `autoupgradefast`                     | Führt automatisches paralleles Upgrade durch.   |
-| `regionbackup`                        | Backup aller Regionsdaten.                      |
-| `robustbackup`                        | Backup der Robust-Datenbank mit Zeitraumfilter. |
-| `robustrestore <user> <pass> [teil]`  | Wiederherstellung aus Backup.                   |
-| `robustrepair <user> <pass> [aktion]` | Reparatur oder Bereinigung.                     |
-| `setcrontab`                          | Crontab Automatisierungen erstellen.            |
+| Befehl                                | Beschreibung                                    | Status                   |
+| ------------------------------------- | ----------------------------------------------- | ------------------------ |
+| `servercheck`                         | Prüft, ob der Server für OpenSim bereit ist.    | Test                     |
+| `createdirectory`                     | Erstellt die benötigten Verzeichnisse.          | Stabil                   |
+| `opensimbuild`                        | OpenSim-Programm erstellen.                     | Stabil                   |
+| `opensimcopy`                         | OpenSim kopieren/upgraden.                      | Stabil                   |
+| `database_setup`                      | SQL-Datenbanken erstellen.                      | Test                     |
+| `opensimupgrade`                      | OpenSim aktualisieren.                          | Test                     |
+| `autoupgrade`                         | Führt automatisches Upgrade durch.              | Test                     |
+| `autoupgradefast`                     | Führt automatisches paralleles Upgrade durch.   | Test                     |
+| `regionbackup`                        | Backup aller Regionsdaten.                      | Test                     |
+| `robustbackup`                        | Backup der Robust-Datenbank mit Zeitraumfilter. | Test                     |
+| `robustrestore <user> <pass> [teil]`  | Wiederherstellung aus Backup.                   | Test                     |
+| `robustrepair <user> <pass> [aktion]` | Reparatur oder Bereinigung.                     | Test                     |
+| `setcrontab`                          | Crontab Automatisierungen erstellen.            | Stabil                   |
 
 ---
 
 ## **📂 Diverse Git-Downloads**
 
-| Befehl            | Beschreibung                          |
-| ----------------- | ------------------------------------- |
-| `opensimgitcopy`  | OpenSim aus Git herunterladen.        |
-| `moneygitcopy`    | MoneyServer aus Git herunterladen.    |
+| Befehl            | Beschreibung                          | Status                   |
+| ----------------- | ------------------------------------- | ------------------------ |
+| `opensimgitcopy`  | OpenSim aus Git herunterladen.        | Stabil                   |
+| `moneygitcopy`    | MoneyServer aus Git herunterladen.    | Stabil                   |
 | `ruthrothgit`     | Ruth/Roth IAR-Dateien aus Git.        |
 | `avatarassetsgit` | Ruth/Roth Assets aus Git.             |
-| `osslscriptsgit`  | OSSL Beispiel-Skripte herunterladen.  |
+| `osslscriptsgit`  | OSSL Beispiel-Skripte herunterladen.  | Stabil                   |
 | `pbrtexturesgit`  | PBR Texturen aus Git.                 |
 | `downloadallgit`  | Alle Git-Repositories herunterladen.  |
-| `versionrevision` | Versionsrevision auf Expanded setzen. |
+| `versionrevision` | Versionsrevision auf Expanded setzen. | Stabil                   |
 
 ---
 
 ## **⚙️ Konfiguration**
 
-| Befehl                      | Beschreibung                           |
-| --------------------------- | -------------------------------------- |
+| Befehl                      | Beschreibung                           | Status                   |
+| --------------------------- | -------------------------------------- | ------------------------ |
 | `moneyserveriniconfig`      | Konfiguriert MoneyServer.ini.          |
 | `opensiminiconfig`          | Konfiguriert OpenSim.ini.              |
 | `robusthginiconfig`         | Konfiguriert Robust.HG.ini.            |
@@ -114,20 +114,20 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## **📜 INI-Operationen**
 
-| Befehl               | Beschreibung                |
-| -------------------- | --------------------------- |
+| Befehl               | Beschreibung                | Status                   |
+| -------------------- | --------------------------- | ------------------------ |
 | `verify_ini_section` | INI-Abschnitt verifizieren. |
 | `verify_ini_key`     | INI-Schlüssel verifizieren. |
 | `add_ini_section`    | INI-Abschnitt hinzufügen.   |
-| `set_ini_key`        | INI-Schlüssel setzen.       |
-| `del_ini_section`    | INI-Abschnitt löschen.      |
+| `set_ini_key`        | INI-Schlüssel setzen.       | Stabil                   |
+| `del_ini_section`    | INI-Abschnitt löschen.      | Stabil                   |
 
 ---
 
 ## **📄 XML-Operationen**
 
-| Befehl               | Beschreibung                |
-| -------------------- | --------------------------- |
+| Befehl               | Beschreibung                | Status                   |
+| -------------------- | --------------------------- | ------------------------ |
 | `verify_xml_section` | XML-Abschnitt verifizieren. |
 | `add_xml_section`    | XML-Abschnitt hinzufügen.   |
 | `del_xml_section`    | XML-Abschnitt löschen.      |
@@ -136,8 +136,8 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## **🖥️ Standalone-Modus**
 
-| Befehl              | Beschreibung                         |
-| ------------------- | ------------------------------------ |
+| Befehl              | Beschreibung                         | Status                   |
+| ------------------- | ------------------------------------ | ------------------------ |
 | `standalone`        | Standalone-Menü.                     |
 | `standalonestart`   | Startet OpenSim im Standalone-Modus. |
 | `standalonestop`    | Stoppt OpenSim im Standalone-Modus.  |
@@ -149,13 +149,13 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ⚠ **Warnung:** Einige Befehle erfordern eine **Neuinstallation** von OpenSim!
 
-| Befehl             | Beschreibung                                                 |
-| ------------------ | ------------------------------------------------------------ |
+| Befehl             | Beschreibung                                                 | Status                   |
+| ------------------ | ------------------------------------------------------------ | ------------------------ |
 | `dataclean`        | Alte Dateien löschen (⚡ Neuinstallation erforderlich!)       |
 | `pathclean`        | Alte Verzeichnisse löschen (⚡ Neuinstallation erforderlich!) |
-| `cacheclean`       | Cache bereinigen.                                            |
-| `logclean`         | Logs löschen.                                                |
-| `mapclean`         | Maptiles löschen.                                            |
+| `cacheclean`       | Cache bereinigen.                                            | Stabil                   |
+| `logclean`         | Logs löschen.                                                | Stabil                   |
+| `mapclean`         | Maptiles löschen.                                            | Stabil                   |
 | `autoallclean`     | Komplettbereinigung (⚡ Neuinstallation erforderlich!)        |
 | `regionsclean`     | Alle Regionen löschen.                                       |
 | `cleanall`         | Alles bereinigen (⚡ Neuinstallation erforderlich!)           |
@@ -167,18 +167,18 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## **🛠️ Systembefehle**
 
-| Befehl   | Beschreibung                               |
-| -------- | ------------------------------------------ |
-| `reboot` | Grid herunterfahren und Server neustarten. |
+| Befehl   | Beschreibung                               | Status                   |
+| -------- | ------------------------------------------ | ------------------------ |
+| `reboot` | Grid herunterfahren und Server neustarten. | Stabil                   |
 
 ---
 
 ## **❓ Hilfen**
 
-| Befehl    | Beschreibung                                                |
-| --------- | ----------------------------------------------------------- |
-| `help`    | Die Hilfeseite anzeigen.                                    |
-| `prohelp` | Erweiterte Hilfeseite mit allen Experten-Befehlen anzeigen. |
+| Befehl    | Beschreibung                                                | Status                   |
+| --------- | ----------------------------------------------------------- | ------------------------ |
+| `help`    | Die Hilfeseite anzeigen.                                    | Stabil                   |
+| `prohelp` | Erweiterte Hilfeseite mit allen Experten-Befehlen anzeigen. | Stabil                   |
 
 ➔ [📖 Wiki Dokumentation](https://github.com/ManfredAabye/opensimMULTITOOLS-II/wiki)
 
