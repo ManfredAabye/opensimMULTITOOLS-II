@@ -32,22 +32,6 @@ function clean_ansi() {
 }
 
 # Log-Funktion
-# function log() {
-#     local message="$1"
-#     local level="${2:-INFO}"
-#     timestamp=$(date "+%Y-%m-%d %H:%M:%S")
-    
-#     # Zur Konsole (mit Farben)
-#     echo -e "$message"
-    
-#     # Zur Logdatei (ohne Farbcodes)
-#     if $LOG_ENABLED; then
-#         clean_message=$(clean_ansi "$message")
-#         echo "[${timestamp}] [${level}] ${clean_message}" >> "$DEBUG_LOG"
-#     fi
-# }
-
-# Log-Funktion
 function log() {
     local message="$1"
     local level="${2:-INFO}"
@@ -93,8 +77,8 @@ SCRIPTNAME="opensimMULTITOOL II"
 
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
-# Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Version
-VERSION="V25.5.103.420"
+# Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
+VERSION="V25.5.104.423"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -232,6 +216,26 @@ check_repo_integrity() {
     return 0
 }
 
+function warn_if_desktop_environment() {
+    log "${COLOR_SECTION}=== Systemtyp-Erkennung (Server vs. Desktop) ===${COLOR_RESET}"
+
+    # Prüfen auf Anzeichen einer Desktop-Umgebung
+    if [[ -n "$XDG_CURRENT_DESKTOP" || -n "$DESKTOP_SESSION" || $(pgrep -lE 'gnome|plasma|xfce|mate|lxde|cinnamon' 2>/dev/null) ]]; then
+        log "${SYM_WARNING} ${COLOR_WARNING}Desktop-Umgebung erkannt!${COLOR_RESET}"
+        echo -e "${COLOR_WARNING}${SYM_WARNING} Du führst dieses Skript auf einem Desktop-System aus.${COLOR_RESET}"
+        echo -e "${COLOR_ACTION}Dieses Setup installiert einen Server und benötigt Root-Rechte.${COLOR_RESET}"
+        echo -e "${COLOR_WARNING}Bitte stelle sicher, dass du weißt, was du tust.${COLOR_RESET}"
+        echo -ne "${COLOR_ACTION}Trotzdem fortfahren? (j/n) [n] ${COLOR_RESET}"
+        read -r user_continue
+        user_continue=${user_continue:-n}
+
+        if [[ "$user_continue" =~ ^[nN]$ ]]; then
+            log "${SYM_BAD} ${COLOR_BAD}Installation abgebrochen vom Benutzer.${COLOR_RESET}"
+            exit 1
+        fi
+    fi
+}
+
 function servercheck() {
     # Direkt kompatible Distributionen:
     # Debian 11+ (Bullseye, Bookworm) – Offiziell unterstützt für .NET 8
@@ -251,6 +255,7 @@ function servercheck() {
     log "${COLOR_HEADING}🔍 Server-Kompatibilitätscheck wird durchgeführt...${COLOR_RESET}"
 
     rootrights
+    warn_if_desktop_environment
 
     # Ermitteln der Distribution und Version
     os_id=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
@@ -350,6 +355,41 @@ function servercheck() {
             log "${SYM_OK} ${COLOR_SERVER}$required_dotnet${COLOR_RESET} ${COLOR_ACTION}ist bereits installiert.${COLOR_RESET}"
         fi
     fi
+
+    # Prüfen, ob MariaDB installiert ist
+    if ! command -v mariadb >/dev/null 2>&1; then
+        echo -e "${SYM_BAD} ${COLOR_BAD}MariaDB ist nicht installiert! Bitte installiere mariadb über pacman.${COLOR_RESET}"
+        exit 1
+    fi
+
+    # MariaDB-Version anzeigen
+    mariadb_version=$(mariadb --version)
+    log "${SYM_OK} ${COLOR_OK}Gefundene MariaDB-Version: ${COLOR_VALUE}$mariadb_version${COLOR_RESET}"
+
+    # Prüfen, ob Dienst läuft
+    if systemctl is-active --quiet mariadb; then
+        echo -e "${SYM_OK} ${COLOR_OK}MariaDB-Dienst ist bereits aktiv.${COLOR_RESET}"
+    else
+        echo -e "${SYM_STOP} ${COLOR_WARNING}MariaDB ist nicht aktiv. Versuche zu starten...${COLOR_RESET}"
+        sudo systemctl start mariadb
+        if systemctl is-active --quiet mariadb; then
+            echo -e "${SYM_OK} ${COLOR_OK}MariaDB wurde erfolgreich gestartet.${COLOR_RESET}"
+        else
+            echo -e "${SYM_BAD} ${COLOR_BAD}Fehler: MariaDB konnte nicht gestartet werden!${COLOR_RESET}"
+            exit 1
+        fi
+    fi
+
+    # Prüfen, ob Datenbankverzeichnis initialisiert ist
+    if [ -d /var/lib/mysql/mysql ]; then
+        echo -e "${SYM_INFO} ${COLOR_LABEL}MariaDB ist bereits initialisiert.${COLOR_RESET}"
+    else
+        echo -e "${SYM_TOOLS} ${COLOR_ACTION}Initialisiere MariaDB-Datenbankverzeichnis...${COLOR_RESET}"
+        sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
+        sudo systemctl restart mariadb
+        echo -e "${SYM_OK} ${COLOR_OK}MariaDB wurde initialisiert und neu gestartet.${COLOR_RESET}"
+    fi
+    # MariaDB-Version checken ende
 
     # Fehlende Pakete prüfen und installieren
     log "${COLOR_HEADING}${SYM_PACKAGE} Überprüfe fehlende Pakete...${COLOR_RESET}"
