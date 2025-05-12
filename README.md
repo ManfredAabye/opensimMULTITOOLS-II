@@ -138,7 +138,6 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 | Befehl                   | Beschreibung                          | Status |
 | ------------------------ | ------------------------------------- | ------ |
-
 | `standalonestart`        | Startet OpenSim im Standalone-Modus   | Stabil |
 | `standalonestop`         | Stoppt OpenSim im Standalone-Modus    | Stabil |
 | `standalonerestart`      | Startet OpenSim Standalone neu        | Stabil |
