@@ -136,12 +136,21 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## **🖥️ Standalone-Modus**
 
-| Befehl              | Beschreibung                         | Status                   |
-| ------------------- | ------------------------------------ | ------------------------ |
-| `standalone`        | Standalone Vorbereitungen.           | Stabil                   |
-| `standalonestart`   | Startet OpenSim im Standalone-Modus. | Stabil                   |
-| `standalonestop`    | Stoppt OpenSim im Standalone-Modus.  | Stabil                   |
-| `standalonerestart` | Startet OpenSim Standalone neu.      | Stabil                   |
+| Befehl                   | Beschreibung                          | Status |
+| ------------------------ | ------------------------------------- | ------ |
+
+| `standalonestart`        | Startet OpenSim im Standalone-Modus   | Stabil |
+| `standalonestop`         | Stoppt OpenSim im Standalone-Modus    | Stabil |
+| `standalonerestart`      | Startet OpenSim Standalone neu        | Stabil |
+| `buildstandalone`        | Standalone erstellen                  | Test   |
+| `opensimgitcopy`         | OpenSimulator aus Git kopieren        | Test   |
+| `osslscriptsgit`         | Skripte aus Repository einfügen       | Test   |
+| `versionrevision`        | OpenSimulator-Version festlegen       | Test   |
+| `opensimbuild`           | OpenSimulator bauen                   | Test   |
+| `standalonesetup`        | Standalone Setup durchführen          | Test   |
+| `createstandaloneconfig` | OpenSimulator-Konfiguration erstellen | Test   |
+| `createstandalonregion`  | Startregion konfigurieren             | Test   |
+| `createstandaloneuser`   | Benutzer erstellen                    | Test   |
 
 ---
 
@@ -187,7 +196,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 ## **📜 Lizenz & Nutzung**
 
 * **Skriptname**: `osmtool.sh`
-* **Version**: *V25.5.104.423*
+* **Version**: *V25.5.109.442*
 * **Autor**: *Manfred Aabye*
 * **Lizenz**: *MIT*
 
