@@ -49,22 +49,6 @@ function log() {
     fi
 }
 
-function rootrights() {
-    # Root-Privilegien erforderlich
-    if [[ "$EUID" -ne 0 ]]; then
-        echo "Dieses Skript muss als Root ausgeführt werden (z. B. mit sudo)." >&2
-        echo "Ohne Root-Privilegien müssen Sie z.B. das Passwort der Datenbank bei jedem Mal eingeben." >&2
-        echo "Um dies zu verhindern, kann das Skript mit sudo ausgeführt werden." >&2
-        echo -n "Möchten Sie trotzdem ohne Root-Privilegien fortfahren? (ja/N): " >&2
-        read -r answer
-        # Standardantwort "Nein", falls der Benutzer nichts eingibt oder "ja" falsch geschrieben wird
-        if [[ ! "$answer" =~ ^[Jj]a$ ]]; then
-            echo "Abbruch." >&2
-            exit 1
-        fi
-    fi
-}
-
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Informationen Kopfzeile
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -78,7 +62,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
-VERSION="V25.5.104.423"
+VERSION="V25.5.109.442"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -102,15 +86,16 @@ COLOR_WARNING='\e[33m'     # Gelb (Warnungen)
 COLOR_VALUE='\e[36m'       # Cyan für Werte
 COLOR_ACTION='\e[92m'      # Hellgrün für Aktionen
 COLOR_RESET='\e[0m'        # Farbreset
+COLOR_RESTART='\e[93m'     # Gelb (RESTART)
 
 #* SYMBOLDEFINITIONEN
 SYM_OK="${COLOR_OK}✓${COLOR_RESET}"
 SYM_BAD="${COLOR_BAD}✗${COLOR_RESET}"
-SYM_INFO="${COLOR_VALUE}☛${COLOR_RESET}"  # Alternative: ▲ ● ◆ ☛ ⚑ ⓘ 
+SYM_INFO="${COLOR_VALUE}☛${COLOR_RESET}"        # Alternative: ▲ ● ◆ ☛ ⚑ ⓘ 
 SYM_WAIT="${COLOR_VALUE}⏳${COLOR_RESET}"
 SYM_LOG="${COLOR_VALUE}📋${COLOR_RESET}"
-COLOR_SECTION='\e[0;35m'  # Magenta für Sektionsnamen
-COLOR_FILE='\e[0;33m'     # Gelb für Dateipfade
+COLOR_SECTION='\e[0;35m'                         # Magenta für Sektionsnamen
+COLOR_FILE='\e[0;33m'                            # Gelb für Dateipfade
 
 SYM_SYNC="${COLOR_VALUE}🔄${COLOR_RESET}"        # Synchronisieren, Aktualisieren
 SYM_TOOLS="${COLOR_VALUE}🛠️${COLOR_RESET}"       # Werkzeuge, Einstellungen, Reparatur
@@ -128,7 +113,7 @@ SYM_PACKAGE="${COLOR_VALUE}📦${COLOR_RESET}"     # Package
 SYM_OKN="${COLOR_VALUE}✔️${COLOR_RESET}"         # OK
 SYM_FORWARD="${COLOR_VALUE}⏭️${COLOR_RESET}"     # Weiter
 SYM_OKNN="${COLOR_VALUE}✅${COLOR_RESET}"        # OK
-SYM_VOR="${COLOR_VALUE}●${COLOR_RESET}"  # Alternative: ▲ ● ◆ ☛ ⚑ ⓘ ${SYM_VOR}
+SYM_VOR="${COLOR_VALUE}●${COLOR_RESET}"          # Alternative: ▲ ● ◆ ☛ ⚑ ⓘ ${SYM_VOR}
 
 #* WARTEZEITEN muessen leider sein damit der Server nicht überfordert wird.
 Simulator_Start_wait=15 # Sekunden
@@ -138,9 +123,17 @@ Simulator_Stop_wait=15 # Sekunden
 MoneyServer_Stop_wait=30 # Sekunden
 RobustServer_Stop_wait=30 # Sekunden
 
-function blankline() { sleep 0.5; echo " ";}
+KOMMANDO=$1 #! Eingabeauswertung fuer Funktionen.
 
-# Hauptpfad des Skripts automatisch setzen
+#* Leere Zeile
+function blankline() {
+    # Einfache Leerezeile
+    #sleep 0.25; echo " "
+    # Einfache Linie
+    sleep 0.25; echo "____________________________________________________________________________________"; echo " "
+}
+
+#* Hauptpfad des Skripts automatisch setzen
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 cd "$SCRIPT_DIR" || exit 1
 system_ip=$(hostname -I | awk '{print $1}')
@@ -148,7 +141,25 @@ log "${COLOR_LABEL}Das Arbeitsverzeichnis ist:${COLOR_RESET} ${COLOR_VALUE}$SCRI
 log "${COLOR_LABEL}Ihre IP Adresse ist:${COLOR_RESET} ${COLOR_VALUE}$system_ip${COLOR_RESET}"
 blankline
 
-# Soll im Hypergrid Modus gearbeitet werden oder in einem Geschlossenen Grid?
+#* Rootrechte erforderlich
+function rootrights() {
+    # Root-Privilegien erforderlich
+    if [[ "$EUID" -ne 0 ]]; then
+        log "${COLOR_WARNING}Dieses Skript muss als Root ausgeführt werden (z. B. mit sudo)." >&2
+        log "Ohne Root-Privilegien müssen Sie z.B. das Passwort der Datenbank" >&2
+        log "bei jeder Tabelle oder AssetType eingeben." >&2
+        log "Um dies zu verhindern, kann das Skript mit sudo ausgeführt werden.${COLOR_RESET}" >&2
+        log "Möchten Sie trotzdem ohne Root-Privilegien fortfahren? (ja/nein): " >&2
+        read -r answer
+        # Akzeptiere j, J, ja, Ja, JA
+        if [[ ! "$answer" =~ ^([Jj]([Aa])?)$ ]]; then
+            log "${COLOR_STOP}Abbruch.${COLOR_RESET}" >&2
+            exit 1
+        fi
+    fi
+}
+
+#* Soll im Hypergrid Modus gearbeitet werden oder in einem Geschlossenen Grid?
 function hypergrid() {
     local modus="$1"
     local robust_dir="$SCRIPT_DIR/robust/bin"  # Korrekter Pfad zu Robust-Dateien
@@ -189,7 +200,7 @@ function hypergrid() {
 }
 
 
-KOMMANDO=$1 # Eingabeauswertung fuer Funktionen.
+
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Abhängigkeiten installieren
@@ -425,6 +436,8 @@ function servercheck() {
 function setup_webserver() {
     log "${COLOR_SECTION}=== Web Server Setup (Apache/PHP) ===${COLOR_RESET}"
 
+    rootrights
+
     # 1. Paketlisten mit erweiterten PHP-Modulen
     declare -A web_packages=(
         ["ubuntu"]="apache2 php libapache2-mod-php php-mysql php-gd php-curl php-mbstring php-xml php-zip"
@@ -541,6 +554,8 @@ function validate_sim_name() {
     fi
     return 0
 }
+
+# Einzelne Instanzen starten und stoppen
 
 function simstart() {
     local simstart=$1
@@ -5059,58 +5074,11 @@ function renamefiles() {
     return 0
 }
 
-# Standalone ist die erste Funktion, die funktioniert.
-function standalone() {
-    log "\e[33m[Standalone] Setup wird durchgeführt...\e[0m"
-
-    # Prüfen ob SCRIPT_DIR gesetzt ist
-    if [ -z "${SCRIPT_DIR}" ]; then
-        log "\e[31mFehler: SCRIPT_DIR ist nicht gesetzt!\e[0m"
-        return 1
-    fi
-
-    local opensim_bin="${SCRIPT_DIR}/opensim/bin"
-    local renamed=0
-    local skipped=0
-
-    # Sicherstellen, dass das Verzeichnis existiert
-    if [ ! -d "${opensim_bin}" ]; then
-        log "\e[31mFehler: Verzeichnis ${opensim_bin} nicht gefunden!\e[0m"
-        return 1
-    fi
-
-    # Verarbeite alle .example Dateien
-    while IFS= read -r -d '' file; do
-        target="${file%.example}"
-        
-        if [ -e "${target}" ]; then
-            log "\e[33mÜbersprungen: ${target} existiert bereits\e[0m"
-            ((skipped++))
-        else
-            if mv "${file}" "${target}"; then
-                log "\e[32mUmbenannt: ${file} → ${target}\e[0m"
-                ((renamed++))
-            else
-                log "\e[31mFehler beim Umbenennen von ${file}\e[0m"
-                ((skipped++))
-            fi
-        fi
-    done < <(find "${opensim_bin}" -type f -name "*.example" -print0)
-
-    log "\n\e[36mZusammenfassung:\e[0m"
-    log "\e[32mUmbenannte Dateien: ${renamed}\e[0m"
-    log "\e[33mÜbersprungene Dateien: ${skipped}\e[0m"
-    log "\e[32mStandalone-Konfiguration abgeschlossen!\e[0m"
-    blankline
-}
-
 # Helper to clean config files (remove leading spaces/tabs)
 function clean_config() {
     local file=$1
     sed -i 's/^[ \t]*//' "$file"
 }
-
-
 
 # cleanall - Removes OpenSim completely
 function cleanall() {
@@ -5301,6 +5269,318 @@ function autoupgradefast() {
     opensimstartParallel
 }
 
+#* OpenSimulator bauen aus Github.
+# Dies macht ausser dem OpenSimulator erstellen nichts weiter.
+function buildopensim() {
+    opensimgitcopy
+    moneygitcopy
+    osslscriptsgit
+    versionrevision
+    opensimbuild
+}
+
+# Standalone
+function standalonesetup() {
+    # 12.05.2025 
+    log "\e[33m[Standalone] Setup wird durchgeführt...\e[0m"
+
+    # Prüfen ob SCRIPT_DIR gesetzt ist
+    if [ -z "${SCRIPT_DIR}" ]; then
+        log "\e[31mFehler: SCRIPT_DIR ist nicht gesetzt!\e[0m"
+        return 1
+    fi
+
+    local opensim_bin="${SCRIPT_DIR}/opensim/bin"
+    local renamed=0
+    local skipped=0
+
+    # Sicherstellen, dass das Verzeichnis existiert
+    if [ ! -d "${opensim_bin}" ]; then
+        log "\e[31mFehler: Verzeichnis ${opensim_bin} nicht gefunden!\e[0m"
+        return 1
+    fi
+
+    # Verarbeite alle .example Dateien
+    while IFS= read -r -d '' file; do
+        target="${file%.example}"
+        
+        if [ -e "${target}" ]; then
+            log "\e[33mÜbersprungen: ${target} existiert bereits\e[0m"
+            ((skipped++))
+        else
+            if mv "${file}" "${target}"; then
+                log "\e[32mUmbenannt: ${file} → ${target}\e[0m"
+                ((renamed++))
+            else
+                log "\e[31mFehler beim Umbenennen von ${file}\e[0m"
+                ((skipped++))
+            fi
+        fi
+    done < <(find "${opensim_bin}" -type f -name "*.example" -print0)
+
+    genPasswort=$(tr -dc 'A-Za-z0-9!@#$%^&*()' < /dev/urandom | head -c 16)
+    #genUserid=$(command -v uuidgen >/dev/null 2>&1 && uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
+    user_uuid=$(command -v uuidgen >/dev/null 2>&1 && uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
+
+    log "${COLOR_INFO}OpenSim User Erstellung${COLOR_RESET}"
+
+    echo -n "Vorname: "
+    read -r VORNAME
+
+    echo -n "Nachname: "
+    read -r NACHNAME
+
+    echo -n "Passwort: "
+    read -r PASSWORT
+
+    echo -n "E-Mail: "
+    read -r EMAIL
+
+    # **Speicherung der Benutzerdaten in UserInfo.ini** NEU
+    ini_file="${SCRIPT_DIR}/OpenSimUserInfo.ini"    
+    log "${COLOR_INFO}Erstelle OpenSimUserInfo.ini neu${COLOR_RESET}"
+    sudo rm -f "$ini_file"
+    sudo touch "$ini_file"
+
+    log "\n[UserData]" | sudo tee -a "$ini_file" >/dev/null
+    echo "System IP = ${system_ip}" | sudo tee -a "$ini_file" >/dev/null
+    echo "Vorname = ${VORNAME}" | sudo tee -a "$ini_file" >/dev/null
+    echo "Nachname = ${NACHNAME}" | sudo tee -a "$ini_file" >/dev/null
+    echo "Passwort = ${PASSWORT}" | sudo tee -a "$ini_file" >/dev/null
+    echo "E-Mail = ${EMAIL}" | sudo tee -a "$ini_file" >/dev/null
+    echo "UserID = ${user_uuid}" | sudo tee -a "$ini_file" >/dev/null
+
+    log "${SYM_LOG} ${COLOR_LABEL}Benutzerdaten hinzugefügt in: ${COLOR_FILE}${ini_file}${COLOR_RESET}"
+
+    blankline
+}
+
+function createstandaloneuser() {
+    # 12.05.2025 OpenSim Avatar erstellen
+
+    # opensim starten
+    echo "opensim starten, erster start..."
+    if [[ -d "opensim/bin" && -f "opensim/bin/OpenSim.dll" ]]; then
+        log "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}opensim ${COLOR_RESET} ${COLOR_START}aus ${COLOR_DIR}opensim/bin...${COLOR_RESET}"
+        cd opensim/bin || exit 1
+
+        screen -fa -S opensim -d -U -m dotnet OpenSim.dll
+        cd - >/dev/null 2>&1 || exit 1
+    else
+        log "${SYM_BAD} ${COLOR_SERVER}opensim: ${COLOR_BAD}OpenSim.dll nicht gefunden.${COLOR_RESET} ${COLOR_START}Überspringe Start.${COLOR_RESET}"
+    fi
+
+
+    # 1. INI-Datei auslesen mit angepasstem Parsing
+    ini_file="${SCRIPT_DIR}/OpenSimUserInfo.ini"
+    if [[ ! -f "$ini_file" ]]; then
+        log "${COLOR_BAD}UserInfo.ini nicht gefunden unter: $ini_file${COLOR_RESET}"
+        return 1
+    fi
+
+    # Parsing-Funktion mit Trim und Leerzeichen im Pattern
+    ini_get() {
+        local section="$1" key="$2"
+        awk -F ' = ' '
+        /^\[/ { current_section = substr($0, 2, length($0)-2) }
+        current_section == "'"$section"'" && $1 == "'"$key"'" { 
+            sub(/^[ \t]+/, "", $2)  # Trim leading whitespace
+            sub(/[ \t\r]+$/, "", $2) # Trim trailing whitespace
+            print $2
+            exit
+        }
+        ' "$ini_file"
+    }
+
+    # Werte auslesen
+    VORNAME=$(ini_get "UserData" "Vorname")
+    NACHNAME=$(ini_get "UserData" "Nachname")
+    PASSWORT=$(ini_get "UserData" "Passwort")
+    EMAIL=$(ini_get "UserData" "E-Mail")
+    user_uuid=$(ini_get "UserData" "UserID")
+    
+    # Überprüfe ob opensim läuft
+    if ! screen -list | grep -q "opensim"; then
+        log "${COLOR_BAD}CREATEUSER: opensim existiert nicht oder läuft nicht${COLOR_RESET}"
+        return 1
+    fi
+
+    # Benutzer in Robust erstellen
+    screen -S opensim -p 0 -X eval "stuff 'create user'^M"
+    screen -S opensim -p 0 -X eval "stuff '$VORNAME'^M"
+    screen -S opensim -p 0 -X eval "stuff '$NACHNAME'^M"
+    screen -S opensim -p 0 -X eval "stuff '$PASSWORT'^M"
+    screen -S opensim -p 0 -X eval "stuff '$EMAIL'^M"
+    screen -S opensim -p 0 -X eval "stuff '$user_uuid'^M"
+    screen -S opensim -p 0 -X eval "stuff ''^M"
+
+    screen -S opensim -p 0 -X eval "stuff ''^M"
+    screen -S opensim -p 0 -X eval "stuff ''^M"
+
+    log "${COLOR_OK}Masteruser $VORNAME $NACHNAME wurde erstellt${COLOR_RESET}"
+    log "${COLOR_INFO}UserID: $user_uuid${COLOR_RESET}"    
+    blankline
+}
+
+function createstandalonregion() {
+    # 12.05.2025 Standalone Region erstellen
+    local config_file="opensim/bin/Regions/opensim.ini"
+    local region_name="OpenSim"
+    local location="1000,1000"
+    local port="9015"
+    system_ip=$(hostname -I | awk '{print $1}')
+    region_uuid=$(command -v uuidgen >/dev/null 2>&1 && uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$RANDOM-$RANDOM-$RANDOM-$RANDOM")
+    SIZES=768
+
+    # 1. INI-Datei auslesen mit angepasstem Parsing
+    ini_file="${SCRIPT_DIR}/OpenSimUserInfo.ini"
+    if [[ ! -f "$ini_file" ]]; then
+        log "${COLOR_BAD}UserInfo.ini nicht gefunden unter: $ini_file${COLOR_RESET}"
+        return 1
+    fi
+
+    # Parsing-Funktion mit Trim und Leerzeichen im Pattern
+    ini_get() {
+        local section="$1" key="$2"
+        awk -F ' = ' '
+        /^\[/ { current_section = substr($0, 2, length($0)-2) }
+        current_section == "'"$section"'" && $1 == "'"$key"'" { 
+            sub(/^[ \t]+/, "", $2)  # Trim leading whitespace
+            sub(/[ \t\r]+$/, "", $2) # Trim trailing whitespace
+            print $2
+            exit
+        }
+        ' "$ini_file"
+    }
+
+    # Werte auslesen
+    VORNAME=$(ini_get "UserData" "Vorname")
+    NACHNAME=$(ini_get "UserData" "Nachname")
+    PASSWORT=$(ini_get "UserData" "Passwort")
+
+    touch "$config_file"
+    {
+        echo "[${VORNAME}${NACHNAME}]"
+        echo "RegionUUID = ${region_uuid}"
+        echo "Location = ${location}"
+        echo "SizeX = ${SIZES}"
+        echo "SizeY = ${SIZES}"
+        echo "SizeZ = ${SIZES}"
+        echo "InternalPort = ${port}"
+        echo "ExternalHostName = ${system_ip}"
+        echo "MaxPrims = 45000"
+        echo "MaxAgents = 40"
+        echo "MaptileStaticUUID = 20000000-1000-1000-1000-200000000000"
+        echo "InternalAddress = 0.0.0.0"
+        echo "AllowAlternatePorts = False"
+        echo "NonPhysicalPrimMax = 512"
+        echo "PhysicalPrimMax = 128"
+        echo ";ClampPrimSize = false"
+        echo ";MaxPrimsPerUser = -1"
+        echo ";ScopeID = 30000000-1000-1000-1000-300000000000"
+        echo ";RegionType = Mainland"
+        echo ";RenderMinHeight = -1"
+        echo ";RenderMaxHeight = 100"
+        echo ";MapImageModule = Warp3DImageModule"
+        echo ";TextureOnMapTile = true"
+        echo ";DrawPrimOnMapTile = true"
+        echo ";GenerateMaptiles = true"
+        echo ";MaptileRefresh = 0"
+        echo ";MaptileStaticFile = path/to/SomeFile.png"
+        echo ";MasterAvatarFirstName = ${VORNAME}"
+        echo ";MasterAvatarLastName = ${NACHNAME}"
+        echo ";MasterAvatarSandboxPassword = ${PASSWORT}"
+    } > "$config_file"
+
+    echo "Region '${region_name}' wurde erfolgreich erstellt in ${config_file} (Location: ${location}, Port: ${port})"
+
+    # Datei Regions.ini löschen
+    rm -v "opensim/bin/Regions/Regions.ini"
+}
+
+function createstandaloneconfig() {
+    system_ip=$(hostname -I | awk '{print $1}')
+    file="$SCRIPT_DIR/opensim/bin/OpenSim.ini"
+    standalonehg="ja"
+
+    # 1. INI-Datei auslesen mit angepasstem Parsing
+    ini_file="${SCRIPT_DIR}/OpenSimUserInfo.ini"
+    if [[ ! -f "$ini_file" ]]; then
+        log "${COLOR_BAD}UserInfo.ini nicht gefunden unter: $ini_file${COLOR_RESET}"
+        return 1
+    fi
+
+    # Parsing-Funktion mit Trim und Leerzeichen im Pattern
+    ini_get() {
+        local section="$1" key="$2"
+        awk -F ' = ' '
+        /^\[/ { current_section = substr($0, 2, length($0)-2) }
+        current_section == "'"$section"'" && $1 == "'"$key"'" { 
+            sub(/^[ \t]+/, "", $2)  # Trim leading whitespace
+            sub(/[ \t\r]+$/, "", $2) # Trim trailing whitespace
+            print $2
+            exit
+        }
+        ' "$ini_file"
+    }
+
+    # Werte auslesen
+    VORNAME=$(ini_get "UserData" "Vorname")
+    NACHNAME=$(ini_get "UserData" "Nachname")
+    PASSWORT=$(ini_get "UserData" "Passwort")
+
+    if [[ -z "$standalonehg" ]]; then
+        log "${COLOR_BAD}FEHLER: Variable 'standalonehg' nicht definiert!${COLOR_RESET}"
+        return 1
+    fi
+
+    # [Const]
+    set_ini_key "$file" "Const" "BaseHostname" "\"${system_ip}\""
+    set_ini_key "$file" "Const" "PublicPort" "\"9010\""
+    # [Estates]
+    set_ini_key "$file" "Estates" "DefaultEstateName" "\"$VORNAME$NACHNAME Estate\""
+    set_ini_key "$file" "Estates" "DefaultEstateOwnerName" "\"9010\""
+    set_ini_key "$file" "Estates" "DefaultEstateOwnerUUID" "\"10000000-1000-1000-1000-100000000000\""
+    set_ini_key "$file" "Estates" "DefaultEstateOwnerPassword" "\"${PASSWORT}\""
+    # [Terrain]
+    set_ini_key "$file" "Terrain" "InitialTerrain" "\"flat\""
+
+    if [[ "$standalonehg" = "ja" ]]; then
+        # [Architecture]
+        set_ini_key "$file" "Architecture" "Include-Architecture" "\"config-include/StandaloneHypergrid.ini\""
+        log "${COLOR_FILE}Erstelle $file${COLOR_RESET}"
+    else
+        # [Architecture]
+        set_ini_key "$file" "Architecture" "Include-Architecture" "\"config-include/Standalone.ini\""
+        log "${COLOR_FILE}Erstelle $file${COLOR_RESET}"
+    fi
+}
+
+#* Standalone Installation
+function buildstandalone() {
+    # OpenSimulator herunterladen und bauen
+    opensimgitcopy
+    # Skripte einfügen
+    osslscriptsgit
+    # Version einstellen
+    versionrevision
+    # OpenSimulator bauen
+    opensimbuild
+    # Standalone Setup	
+    standalonesetup    
+    # Create Standalone Config
+    createstandaloneconfig
+    # Create Startregion
+	createstandalonregion
+    # create user
+    createstandaloneuser
+    # Standalone neu starten
+    standalonerestart
+
+    log "${COLOR_OK}Standalone OpenSimulator wurde erfolgreich installiert, die Daten stehen in der Datei OpenSimUserInfo.ini${COLOR_RESET}"
+	
+}
+
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Hilfefunktionen
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -5310,11 +5590,15 @@ function help() {
     log "${COLOR_SECTION}${SYM_SERVER} OpenSim Grundbefehle:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_START}opensimstart${COLOR_RESET} \t\t # Startet OpenSimulator komplett"
     log "${SYM_VOR} ${COLOR_STOP}opensimstop${COLOR_RESET} \t\t # Stoppt OpenSimulator komplett"
-    log "${SYM_VOR} ${COLOR_START}opensimrestart${COLOR_RESET} \t # Startet den OpenSimulator komplett neu"
+    log "${SYM_VOR} ${COLOR_RESTART}opensimrestart${COLOR_RESET} \t # Startet den OpenSimulator komplett neu"
     echo
     log "${SYM_VOR} ${COLOR_START}simstart${COLOR_RESET} \t\t # simX angeben - startet einen Regionsserver"
     log "${SYM_VOR} ${COLOR_STOP}simstop${COLOR_RESET} \t\t # simX angeben - stoppt einen Regionsserver"
-    log "${SYM_VOR} ${COLOR_START}simrestart${COLOR_RESET} \t\t # simX angeben - startet einen Regionsserver neu"
+    log "${SYM_VOR} ${COLOR_RESTART}simrestart${COLOR_RESET} \t\t # simX angeben - startet einen Regionsserver neu"
+    echo ""
+    log "${SYM_VOR} ${COLOR_START}standalonestart${COLOR_RESET} \t # Standalone starten"
+    log "${SYM_VOR} ${COLOR_STOP}standalonestop${COLOR_RESET} \t # Standalone stoppen"
+    log "${SYM_VOR} ${COLOR_RESTART}standalonerestart${COLOR_RESET} \t # Standalone neu starten"
     echo ""
 
     # System-Checks & Setup
@@ -5370,13 +5654,30 @@ function prohelp() {
     log "${COLOR_SECTION}${SYM_SERVER} OpenSim Grundbefehle:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_START}opensimstart${COLOR_RESET} \t\t # OpenSim starten"
     log "${SYM_VOR} ${COLOR_STOP}opensimstop${COLOR_RESET} \t\t # OpenSim stoppen"
-    log "${SYM_VOR} ${COLOR_START}opensimrestart${COLOR_RESET} \t # OpenSim neu starten"
+    log "${SYM_VOR} ${COLOR_RESTART}opensimrestart${COLOR_RESET} \t # OpenSim neu starten"
     log "${SYM_VOR} ${COLOR_OK}check_screens${COLOR_RESET} \t # Laufende OpenSim-Prozesse prüfen und neu starten"
     log "${SYM_VOR} ${COLOR_OK}autoupgrade${COLOR_RESET} \t\t # Automatisches OpenSim upgrade"
+    echo " "
+    log "${SYM_VOR} ${COLOR_START}opensimstartParallel${COLOR_RESET} \t # Startet alle Regionen parallel"
+    log "${SYM_VOR} ${COLOR_STOP}opensimstopParallel${COLOR_RESET} \t # Stoppt alle Regionen parallel"
+    log "${SYM_VOR} ${COLOR_RESTART}opensimrestartParallel${COLOR_RESET}  # Startet alle Regionen neu (parallel)"
+    echo " "
 
-    log "${SYM_VOR} ${COLOR_OK}opensimstartParallel${COLOR_RESET} \t # Startet alle Regionen parallel"
-    log "${SYM_VOR} ${COLOR_OK}opensimstopParallel${COLOR_RESET} \t # Stoppt alle Regionen parallel"
-    log "${SYM_VOR} ${COLOR_OK}opensimrestartParallel${COLOR_RESET}  # Startet alle Regionen neu (parallel)"
+    #* Standalone-Operationen
+    log "${COLOR_SECTION}${SYM_SCRIPT} Standalone-Operationen:${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_START}standalonestart${COLOR_RESET} \t\t # Standalone starten"
+    log "${SYM_VOR} ${COLOR_STOP}standalonestop${COLOR_RESET} \t\t # Standalone stoppen"
+    log "${SYM_VOR} ${COLOR_RESTART}standalonerestart${COLOR_RESET} \t\t # Standalone neu starten"
+    echo " "
+    log "${SYM_VOR} ${COLOR_OK}buildstandalone${COLOR_RESET} \t\t # Standalone erstellen"
+    log "${SYM_VOR} ${COLOR_OK}opensimgitcopy${COLOR_RESET} \t\t # OpenSimulator aus Git kopieren"
+    log "${SYM_VOR} ${COLOR_OK}osslscriptsgit${COLOR_RESET} \t\t # Skripte aus Repository einfügen"
+    log "${SYM_VOR} ${COLOR_OK}versionrevision${COLOR_RESET} \t\t # OpenSimulator-Version festlegen"
+    log "${SYM_VOR} ${COLOR_OK}opensimbuild${COLOR_RESET} \t\t\t # OpenSimulator bauen"
+    log "${SYM_VOR} ${COLOR_OK}standalonesetup${COLOR_RESET} \t\t # Standalone Setup durchführen"
+    log "${SYM_VOR} ${COLOR_OK}createstandaloneconfig${COLOR_RESET} \t # OpenSimulator-Konfiguration erstellen"
+    log "${SYM_VOR} ${COLOR_OK}createstandalonregion${COLOR_RESET} \t # Startregion konfigurieren"
+    log "${SYM_VOR} ${COLOR_OK}createstandaloneuser${COLOR_RESET} \t\t # Benutzer erstellen"
     echo " "
 
     #* System-Checks & Setup
@@ -5548,7 +5849,7 @@ case $KOMMANDO in
     del_xml_section)       del_xml_section "$2" "$3" ;;  
 
     #  STANDALONE-MODUS       #
-    standalone)        standalone ;;
+    standalonesetup)   standalonesetup ;;
     standalonestart)   standalonestart ;;
     standalonestop)    standalonestop ;;
     standalonerestart) standalonerestart ;;
@@ -5569,8 +5870,8 @@ case $KOMMANDO in
     delete_opensim)    delete_opensim ;;
 
     # Tests                  #
-    opensimstartParallel)           opensimstartParallel ;;
-    faststop|opensimstopParallel)   opensimstopParallel ;;
+    opensimstartParallel)           opensimstartParallel ;; # Das Parallel verarbeiten kann bei großen Regionen den Server
+    faststop|opensimstopParallel)   opensimstopParallel ;; #  so belasten das er nicht mehr reagieren kann.
     opensimrestartParallel)         opensimrestartParallel ;;
     autoupgrade)                    autoupgrade ;;
     autoupgradefast)                autoupgradefast ;;
@@ -5580,6 +5881,8 @@ case $KOMMANDO in
     robustrepair)                   robustrepair "$2" "$3" "$4" ;;
     restoreRobustDump)              restoreRobustDump "$2" "$3" "$4" "$5" ;;
     rootrights)                     rootrights ;;
+    buildopensim)                   buildopensim ;;
+    buildstandalone)                buildstandalone ;;
 
     #  HILFE & SONSTIGES      #
     generate_all_name)  generate_all_name ;;
