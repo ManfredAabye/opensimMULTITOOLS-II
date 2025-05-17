@@ -5,49 +5,127 @@
 #! ACHTUNG das loggen speichert alles auch vertrauliche Daten.
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-#* Debug-Log-System
+#* ======================================================================
+#* DEBUG-LOG-SYSTEM (Überarbeitete Version)
+#* 
+#* Merkmale:
+#* - Vollständig abwärtskompatibel zu bestehenden Aufrufen
+#* - Thread-sicherer Zugriff auf Log-Datei (mit flock)
+#* - Automatische Log-Rotation bei Größenüberschreitung
+#* - Unterstützt farbige Konsolenausgabe und bereinigte Log-Dateien
+#* - Robustere Fehlerbehandlung
+#* ======================================================================
 
-# 1. Logging ein/aus schalten
-#LOG_ENABLED=false   # Logging ist AUS
-LOG_ENABLED=true  # Logging ist AKTIV (Standard)
+#* 1. LOGGING-KONFIGURATION
+#* ----------------------------------------------------------------------
 
-# 2. Alte Log-Datei löschen
-OLD_LOG_DEL=true    # Löscht alte Log-Datei vor Start (Standard)
-# OLD_LOG_DEL=false # Behält alte Log-Datei und fügt neue Einträge an
+# Logging global aktivieren/deaktivieren (true/false)
+LOG_ENABLED=true   # Default: true (Logging aktiv)
+#LOG_ENABLED=false # Zum Deaktivieren
 
-# 3. Log-Datei Name und Ort
-DEBUG_LOG="osmtool_debug.log"  # Speicherort der Log-Datei
+# Soll die Log-Datei beim Start gelöscht werden?
+OLD_LOG_DEL=true   # Default: true (alte Logs löschen)
+#OLD_LOG_DEL=false # Zum Deaktivieren
 
-# Logdatei vorbereiten
-if [[ "$LOG_ENABLED" == "true" ]]; then
+# Log-Datei Name und Speicherort
+DEBUG_LOG="osmtool_debug.log"  # Default: im aktuellen Verzeichnis
+
+# Maximale Log-Größe in MB bevor Rotation erfolgt (0 = deaktiviert)
+MAX_LOG_SIZE_MB=10  # 10MB empfohlen
+
+#* 2. LOG-SYSTEM INITIALISIERUNG
+#* ----------------------------------------------------------------------
+
+# Logdatei vorbereiten (wird nur aufgerufen wenn LOG_ENABLED=true)
+function init_log_system() {
+    # Alte Log-Datei löschen falls gewünscht
     if [[ "$OLD_LOG_DEL" == "true" ]]; then
-        rm "$DEBUG_LOG" 2>/dev/null
+        : > "$DEBUG_LOG" 2>/dev/null || {
+            echo "FEHLER: Kann Logdatei nicht zurücksetzen: $DEBUG_LOG" >&2
+            return 1
+        }
+    else
+        touch "$DEBUG_LOG" 2>/dev/null || {
+            echo "FEHLER: Kann Logdatei nicht erstellen: $DEBUG_LOG" >&2
+            return 1
+        }
     fi
-    touch "$DEBUG_LOG" 2>/dev/null || echo "Kann Logdatei nicht erstellen" >&2
+    
+    # Schreibrechte prüfen
+    if [ ! -w "$DEBUG_LOG" ]; then
+        echo "FEHLER: Keine Schreibrechte für Logdatei: $DEBUG_LOG" >&2
+        return 1
+    fi
+    
+    return 0
+}
+
+# System bei Start initialisieren
+if [[ "$LOG_ENABLED" == "true" ]]; then
+    if ! init_log_system; then
+        echo "WARNUNG: Logging wird deaktiviert (Initialisierung fehlgeschlagen)" >&2
+        LOG_ENABLED=false
+    fi
 fi
 
-# Verbesserte Funktion zum Entfernen von ANSI-Codes
+#* 3. HILFSFUNKTIONEN
+#* ----------------------------------------------------------------------
+
+# Entfernt ANSI-Farbcodes aus Text (für Log-Datei)
 function clean_ansi() {
     echo -e "$1" | sed -E 's/\x1B\[([0-9]{1,3}(;[0-9]{1,3})*)?[mGK]//g'
 }
 
-# Log-Funktion
-function log() {
-    local message="$1"
-    local level="${2:-INFO}"
-    local timestamp
-    timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+# Führt Log-Rotation durch wenn MAX_LOG_SIZE_MB überschritten wird
+function rotate_log_if_needed() {
+    [[ "$MAX_LOG_SIZE_MB" -eq 0 ]] && return  # Rotation deaktiviert
     
-    # Zur Konsole (mit Farben)
-    echo -e "$message"
+    local log_size_mb
+    log_size_mb=$(du -m "$DEBUG_LOG" 2>/dev/null | cut -f1) || return
     
-    # Zur Logdatei (ohne Farbcodes)
-    if [[ "$LOG_ENABLED" == "true" ]]; then
-        local clean_message
-        clean_message=$(clean_ansi "$message")
-        echo "[${timestamp}] [${level}] ${clean_message}" >> "$DEBUG_LOG"
+    if [[ "$log_size_mb" -ge "$MAX_LOG_SIZE_MB" ]]; then
+        mv "$DEBUG_LOG" "${DEBUG_LOG}.old" 2>/dev/null
+        : > "$DEBUG_LOG" 2>/dev/null
     fi
 }
+
+#* 4. HAUPT-LOG-FUNKTION (abwärtskompatibel!)
+#* ----------------------------------------------------------------------
+
+function log() {
+    local message="$1"
+    local level="${2:-INFO}"  # Default-Level: INFO (abwärtskompatibel)
+    timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    
+    # 1. Immer zur Konsole ausgeben (mit Farben, genau wie bisher)
+    echo -e "$message"
+    
+    # 2. Nur in Log-Datei schreiben wenn Logging aktiviert
+    if [[ "$LOG_ENABLED" == "true" ]]; then
+        # Log-Rotation prüfen
+        rotate_log_if_needed
+        
+        # ANSI-Codes entfernen für Log-Datei
+        clean_message=$(clean_ansi "$message")
+        
+        # Thread-sicheres Schreiben (falls flock verfügbar)
+        if command -v flock >/dev/null; then
+            (
+                flock -x 200
+                echo "[${timestamp}] [${level}] ${clean_message}" >> "$DEBUG_LOG"
+            ) 200>>"$DEBUG_LOG"
+        else
+            echo "[${timestamp}] [${level}] ${clean_message}" >> "$DEBUG_LOG"
+        fi
+    fi
+}
+
+#* ======================================================================
+#* BEISPIELAUFRUFE:
+#*
+#* log "${COLOR_BAD}FEHLER: Robust.HG.ini nicht gefunden in $robust_dir${COLOR_RESET}" >&2
+#* log "Eine normale Info-Meldung"
+#* ======================================================================
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Informationen Kopfzeile
@@ -62,7 +140,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
-VERSION="V25.5.109.442"
+VERSION="V25.5.113.448"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -198,9 +276,6 @@ function hypergrid() {
     log "${COLOR_OK}Modus erfolgreich auf $modus gesetzt${COLOR_RESET}"
     return 0
 }
-
-
-
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Abhängigkeiten installieren
@@ -532,17 +607,60 @@ function setup_webserver() {
 #* Start Stop Standalone und einzelne Instanzen
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
+OPENSIM_DIR="opensim/bin"               # Pfad zu OpenSim.dll (relativ/absolut)
+SCREEN_NAME="opensim"                   # Name der screen-Session
+SHUTDOWN_CMD="shutdown"                 # Befehl zum Stoppen (^M = Enter)
+
+function is_opensim_running() {
+    if screen -list | grep -q "$SCREEN_NAME"; then
+        return 0  # Läuft
+    else
+        return 1  # Läuft nicht
+    fi
+}
+
 function standalonestart() {
-    cd opensim/bin || exit 1
-    screen -fa -S opensim -d -U -m dotnet OpenSim.dll
-    echo "OpenSim starten abgeschlossen."
+    if is_opensim_running; then
+        echo "OpenSim läuft bereits (Screen: $SCREEN_NAME)."
+    else
+        echo "Starte OpenSim in screen '$SCREEN_NAME'..."
+        cd "$OPENSIM_DIR" || exit 1
+        screen -fa -S "$SCREEN_NAME" -d -U -m dotnet OpenSim.dll
+        echo "OpenSim starten abgeschlossen."
+    fi
     blankline
 }
 
 function standalonestop() {
-    screen -S opensim -p 0 -X stuff "shutdown^M"
-    echo "OpenSim stoppen abgeschlossen."
+    if is_opensim_running; then
+        echo "Sende Shutdown-Befehl an OpenSim..."
+        screen -S "$SCREEN_NAME" -p 0 -X stuff "$SHUTDOWN_CMD^M"
+        sleep 5  # Warte auf saubere Beendigung
+        if ! is_opensim_running; then
+            echo "OpenSim wurde gestoppt."
+        else
+            echo "Warnung: OpenSim reagiert nicht auf 'shutdown'. Versuche hartes Stoppen..."
+            screen -S "$SCREEN_NAME" -X quit
+        fi
+    else
+        echo "OpenSim läuft nicht."
+    fi
     blankline
+}
+
+# Standalone-Service-Neustart (ohne Logbereinigung)
+function standalonerestart() {
+    standalonestop
+    sleep $Simulator_Stop_wait  # Wartezeit für sauberen Shutdown
+    standalonestart
+}
+
+function standalonestatus() {
+        if is_opensim_running; then
+            echo "✅ OpenSim läuft (Screen: $SCREEN_NAME)."
+        else
+            echo "❌ OpenSim läuft nicht."
+        fi 
 }
 
 function validate_sim_name() {
@@ -5117,13 +5235,6 @@ function cleanall() {
 #*          ZUSAMMENFASSUNG DER FUNKTIONEN IN LOGISCHE GRUPPEN          
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-# Standalone-Service-Neustart (ohne Logbereinigung)
-function standalonerestart() {
-    standalonestop
-    sleep $Simulator_Stop_wait  # Wartezeit für sauberen Shutdown
-    standalonestart
-}
-
 # Kompletter OpenSim-Neustart mit Logrotation
 function opensimrestart() {
     opensimstop
@@ -5851,8 +5962,9 @@ case $KOMMANDO in
     #  STANDALONE-MODUS       #
     standalonesetup)   standalonesetup ;;
     standalonestart)   standalonestart ;;
-    standalonestop)    standalonestop ;;
+    standalonestop)    standalonestop ;;    
     standalonerestart) standalonerestart ;;
+    standalonestatus) standalonestatus ;;
 
     #  SYSTEM-BEREINIGUNG     #
     reboot)            reboot ;;
