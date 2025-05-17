@@ -140,7 +140,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
-VERSION="V25.5.113.448"
+VERSION="V25.5.113.453"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -612,11 +612,12 @@ SCREEN_NAME="opensim"                   # Name der screen-Session
 SHUTDOWN_CMD="shutdown"                 # Befehl zum Stoppen (^M = Enter)
 
 function is_opensim_running() {
-    if screen -list | grep -q "$SCREEN_NAME"; then
-        return 0  # Läuft
-    else
-        return 1  # Läuft nicht
+    local target_session="${1:-$SCREEN_NAME}"  # Nutzt Parameter oder falls leer, globale $SCREEN_NAME
+    if [[ -z "$target_session" ]]; then
+        echo "Fehler: Kein Screen-Name angegeben" >&2
+        return 2  # Spezieller Fehlercode für ungültige Eingabe
     fi
+    screen -list | grep -q "$target_session"  # Rückgabewert 0 = läuft, 1 = nicht läuft
 }
 
 function standalonestart() {
@@ -676,35 +677,99 @@ function validate_sim_name() {
 # Einzelne Instanzen starten und stoppen
 
 function simstart() {
-    local simstart=$1
-    if ! validate_sim_name "$simstart"; then
-        exit 1
+    local sim_name="$1"
+    local sim_dir="${sim_name}/bin"
+    local max_wait=${Simulator_Start_wait:-10}  # Default 10 Sekunden Timeout
+
+    # 1. Validierung
+    if ! validate_sim_name "$sim_name"; then
+        log "${SYM_BAD} ${COLOR_ERROR}Ungültiger Simulationsname!${COLOR_RESET}"
+        return 1
     fi
-    
-    log "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}$ $simstart ${COLOR_RESET}"
-    sim_dir="$simstart/bin"
-    cd "$sim_dir" || {
-        log "${SYM_BAD} ${COLOR_WARNING}Verzeichnis $sim_dir nicht gefunden!${COLOR_RESET}"
-        exit 1
-    }
-    screen -fa -S "$simstart" -d -U -m dotnet OpenSim.dll
-    cd "$SCRIPT_DIR" || exit
-    sleep $Simulator_Start_wait
-    echo "OpenSim starten abgeschlossen."    
-    blankline
+
+    # 2. Prüfen ob die Simulation bereits läuft
+    if is_opensim_running "$sim_name"; then
+        log "${SYM_INFO} ${COLOR_WARNING}Simulation '${sim_name}' läuft bereits!${COLOR_RESET}"
+        blankline
+        return 0
+    fi
+
+    # 3. Verzeichnisprüfung
+    if [[ ! -d "$sim_dir" ]]; then
+        log "${SYM_BAD} ${COLOR_ERROR}Verzeichnis nicht gefunden: ${sim_dir}${COLOR_RESET}"
+        return 1
+    fi
+
+    # 4. Startversuch
+    log "${SYM_OK} ${COLOR_START}Starte ${COLOR_SERVER}${sim_name}${COLOR_RESET}"
+    if ! (cd "$sim_dir" && screen -fa -S "$sim_name" -d -U -m dotnet OpenSim.dll); then
+        log "${SYM_BAD} ${COLOR_ERROR}Start fehlgeschlagen!${COLOR_RESET}"
+        return 1
+    fi
+
+    # 5. Startüberprüfung mit Timeout
+    local waited=0
+    while ! is_opensim_running "$sim_name" && ((waited < max_wait)); do
+        sleep 1
+        ((waited++))
+        echo -n "."
+    done
+    echo ""
+
+    # 6. Ergebnis auswerten
+    if is_opensim_running "$sim_name"; then
+        log "${SYM_OK} ${COLOR_START}Simulation erfolgreich gestartet (${waited}s).${COLOR_RESET}"
+        blankline
+        return 0
+    else
+        log "${SYM_BAD} ${COLOR_ERROR}Timeout: Simulation startet nicht (${max_wait}s)${COLOR_RESET}"
+        return 1
+    fi
 }
 
 function simstop() {
-    local simstop=$1
+    local simstop="$1"
+    local max_wait=${Simulator_Stop_wait:-15}  # Default 15 Sekunden Timeout
+
+    # 1. Validierung
     if ! validate_sim_name "$simstop"; then
-        exit 1
+        log "${SYM_BAD} ${COLOR_ERROR}Ungültiger Simulationsname!${COLOR_RESET}"
+        return 1
     fi
-    
-    log "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER} $simstop${COLOR_RESET}"
-    screen -S "$simstop" -p 0 -X stuff "shutdown^M"
-    sleep $Simulator_Stop_wait
-    echo "OpenSim stoppen abgeschlossen."    
-    blankline
+
+    # 2. Prüfen ob die Simulation läuft
+    if ! is_opensim_running "$simstop"; then
+        log "${SYM_INFO} ${COLOR_WARNING}Simulation '$simstop' ist nicht aktiv.${COLOR_RESET}"
+        blankline
+        return 0
+    fi
+
+    # 3. Stop-Befehl senden
+    log "${SYM_OK} ${COLOR_STOP}Stoppe ${COLOR_SERVER}${simstop}${COLOR_RESET}"
+    if ! screen -S "$simstop" -p 0 -X stuff "shutdown^M"; then
+        log "${SYM_BAD} ${COLOR_ERROR}Konnte Stop-Befehl nicht senden!${COLOR_RESET}"
+        return 1
+    fi
+
+    # 4. Graceful Shutdown mit Timeout
+    local waited=0
+    while is_opensim_running "$simstop" && ((waited < max_wait)); do
+        sleep 1
+        ((waited++))
+        echo -n "."
+    done
+    echo ""
+
+    # 5. Ergebnis auswerten
+    if is_opensim_running "$simstop"; then
+        log "${SYM_BAD} ${COLOR_ERROR}Timeout: Simulation reagiert nicht auf shutdown (${max_wait}s)${COLOR_RESET}"
+        log "${SYM_INFO} ${COLOR_WARNING}Versuche hartes Stoppen...${COLOR_RESET}"
+        screen -S "$simstop" -X quit && return 0 || return 1
+    else
+        log "${SYM_OK} ${COLOR_STOP}Simulation sauber gestoppt (${waited}s).${COLOR_RESET}"
+        blankline
+        return 0
+    fi
 }
 
 function simrestart() {
