@@ -140,7 +140,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
-VERSION="V25.5.113.453"
+VERSION="V25.5.128.428"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -169,29 +169,46 @@ COLOR_RESTART='\e[93m'     # Gelb (RESTART)
 #* SYMBOLDEFINITIONEN
 SYM_OK="${COLOR_OK}✓${COLOR_RESET}"
 SYM_BAD="${COLOR_BAD}✗${COLOR_RESET}"
-SYM_INFO="${COLOR_VALUE}☛${COLOR_RESET}"        # Alternative: ▲ ● ◆ ☛ ⚑ ⓘ 
+SYM_INFO="${COLOR_VALUE}❓${COLOR_RESET}"
 SYM_WAIT="${COLOR_VALUE}⏳${COLOR_RESET}"
 SYM_LOG="${COLOR_VALUE}📋${COLOR_RESET}"
 COLOR_SECTION='\e[0;35m'                         # Magenta für Sektionsnamen
 COLOR_FILE='\e[0;33m'                            # Gelb für Dateipfade
 
-SYM_SYNC="${COLOR_VALUE}🔄${COLOR_RESET}"        # Synchronisieren, Aktualisieren
-SYM_TOOLS="${COLOR_VALUE}🛠️${COLOR_RESET}"       # Werkzeuge, Einstellungen, Reparatur
-SYM_FOLDER="${COLOR_VALUE}📂${COLOR_RESET}"      # Verzeichnis, Dateien, Dokumente
-SYM_CONFIG="${COLOR_VALUE}⚙️${COLOR_RESET}"      # Einstellungen, System, Konfiguration
-SYM_SCRIPT="${COLOR_VALUE}📜${COLOR_RESET}"      # Skript, Dokument, Notizen
-# shellcheck disable=SC2034
-SYM_FILE="${COLOR_VALUE}📄${COLOR_RESET}"        # Datei, Bericht
-SYM_SERVER="${COLOR_VALUE}🖥️${COLOR_RESET}"      # Server, Computer
-SYM_CLEAN="${COLOR_VALUE}🧹${COLOR_RESET}"       # Bereinigung, Aufräumen, Löschen
-# shellcheck disable=SC2034
-SYM_WARNING="${COLOR_VALUE}⚠${COLOR_RESET}"      # Achtung, Gefahr, Hinweis
-SYM_PUZZLE="${COLOR_VALUE}🧩${COLOR_RESET}"      # Rätsel, Aufgabe, Aufgabenstellung
-SYM_PACKAGE="${COLOR_VALUE}📦${COLOR_RESET}"     # Package
-SYM_OKN="${COLOR_VALUE}✔️${COLOR_RESET}"         # OK
-SYM_FORWARD="${COLOR_VALUE}⏭️${COLOR_RESET}"     # Weiter
-SYM_OKNN="${COLOR_VALUE}✅${COLOR_RESET}"        # OK
-SYM_VOR="${COLOR_VALUE}●${COLOR_RESET}"          # Alternative: ▲ ● ◆ ☛ ⚑ ⓘ ${SYM_VOR}
+#* SYSTEM & SERVER
+SYM_SERVER="${COLOR_VALUE}💻${COLOR_RESET}"      # Server/Computer
+#SYM_STORAGE="${COLOR_VALUE}💾${COLOR_RESET}"     # Speicher (Diskette)
+#SYM_NETWORK="${COLOR_VALUE}📡${COLOR_RESET}"     # Netzwerk/Antenne
+#SYM_SECURITY="${COLOR_VALUE}🔒${COLOR_RESET}"    # Sicherheit
+
+#* DATEIEN & ORDNER
+SYM_FOLDER="${COLOR_VALUE}📂${COLOR_RESET}"      # Geöffneter Ordner
+SYM_FILE="${COLOR_VALUE}📄${COLOR_RESET}"        # Dokument
+#SYM_ARCHIVE="${COLOR_VALUE}📦${COLOR_RESET}"     # Archiv/Paket
+#SYM_SEARCH="${COLOR_VALUE}🔍${COLOR_RESET}"      # Suche
+
+#* TOOLS & AKTIONEN
+SYM_TOOLS="${COLOR_VALUE}🧮${COLOR_RESET}"       # Werkzeuge
+SYM_CONFIG="${COLOR_VALUE}🔧${COLOR_RESET}"      # Konfiguration
+#SYM_MAINTENANCE="${COLOR_VALUE}🛠️${COLOR_RESET}" # Wartung
+SYM_CLEAN="${COLOR_VALUE}🧹${COLOR_RESET}"       # Bereinigung
+
+#* DOKUMENTATION
+SYM_SCRIPT="${COLOR_VALUE}📜${COLOR_RESET}"      # Skript
+#SYM_BOOK="${COLOR_VALUE}📖${COLOR_RESET}"        # Dokumentation
+#SYM_NOTES="${COLOR_VALUE}📝${COLOR_RESET}"       # Notizen
+
+#* STATUS & KONTROLLE
+SYM_OK="${COLOR_OK}✔${COLOR_RESET}"             # Erfolg
+SYM_BAD="${COLOR_BAD}✘${COLOR_RESET}"           # Fehler
+SYM_WARNING="${COLOR_WARNING}🔥${COLOR_RESET}"   # Warnung
+#SYM_RESTART="${COLOR_RESTART}🔄${COLOR_RESET}"  # Neustart
+
+#* ERWEITERTE SYMBOLE (Für spezielle Funktionen)
+#SYM_DATABASE="${COLOR_VALUE}💽${COLOR_RESET}"    # Datenbank
+#SYM_BACKUP="${COLOR_VALUE}💾${COLOR_RESET}"     # Backup
+#SYM_EMAIL="${COLOR_VALUE}📧${COLOR_RESET}"       # E-Mail
+#SYM_MONITORING="${COLOR_VALUE}📈${COLOR_RESET}"  # Monitoring
 
 #* WARTEZEITEN muessen leider sein damit der Server nicht überfordert wird.
 Simulator_Start_wait=15 # Sekunden
@@ -308,9 +325,9 @@ function warn_if_desktop_environment() {
     # Prüfen auf Anzeichen einer Desktop-Umgebung
     if [[ -n "$XDG_CURRENT_DESKTOP" || -n "$DESKTOP_SESSION" || $(pgrep -lE 'gnome|plasma|xfce|mate|lxde|cinnamon' 2>/dev/null) ]]; then
         log "${SYM_WARNING} ${COLOR_WARNING}Desktop-Umgebung erkannt!${COLOR_RESET}"
-        echo -e "${COLOR_WARNING}${SYM_WARNING} Du führst dieses Skript auf einem Desktop-System aus.${COLOR_RESET}"
-        echo -e "${COLOR_ACTION}Dieses Setup installiert einen Server und benötigt Root-Rechte.${COLOR_RESET}"
-        echo -e "${COLOR_WARNING}Bitte stelle sicher, dass du weißt, was du tust.${COLOR_RESET}"
+        log "${COLOR_WARNING}${SYM_WARNING} Du führst dieses Skript auf einem Desktop-System aus.${COLOR_RESET}"
+        log "${COLOR_ACTION}Dieses Setup installiert einen Server und benötigt Root-Rechte.${COLOR_RESET}"
+        log "${COLOR_WARNING}Bitte stelle sicher, dass du weißt, was du tust.${COLOR_RESET}"
         echo -ne "${COLOR_ACTION}Trotzdem fortfahren? (j/n) [n] ${COLOR_RESET}"
         read -r user_continue
         user_continue=${user_continue:-n}
@@ -321,6 +338,183 @@ function warn_if_desktop_environment() {
         fi
     fi
 }
+
+# --------------------------
+# Neuer Servercheck mit installationen.
+# --------------------------
+
+# --------------------------
+# 🛠️  HAUPTFUNKTION: servercheck()
+# --------------------------
+function newservercheck() {
+    log "${COLOR_HEADING}🔍 Server-Kompatibilitätscheck wird durchgeführt...${COLOR_RESET}"
+
+    rootrights
+    warn_if_desktop_environment
+
+    # 1. Distro erkennen
+    detect_distro
+
+    # 2. .NET prüfen/installieren
+    install_dotnet
+
+    # 3. MariaDB prüfen/installieren
+    install_mariadb
+
+    # 4. Abhängigkeiten installieren
+    install_dependencies
+
+    log "${SYM_OK} ${COLOR_HEADING}Server-Check abgeschlossen!${COLOR_RESET}"
+}
+
+# --------------------------
+# 🖥️  NEBENFUNKTIONEN (modular & erweiterbar)
+# --------------------------
+
+function detect_distro() {
+    # OS-Details global speichern
+    #log "detect_distro:"
+    declare -g os_id os_version os_codename  # Explizit deklarieren
+    os_id=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+    os_version=$(grep '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+    os_codename=$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '"')
+
+    log "${COLOR_LABEL}Server läuft mit:${COLOR_RESET} ${COLOR_SERVER}$os_id $os_version ($os_codename)${COLOR_RESET}"
+}
+
+function install_dotnet() {
+    # Paketnamen-Mapping (erweiterbar!)
+    #log "install_dotnet:"
+    declare -A dotnet_pkg=(
+        ["ubuntu"]="dotnet-sdk-8.0"
+        ["debian"]="dotnet-sdk-8.0"
+        ["linuxmint"]="dotnet-sdk-8.0"
+        ["pop_os"]="dotnet-sdk-8.0"
+        ["arch"]="dotnet-sdk"
+        ["manjaro"]="dotnet-sdk"
+        ["raspbian"]="dotnet-sdk-8.0"
+    )
+
+    # Distro-spezifische Logik
+    case "$os_id" in
+        ubuntu|linuxmint|pop_os)
+            if [[ "$os_version" == "18.04" ]]; then
+                required_dotnet="dotnet-sdk-6.0"
+            elif [[ "$os_version" == "24.04" ]]; then
+                required_dotnet=${dotnet_pkg[$os_id]}
+                log "${SYM_INFO} Ubuntu 24.04 verwendet das .NET Repository für 22.04 (jammy)"
+            elif dpkg --compare-versions "$os_version" ge "20.04"; then
+                required_dotnet=${dotnet_pkg[$os_id]}
+            else
+                log "${SYM_BAD} Nicht unterstützte Ubuntu-Version: $os_version!"
+                return 1
+            fi
+            ;;
+        debian|raspbian)
+            [[ "$os_version" -ge "11" ]] || { log "${SYM_BAD} Debian $os_version wird nicht unterstützt!"; return 1; }
+            required_dotnet=${dotnet_pkg[$os_id]}
+            ;;
+        arch|manjaro)
+            required_dotnet=${dotnet_pkg[$os_id]}
+            ;;
+        *)
+            log "${SYM_BAD} Nicht unterstützte Distribution: $os_id!"
+            return 1
+            ;;
+    esac
+
+    # Installationslogik (pacman vs. apt)
+    if [[ "$os_id" =~ ^(arch|manjaro)$ ]]; then
+        pacman_install "$required_dotnet"
+    else
+        apt_install "$required_dotnet"
+        # Microsoft-Repo für Debian/Ubuntu
+        [[ "$os_id" =~ ^(ubuntu|debian|linuxmint|pop_os|raspbian)$ ]] && add_microsoft_repo
+    fi
+}
+
+function install_mariadb() {
+    #log "install_mariadb:"
+    if ! command -v mariadb >/dev/null; then
+        apt_install "mariadb-server" || return 1
+    fi
+
+    # Version anzeigen & Service starten
+    log "${SYM_OK} MariaDB-Version: $(mariadb --version)"
+    systemctl start mariadb || { log "${SYM_BAD} MariaDB start fehlgeschlagen!"; return 1; }
+}
+
+function install_dependencies() {
+    #log "install_dependencies:"
+    # Dependency-Mapping (erweiterbar!)
+    declare -A required_packages=(
+        ["ubuntu"]="git libc6 libgcc-s1 libgssapi-krb5-2 libicu70 liblttng-ust1 libssl3 libstdc++6 libunwind8 zlib1g libgdiplus zip screen"
+        ["arch"]="git glibc gcc-libs krb5 icu lttng-ust openssl libunwind zlib gdiplus zip screen"
+        # ... weitere Distros hier ergänzen
+    )
+
+    # Fallback-Pakete
+    local pkg_list=("git" "libc6" "libgcc-s1" "libssl3" "zip" "screen")
+    [[ -n "${required_packages[$os_id]}" ]] && IFS=' ' read -r -a pkg_list <<< "${required_packages[$os_id]}"
+
+    # Installieren
+    for pkg in "${pkg_list[@]}"; do
+        if [[ "$os_id" =~ ^(arch|manjaro)$ ]]; then
+            pacman_install "$pkg"
+        else
+            apt_install "$pkg"
+        fi
+    done
+}
+
+# --------------------------
+# 🔧 HELFERFUNKTIONEN (DRY-Prinzip)
+# --------------------------
+function apt_install() {
+    #log "apt_install: $1"
+    if ! dpkg-query -W "$1" >/dev/null 2>&1; then
+        log "${SYM_OK} Installiere $1..."
+        sudo apt-get install -y "$1" || { log "${SYM_BAD} Installation von $1 fehlgeschlagen!"; return 1; }
+    fi
+}
+
+function pacman_install() {
+    #log "pacman_install:"
+    if ! pacman -Qi "$1" >/dev/null 2>&1; then
+        log "${SYM_OK} Installiere $1..."
+        sudo pacman -S --noconfirm "$1" || { log "${SYM_BAD} Installation von $1 fehlgeschlagen!"; return 1; }
+    fi
+}
+
+function add_microsoft_repo() {
+    #log "add_microsoft_repo:"
+    # Prüfen, ob das Repo existiert UND funktioniert (via apt-key)
+    if ! apt-cache policy | grep -q "packages.microsoft.com" || \
+       ! grep -q "packages.microsoft.com" /etc/apt/sources.list.d/* 2>/dev/null; then
+        log "${SYM_INFO} Füge Microsoft-Repository hinzu..."
+        
+        # Download & Install mit Fehlerabfrage
+        if ! wget -qO packages-microsoft-prod.deb "https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb"; then
+            log "${SYM_BAD} Download des Microsoft-Repos fehlgeschlagen!"
+            return 1
+        fi
+        
+        if ! sudo dpkg -i packages-microsoft-prod.deb >/dev/null; then
+            log "${SYM_BAD} Installation des Microsoft-Repos fehlgeschlagen!"
+            rm -f packages-microsoft-prod.deb
+            return 1
+        fi
+        
+        rm -f packages-microsoft-prod.deb
+        sudo apt-get update >/dev/null || { log "${SYM_BAD} apt-get update fehlgeschlagen!"; return 1; }
+    else
+        log "${SYM_INFO} Microsoft-Repository ist bereits konfiguriert."
+    fi
+}
+
+# --------------------------
+# Neuer Servercheck mit installationen ENDE
+# --------------------------
 
 function servercheck() {
     # Direkt kompatible Distributionen:
@@ -444,8 +638,10 @@ function servercheck() {
 
     # Prüfen, ob MariaDB installiert ist
     if ! command -v mariadb >/dev/null 2>&1; then
-        echo -e "${SYM_BAD} ${COLOR_BAD}MariaDB ist nicht installiert! Bitte installiere mariadb über pacman.${COLOR_RESET}"
-        exit 1
+        log "${SYM_BAD} ${COLOR_BAD}MariaDB ist nicht installiert! Ich installiere mariadb über apt.${COLOR_RESET}"
+        # 20.05.2025 Hier wird vor der installation von MariaDB abgebrochen dabei sollte das spätestens jetzt installiert werden.
+        sudo apt install mariadb-server
+        #exit 1
     fi
 
     # MariaDB-Version anzeigen
@@ -454,26 +650,26 @@ function servercheck() {
 
     # Prüfen, ob Dienst läuft
     if systemctl is-active --quiet mariadb; then
-        echo -e "${SYM_OK} ${COLOR_OK}MariaDB-Dienst ist bereits aktiv.${COLOR_RESET}"
+        log "${SYM_OK} ${COLOR_OK}MariaDB-Dienst ist bereits aktiv.${COLOR_RESET}"
     else
-        echo -e "${SYM_STOP} ${COLOR_WARNING}MariaDB ist nicht aktiv. Versuche zu starten...${COLOR_RESET}"
+        log "${SYM_STOP} ${COLOR_WARNING}MariaDB ist nicht aktiv. Versuche zu starten...${COLOR_RESET}"
         sudo systemctl start mariadb
         if systemctl is-active --quiet mariadb; then
-            echo -e "${SYM_OK} ${COLOR_OK}MariaDB wurde erfolgreich gestartet.${COLOR_RESET}"
+            log "${SYM_OK} ${COLOR_OK}MariaDB wurde erfolgreich gestartet.${COLOR_RESET}"
         else
-            echo -e "${SYM_BAD} ${COLOR_BAD}Fehler: MariaDB konnte nicht gestartet werden!${COLOR_RESET}"
+            log "${SYM_BAD} ${COLOR_BAD}Fehler: MariaDB konnte nicht gestartet werden!${COLOR_RESET}"
             exit 1
         fi
     fi
 
     # Prüfen, ob Datenbankverzeichnis initialisiert ist
     if [ -d /var/lib/mysql/mysql ]; then
-        echo -e "${SYM_INFO} ${COLOR_LABEL}MariaDB ist bereits initialisiert.${COLOR_RESET}"
+        log "${SYM_INFO} ${COLOR_LABEL}MariaDB ist bereits initialisiert.${COLOR_RESET}"
     else
-        echo -e "${SYM_TOOLS} ${COLOR_ACTION}Initialisiere MariaDB-Datenbankverzeichnis...${COLOR_RESET}"
+        log "${SYM_TOOLS} ${COLOR_ACTION}Initialisiere MariaDB-Datenbankverzeichnis...${COLOR_RESET}"
         sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
         sudo systemctl restart mariadb
-        echo -e "${SYM_OK} ${COLOR_OK}MariaDB wurde initialisiert und neu gestartet.${COLOR_RESET}"
+        log "${SYM_OK} ${COLOR_OK}MariaDB wurde initialisiert und neu gestartet.${COLOR_RESET}"
     fi
     # MariaDB-Version checken ende
 
@@ -546,7 +742,7 @@ function setup_webserver() {
             # Apache-Konfiguration für PHP
             sudo sed -i 's/LoadModule mpm_event_module/#LoadModule mpm_event_module/' /etc/httpd/conf/httpd.conf
             sudo sed -i 's/#LoadModule mpm_prefork_module/LoadModule mpm_prefork_module/' /etc/httpd/conf/httpd.conf
-            echo -e "\n# PHP-Konfiguration\nLoadModule php_module modules/libphp.so\nAddHandler php-script .php\nInclude conf/extra/php_module.conf" | sudo tee -a /etc/httpd/conf/httpd.conf >/dev/null
+            log "\n# PHP-Konfiguration\nLoadModule php_module modules/libphp.so\nAddHandler php-script .php\nInclude conf/extra/php_module.conf" | sudo tee -a /etc/httpd/conf/httpd.conf >/dev/null
             
             sudo systemctl restart httpd
             ;;
@@ -567,8 +763,8 @@ function setup_webserver() {
     # 3. PHP-Check (OHNE Dateianlage)
     log "${SYM_INFO} ${COLOR_ACTION}Prüfe PHP-Konfiguration...${COLOR_RESET}"
     php_check() {
-        echo -e "${COLOR_HEADING}=== PHP-Status ===${COLOR_RESET}"
-        echo -e "Version: ${COLOR_VALUE}$(php -r 'echo PHP_VERSION;')${COLOR_RESET}"
+        log "${COLOR_HEADING}=== PHP-Status ===${COLOR_RESET}"
+        log "Version: ${COLOR_VALUE}$(php -r 'echo PHP_VERSION;')${COLOR_RESET}"
         
         declare -A modules=(
             ["mysqli"]="MySQL-Datenbank"
@@ -580,9 +776,9 @@ function setup_webserver() {
         
         for mod in "${!modules[@]}"; do
             if php -m | grep -q "^$mod$"; then
-                echo -e "${SYM_OK} ${COLOR_OK}${modules[$mod]} (${mod})${COLOR_RESET}"
+                log "${SYM_OK} ${COLOR_OK}${modules[$mod]} (${mod})${COLOR_RESET}"
             else
-                echo -e "${SYM_BAD} ${COLOR_ERROR}Fehlend: ${modules[$mod]} (${mod})${COLOR_RESET}"
+                log "${SYM_BAD} ${COLOR_ERROR}Fehlend: ${modules[$mod]} (${mod})${COLOR_RESET}"
             fi
         done
     }
@@ -601,6 +797,58 @@ function setup_webserver() {
 
     log "${COLOR_SUCCESS}Webserver-Setup abgeschlossen!${COLOR_RESET}"
     blankline
+}
+
+# function setup_email_server() {
+#     # SMTP-Server Konfiguration (z.B. mail.gridname.de)
+#     local smtp_server="mail.gridname.de"
+#     local sender_email="noresponse@gridname.de"
+#     local sender_password="DEIN_PASSWORT"  # Passwort für noresponse@
+
+#     echo -e "\n\033[32m=== Konfiguriere E-Mail-Server für PHP mail() ===\033[0m"
+    
+#     # Postfix installieren
+#     sudo apt update
+#     sudo DEBIAN_FRONTEND=noninteractive apt install -y postfix mailutils
+
+#     # Postfix als SMTP-Relay einrichten
+#     sudo tee /etc/postfix/main.cf > /dev/null <<EOF
+# relayhost = [$smtp_server]:587
+# smtp_sasl_auth_enable = yes
+# smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+# smtp_sasl_security_options = noanonymous
+# smtp_tls_security_level = encrypt
+# myhostname = $(hostname -f)
+# smtp_generic_maps = hash:/etc/postfix/generic
+# EOF
+
+#     # Authentifizierung
+#     echo "[$smtp_server]:587 $sender_email:$sender_password" | sudo tee /etc/postfix/sasl_passwd
+#     sudo chmod 600 /etc/postfix/sasl_passwd
+#     sudo postmap /etc/postfix/sasl_passwd
+
+#     # Absender-Adresse erzwingen (noresponse@gridname.de)
+#     echo "root $sender_email" | sudo tee /etc/postfix/generic
+#     sudo postmap /etc/postfix/generic
+
+#     # Postfix neustarten
+#     sudo systemctl restart postfix
+
+#     echo -e "\n\033[32m✓ Fertig! Teste den Versand mit:\033[0m"
+#     echo 'echo "Testnachricht" | mail -s "Betreff" max@mustermann.de'
+# }
+
+function setup_email_server() {
+    #echo "setup_email_server (answer Yes to everything)"
+    log "${SYM_INFO} ${COLOR_ACTION}E-Mail wird Installiert (Beantworte alle mit Yes)${COLOR_RESET}"
+    sudo apt-get install sendmail
+    sudo sendmailconfig
+    sudo service apache2 restart
+}
+
+function remove_ubuntu_pro() {
+	# Ubuntu Pro Werbung abschalten:
+	sudo dpkg-divert --divert /etc/apt/apt.conf.d/20apt-esm-hook.conf.bak --rename --local /etc/apt/apt.conf.d/20apt-esm-hook.conf
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -1031,6 +1279,43 @@ function check_screens() {
     blankline
 }
 
+# Falls ein Screen einmal nicht beenden will.
+function simkill() {
+    local SIMKILL=$1
+    local CONFIRM
+
+    # Existenzprüfung
+    if ! screen -list | grep -q "$SIMKILL"; then
+        log "${SYM_BAD} ${COLOR_ERROR}Screen '${COLOR_SERVER}$SIMKILL${COLOR_ERROR}' nicht gefunden!${COLOR_RESET}"
+        return 1
+    fi
+
+    # Bestätigung
+    log "${SYM_WARNING} ${COLOR_WARNING}Warnung:${COLOR_RESET}"
+    read -rp "Soll Screen '${COLOR_SERVER}$SIMKILL${COLOR_RESET}' wirklich beendet werden? [y/N] " CONFIRM
+    [[ $CONFIRM =~ ^[Yy]$ ]] || {
+        log "${SYM_INFO} ${COLOR_ACTION}Abbruch durch Benutzer.${COLOR_RESET}"
+        return 1
+    }
+
+    # Erst ordnungsgemäß beenden versuchen
+    log "${SYM_WAIT} ${COLOR_ACTION}Versuche ordentliches Beenden...${COLOR_RESET}"
+    if screen -S "$SIMKILL" -X quit; then
+        log "${SYM_OK} ${COLOR_SUCCESS}Screen '${COLOR_SERVER}$SIMKILL${COLOR_SUCCESS}' erfolgreich beendet.${COLOR_RESET}"
+        return 0
+    fi
+
+    # Falls nötig, hart killen
+    log "${SYM_WARNING} ${COLOR_WARNING}Ordentliches Beenden fehlgeschlagen, erzwinge Kill...${COLOR_RESET}"
+    if screen -S "$SIMKILL" -X kill; then
+        log "${SYM_OK} ${COLOR_SUCCESS}Screen '${COLOR_SERVER}$SIMKILL${COLOR_SUCCESS}' wurde gekillt.${COLOR_RESET}"
+        return 0
+    else
+        log "${SYM_BAD} ${COLOR_ERROR}Schwerer Fehler: Screen '${COLOR_SERVER}$SIMKILL${COLOR_ERROR}' konnte nicht beendet werden!${COLOR_RESET}"
+        return 1
+    fi
+}
+
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Erstellen eines OpenSimulators
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -1081,6 +1366,7 @@ function opensimgitcopy() {
             
             # Nach erfolgreichem Update Kompatibilität prüfen
             check_dotnet_compatibility
+            # Sourcecode Version vor dem kompilieren einstellen mit der Funktion versionrevision()
             versionrevision
             log  # Leerzeile für bessere Lesbarkeit
             return 0
@@ -1129,6 +1415,7 @@ function opensimgitcopy() {
                 
                 # Nach erfolgreichem Update Kompatibilität prüfen
                 check_dotnet_compatibility
+                # Sourcecode Version vor dem kompilieren einstellen mit der Funktion versionrevision()
                 versionrevision
                 log  # Leerzeile für bessere Lesbarkeit
                 return 0
@@ -1138,7 +1425,7 @@ function opensimgitcopy() {
                 return 1
             fi
         else
-            log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Kein Repository gefunden. Starte Neuinstallation...${COLOR_RESET}"
+            log "${COLOR_WARNING}${SYM_WARNING} ${COLOR_ACTION}Kein Repository gefunden. Starte Neuinstallation...${COLOR_RESET}"
             opensimgitcopy "new"
             return $?
         fi
@@ -1149,6 +1436,7 @@ function opensimgitcopy() {
 
     # .NET-Kompatibilität prüfen
     check_dotnet_compatibility
+    # Sourcecode Version vor dem kompilieren einstellen mit der Funktion versionrevision()
     versionrevision
 
     blankline
@@ -1168,7 +1456,7 @@ check_dotnet_compatibility() {
             log "${SYM_OK} ${COLOR_ACTION}Kompatibel mit .NET $dotnet_version.${COLOR_RESET}"
             ;;
         *)
-            log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Keine .NET-Version erkannt. Verwende Standard.${COLOR_RESET}"
+            log "${COLOR_WARNING}${SYM_WARNING} ${COLOR_ACTION}Keine .NET-Version erkannt. Verwende Standard.${COLOR_RESET}"
             ;;
     esac
     cd ..
@@ -1235,7 +1523,7 @@ function moneygitcopy() {
             
             cd ..
         else
-            log "${COLOR_WARNING}⚠ ${COLOR_ACTION}MoneyServer-Verzeichnis nicht gefunden. Klone Repository neu...${COLOR_RESET}"
+            log "${COLOR_WARNING}${SYM_WARNING} ${COLOR_ACTION}MoneyServer-Verzeichnis nicht gefunden. Klone Repository neu...${COLOR_RESET}"
             if ! git clone https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git opensimcurrencyserver; then
                 log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
                 return 1
@@ -1335,7 +1623,7 @@ function osslscriptsgit() {
             
             cd ..
         else
-            log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Verzeichnis nicht gefunden oder kein Git-Repo. Klone Repository neu...${COLOR_RESET}"
+            log "${COLOR_WARNING}${SYM_WARNING} ${COLOR_ACTION}Verzeichnis nicht gefunden oder kein Git-Repo. Klone Repository neu...${COLOR_RESET}"
             if ! git clone "$repo_url" "$repo_name"; then
                 log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Klonen!${COLOR_RESET}"
                 return 1
@@ -1427,7 +1715,7 @@ function ruthrothgit() {
             mkdir -p "$target_dir"
             tar -xzf "$iar_file" -C "$target_dir/" && log "    ✓ ${iar_file} entpackt nach ${target_dir}"
         else
-            log "    ⚠ IAR-Datei ${iar_file} nicht gefunden. Überspringe..."
+            log "    ${SYM_WARNING} IAR-Datei ${iar_file} nicht gefunden. Überspringe..."
         fi
     done
 
@@ -1878,7 +2166,7 @@ function opensimcopy() {
         cp -r opensim/bin/* robust/bin
         log "${SYM_OK} ${COLOR_ACTION}Dateien aus ${COLOR_DIR}opensim/bin${COLOR_RESET} ${COLOR_ACTION}wurden nach ${COLOR_DIR}robust/bin${COLOR_RESET} ${COLOR_ACTION}kopiert.${COLOR_RESET}"
     else
-        log "${COLOR_WARNING}⚠ ${COLOR_ACTION}Hinweis: 'robust' Verzeichnis nicht gefunden, keine Kopie durchgeführt.${COLOR_RESET}"
+        log "${COLOR_WARNING}${SYM_WARNING} ${COLOR_ACTION}Hinweis: 'robust' Verzeichnis nicht gefunden, keine Kopie durchgeführt.${COLOR_RESET}"
     fi
 
     # Alle simX-Verzeichnisse suchen und Dateien kopieren
@@ -2532,7 +2820,7 @@ calculate_relative_time() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 function opensimupgrade() {
-    log "\n${COLOR_WARNING}⚠ Der OpenSimulator muss zuerst im Verzeichnis 'opensim' vorliegen!${COLOR_RESET}"
+    log "\n${COLOR_WARNING}${SYM_WARNING} Der OpenSimulator muss zuerst im Verzeichnis 'opensim' vorliegen!${COLOR_RESET}"
     log "${COLOR_LABEL}Möchten Sie den OpenSimulator aktualisieren? (${COLOR_BAD}[no]${COLOR_LABEL}/yes)${COLOR_RESET}"
     read -r user_choice
     user_choice=${user_choice:-no}
@@ -2704,8 +2992,7 @@ function robustbackup() {
         mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" "$table" | gzip > "$BACKUP_DIR/tables/${table}.sql.gz"
     done
 
-    log "${SYM_OKN}${COLOR_INFO} Tabellen (außer assets): Insgesamt $total_nonasset_rows Einträge gesichert${COLOR_RESET}"
-
+    log "${SYM_OK}${COLOR_INFO} Tabellen (außer assets): Insgesamt $total_nonasset_rows Einträge gesichert${COLOR_RESET}"
 
     #* Assettypen sichern mit Zählung
     log "${SYM_PUZZLE} Starte assetType-Datensicherung mit Zeitraumfilter ab $(date -d "@$TIMESTAMP_GRENZE")"
@@ -2727,13 +3014,13 @@ function robustbackup() {
             mysqldump -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" assets \
                 --where="assetType = $assettype AND create_time >= $TIMESTAMP_GRENZE" \
                 | gzip > "$BACKUP_DIR/assettypen/assets_${name}.sql.gz"
-            log "${SYM_OKN} Gespeichert: $count Einträge für $name"
+            log "${SYM_OK} Gespeichert: $count Einträge für $name"
         else
             log "${SYM_FORWARD}  Keine Daten für assetType=$assettype ($name)"
         fi
     done
 
-    log "${SYM_OKN}${COLOR_INFO} Asset-Sicherung abgeschlossen: $total_found gefunden, $total_saved gespeichert, Differenz: $((total_found - total_saved))${COLOR_RESET}"
+    log "${SYM_OK}${COLOR_INFO} Asset-Sicherung abgeschlossen: $total_found gefunden, $total_saved gespeichert, Differenz: $((total_found - total_saved))${COLOR_RESET}"
 
     #* Konfig-Dateien sichern
     log "${SYM_LOG} Sicherung der Konfigurationsdateien im robust/bin Verzeichnis${COLOR_RESET}"
@@ -2791,7 +3078,7 @@ function restoreRobustDump() {
         fi
     done
 
-    log "${SYM_OKN}${COLOR_INFO} Import abgeschlossen: $total_tables Tabellen importiert${COLOR_RESET}"
+    log "${SYM_OK}${COLOR_INFO} Import abgeschlossen: $total_tables Tabellen importiert${COLOR_RESET}"
 
     #* Asset-Typen prüfen und reparieren
     log "${SYM_PUZZLE} Prüfe asset.assetType auf ungültige Werte..."
@@ -2905,7 +3192,7 @@ function robustrepair() {
             mysqlcheck -u"$DB_USER" -p"$DB_PASS" --auto-repair "$DB_NAME"
             ;;
         truncate)
-            log "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Leert alle Inhalte, behält aber Tabellenstrukturen!${COLOR_RESET}"
+            log "${SYM_WARNING} ${COLOR_WARNING}${SYM_WARNING} Achtung: Leert alle Inhalte, behält aber Tabellenstrukturen!${COLOR_RESET}"
             echo -ne "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}"
             read -r confirm
             if [[ "$confirm" == "ja" ]]; then
@@ -2921,7 +3208,7 @@ function robustrepair() {
             fi
             ;;
         dropassets)
-            log "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Löscht ALLE Einträge in der 'assets'-Tabelle!${COLOR_RESET}"
+            log "${SYM_WARNING} ${COLOR_WARNING}${SYM_WARNING} Achtung: Löscht ALLE Einträge in der 'assets'-Tabelle!${COLOR_RESET}"
             echo -ne "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}"
             read -r confirm
             if [[ "$confirm" == "ja" ]]; then
@@ -2932,7 +3219,7 @@ function robustrepair() {
             fi
             ;;
         dropall)
-            log "${SYM_WARNING} ${COLOR_WARNING}⚠️ Achtung: Alle Tabellen der Datenbank werden gelöscht!${COLOR_RESET}"
+            log "${SYM_WARNING} ${COLOR_WARNING}${SYM_WARNING} Achtung: Alle Tabellen der Datenbank werden gelöscht!${COLOR_RESET}"
             echo -ne "${COLOR_BAD}Wirklich ALLE Tabellen löschen? (ja/nein): ${COLOR_RESET}"
             read -r confirm
             if [[ "$confirm" == "ja" ]]; then
@@ -2953,6 +3240,103 @@ function robustrepair() {
             return 1
             ;;
     esac
+}
+
+###* load und save oar und iar
+
+# - $1: Der Name des Besitzers.
+# - $2: Das Verzeichnis, in das das IAR geladen werden soll
+# - $3: Das Passwort fuer das IAR
+# - $4: Der Dateiname des IAR
+# loadinventar "Vorname Nachname" "/" "Benutzerpasswort" Inventarname.iar
+function loadinventar() {
+	# Letzte Bearbeitung 30.09.2023
+	LOADINVSCREEN="sim1"
+	NAME=$1
+	VERZEICHNIS=$2
+	local PASSWORD=$3
+	DATEI=$4
+
+    # Benutzer um Bestätigung fragen
+    echo "Soll die Datei '$DATEI' von '$VERZEICHNIS' für '$NAME' hochgeladen werden? (j/n)"
+    read -r ANTWORT
+
+    if [[ "$ANTWORT" != "j" ]]; then
+        echo "Upload abgebrochen."
+        return 1
+    fi
+
+	# ueberpruefen, ob der 'screen'-Prozess existiert.
+	if screen -list | grep -q "$LOADINVSCREEN"; then
+		log "OSCOMMAND: load iar $NAME $VERZEICHNIS ***** $DATEI"
+		screen -S "$LOADINVSCREEN" -p 0 -X eval "stuff 'load iar $NAME $VERZEICHNIS $PASSWORD $DATEI'^M"
+		return 0
+	else
+		log error "OSCOMMAND: Der Screen $LOADINVSCREEN existiert nicht"
+		return 1
+	fi
+}
+
+# $1 - Name des Inventars
+# $2 - Verzeichnis, in dem das Inventar gespeichert werden soll
+# $3 - Passwort (optional)
+# $4 - Dateiname, unter dem das Inventar gespeichert wird
+#? Verwendungsbeispiel:
+# saveinventar "MeinInventar" "/pfad/zum/verzeichnis" "geheimesPasswort" "inventar.iar"
+function saveinventar() {
+	# Letzte Bearbeitung 01.10.2023
+	SAVEINVSCREEN="sim1"
+	NAME=$1
+	VERZEICHNIS=$2
+	local PASSWORD=$3
+	DATEI=$4
+
+    # Benutzer um Bestätigung fragen
+    echo "Soll die Datei '$DATEI' von '$VERZEICHNIS' für '$NAME' wirklich gespeichert werden? (j/n)"
+    read -r ANTWORT
+
+    if [[ "$ANTWORT" != "j" ]]; then
+        echo "Speichern abgebrochen."
+        return 1
+    fi
+
+    # todo: fragen j/n ob tatsächlich gespeichert werden soll und die Parameter dabei anzeigen
+	if screen -list | grep -q "$SAVEINVSCREEN"; then
+		log "OSCOMMAND: save iar $NAME $VERZEICHNIS ***** $DATEI "
+		screen -S "$SAVEINVSCREEN" -p 0 -X eval "stuff 'save iar $NAME $VERZEICHNIS $PASSWORD $DATEI'^M"
+		return 0
+	else
+		log "OSCOMMAND: Der Screen $SAVEINVSCREEN existiert nicht"
+		return 1
+	fi
+}
+
+#? Verwendungsbeispiel:
+#   loadoar "sim1" "MeineRegion" "Sicherungsname.oar"
+function loadoar() {
+	RESTOREVERZEICHNISSCREENNAME=$1
+	REGIONSNAME=$2
+    OARFILE=$3
+
+    # Benutzer um Bestätigung fragen
+    echo "Soll die Region '$REGIONSNAME' mit der Datei '$OARFILE.oar' wirklich wiederhergestellt werden? (j/n)"
+    read -r ANTWORT
+
+    if [[ "$ANTWORT" != "j" ]]; then
+        echo "Wiederherstellung abgebrochen."
+        return 1
+    fi
+
+	log "OSRESTORE: Region $NSDATEINAME wiederherstellen"
+	cd /"$SCRIPT_DIR"/"$RESTOREVERZEICHNISSCREENNAME"/bin || return 1
+	log "Ich kann nicht pruefen ob die Region im OpenSimulator vorhanden ist."
+	log "Sollte sie nicht vorhanden sein wird root also alle Regionen wiederhergestellt."
+    # todo: fragen j/n ob tatsächlich hochgeladen werden soll und die Parameter dabei anzeigen
+	screen -S "$RESTOREVERZEICHNISSCREENNAME" -p 0 -X eval "stuff 'change region ${REGIONSNAME//\"/}'^M"
+	screen -S "$RESTOREVERZEICHNISSCREENNAME" -p 0 -X eval "stuff 'load oar $OARFILE'^M"
+
+	log "OSRESTORE: Region $REGIONSNAME wird wiederhergestellt"
+	return 0
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -5038,7 +5422,7 @@ function iniconfig() {
 
     log "${SYM_LOG} ${COLOR_LABEL}Serverdaten gespeichert in: ${COLOR_FILE}${ini_file}${COLOR_RESET}"
 
-    #! ⚠️ **Wichtige Sicherheitsinformation!**
+    #! ${SYM_WARNING} **Wichtige Sicherheitsinformation!**
     # Die Datei UserInfo.ini enthält Zugangsdaten. 
     # Sie **sollte danach unbedingt von eurem Server gelöscht und sicher auf eurem PC gespeichert werden**.
 
@@ -5324,7 +5708,7 @@ function opensimrestartParallel() {
 
 # Server-Reboot mit Vorbereitung
 function reboot() {
-    log "\033[1;33m⚠ Server-Neustart wird eingeleitet...\033[0m"
+    log "\033[1;33m🔥 Server-Neustart wird eingeleitet...\033[0m"
 
     opensimstop
     sleep $Simulator_Stop_wait
@@ -5340,7 +5724,7 @@ function downloadallgit() {
         #avatarassetsgit    # Funktioniert nicht richtig.
     #osslscriptsgit
     #pbrtexturesgit
-    # Versionierung des OpenSimulators.
+    # Sourcecode Version vor dem kompilieren einstellen mit der Funktion versionrevision()
     #versionrevision
     # OpenSimulator erstellen aus dem Source Code.
     opensimbuild
@@ -5348,7 +5732,7 @@ function downloadallgit() {
 
 function webinstall() {
 # Nach database_setup()
-    echo -e "${COLOR_ACTION}Webserver (Apache/PHP) installieren? (j/n) [n] ${COLOR_RESET}"
+    log "${COLOR_ACTION}Webserver (Apache/PHP) installieren? (j/n) [n] ${COLOR_RESET}"
     read -r web_choice
     if [[ -n "$web_choice" && "$web_choice" =~ ^[jJ] ]]; then
         setup_webserver
@@ -5389,7 +5773,7 @@ function autoinstall() {
     # Texturen für Normale und PBR Texturen installieren
     #pbrtexturesgit
 
-    # Versionierung des OpenSimulators. Keine eingabe erforderlich.
+    # Sourcecode Version vor dem kompilieren einstellen mit der Funktion versionrevision()
     #versionrevision
 
     # OpenSimulator erstellen aus dem Source Code. Standard: ja.
@@ -5451,6 +5835,7 @@ function buildopensim() {
     opensimgitcopy
     moneygitcopy
     osslscriptsgit
+    # Sourcecode Version vor dem kompilieren einstellen mit der Funktion versionrevision()
     versionrevision
     opensimbuild
 }
@@ -5738,7 +6123,7 @@ function buildstandalone() {
     opensimgitcopy
     # Skripte einfügen
     osslscriptsgit
-    # Version einstellen
+    # Sourcecode Version vor dem kompilieren einstellen mit der Funktion versionrevision()
     versionrevision
     # OpenSimulator bauen
     opensimbuild
@@ -5775,6 +6160,8 @@ function help() {
     log "${SYM_VOR} ${COLOR_START}standalonestart${COLOR_RESET} \t # Standalone starten"
     log "${SYM_VOR} ${COLOR_STOP}standalonestop${COLOR_RESET} \t # Standalone stoppen"
     log "${SYM_VOR} ${COLOR_RESTART}standalonerestart${COLOR_RESET} \t # Standalone neu starten"
+    echo ""
+    log "${SYM_VOR} ${COLOR_RESTART}simkill${COLOR_RESET} \t # Wenn der Simulator nicht beendet werden kann"
     echo ""
 
     # System-Checks & Setup
@@ -5823,6 +6210,7 @@ function help() {
     log "${SYM_VOR} ${COLOR_OK}help${COLOR_RESET} \t\t\t # Zeigt diese Hilfe"
     log "${SYM_VOR} ${COLOR_OK}prohelp${COLOR_RESET} \t\t # Zeigt die Pro Hilfe"
     echo ""
+    log "${COLOR_SECTION}${SYM_INFO} Aufruf mit: bash osmtool.sh <Befehl>${COLOR_RESET}"
 }
 
 function prohelp() {
@@ -5837,13 +6225,20 @@ function prohelp() {
     log "${SYM_VOR} ${COLOR_START}opensimstartParallel${COLOR_RESET} \t # Startet alle Regionen parallel"
     log "${SYM_VOR} ${COLOR_STOP}opensimstopParallel${COLOR_RESET} \t # Stoppt alle Regionen parallel"
     log "${SYM_VOR} ${COLOR_RESTART}opensimrestartParallel${COLOR_RESET}  # Startet alle Regionen neu (parallel)"
+
+    log "${SYM_VOR} ${COLOR_START}simstart${COLOR_RESET} \t\t # Startet eine bestimmte Region"
+    log "${SYM_VOR} ${COLOR_STOP}simstop${COLOR_RESET} \t\t # Stoppt eine bestimmte Region"
+    log "${SYM_VOR} ${COLOR_RESTART}simrestart${COLOR_RESET} \t\t # Startet eine bestimmte Region neu"
     echo " "
+    log "${SYM_VOR} ${COLOR_RESTART}simkill${COLOR_RESET} \t # Wenn der Simulator nicht beendet werden kann"
+    echo ""
 
     #* Standalone-Operationen
     log "${COLOR_SECTION}${SYM_SCRIPT} Standalone-Operationen:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_START}standalonestart${COLOR_RESET} \t\t # Standalone starten"
     log "${SYM_VOR} ${COLOR_STOP}standalonestop${COLOR_RESET} \t\t # Standalone stoppen"
     log "${SYM_VOR} ${COLOR_RESTART}standalonerestart${COLOR_RESET} \t\t # Standalone neu starten"
+    log "${SYM_VOR} ${COLOR_OK}standalonestatus${COLOR_RESET} \t\t # Standalone Status anzeigen"
     echo " "
     log "${SYM_VOR} ${COLOR_OK}buildstandalone${COLOR_RESET} \t\t # Standalone erstellen"
     log "${SYM_VOR} ${COLOR_OK}opensimgitcopy${COLOR_RESET} \t\t # OpenSimulator aus Git kopieren"
@@ -5851,9 +6246,7 @@ function prohelp() {
     log "${SYM_VOR} ${COLOR_OK}versionrevision${COLOR_RESET} \t\t # OpenSimulator-Version festlegen"
     log "${SYM_VOR} ${COLOR_OK}opensimbuild${COLOR_RESET} \t\t\t # OpenSimulator bauen"
     log "${SYM_VOR} ${COLOR_OK}standalonesetup${COLOR_RESET} \t\t # Standalone Setup durchführen"
-    log "${SYM_VOR} ${COLOR_OK}createstandaloneconfig${COLOR_RESET} \t # OpenSimulator-Konfiguration erstellen"
-    log "${SYM_VOR} ${COLOR_OK}createstandalonregion${COLOR_RESET} \t # Startregion konfigurieren"
-    log "${SYM_VOR} ${COLOR_OK}createstandaloneuser${COLOR_RESET} \t\t # Benutzer erstellen"
+    log "${SYM_VOR} ${COLOR_OK}createmasteruser${COLOR_RESET} \t\t # Master-Benutzer erstellen"
     echo " "
 
     #* System-Checks & Setup
@@ -5861,17 +6254,23 @@ function prohelp() {
     log "${SYM_VOR} ${COLOR_OK}servercheck${COLOR_RESET} \t\t # Serverbereitschaft prüfen und Abhängigkeiten installieren"
     log "${SYM_VOR} ${COLOR_OK}createdirectory${COLOR_RESET} \t # OpenSim-Verzeichnisse erstellen"
     log "${SYM_VOR} ${COLOR_OK}setcrontab${COLOR_RESET} \t\t # Crontab Automatisierungen einrichten"
+    log "${SYM_VOR} ${COLOR_OK}setup_webserver${COLOR_RESET} \t\t # Webserver einrichten"
+    log "${SYM_VOR} ${COLOR_OK}webinstall${COLOR_RESET} \t\t # Webinterface installieren"
+    log "${SYM_VOR} ${COLOR_OK}osWebinterfacegit${COLOR_RESET} \t\t # Webinterface aus Git holen"
     log "${SYM_VOR} ${COLOR_OK}autoinstall${COLOR_RESET} \t\t # OpenSimulator Automatisiert installieren und einrichten"
+    log "${SYM_VOR} ${COLOR_OK}firststart${COLOR_RESET} \t\t # Erststart-Konfiguration durchführen"
+    log "${SYM_VOR} ${COLOR_OK}setup_email_server${COLOR_RESET} \t\t # E-Mail-Server einrichten"
+    log "${SYM_VOR} ${COLOR_OK}remove_ubuntu_pro${COLOR_RESET} \t\t # Ubuntu Pro entfernen"
     echo " "
 
     #* Git-Operationen
     log "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}opensimgitcopy${COLOR_RESET} \t # OpenSim aus Git herunterladen"
     log "${SYM_VOR} ${COLOR_OK}moneygitcopy${COLOR_RESET} \t\t # MoneyServer aus Git holen"
-    #log "${SYM_VOR} ${COLOR_WARNING}ruthrothgit${COLOR_RESET} \t\t # Ruth Roth IAR Dateien ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    #log "${SYM_VOR} ${COLOR_WARNING}avatarassetsgit${COLOR_RESET} \t\t # Avatar-Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_WARNING}ruthrothgit${COLOR_RESET} \t\t # Ruth Roth IAR Dateien ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_WARNING}avatarassetsgit${COLOR_RESET} \t\t # Avatar-Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}osslscriptsgit${COLOR_RESET} \t # OSSL Beispielskripte herunterladen"
-    #log "${SYM_VOR} ${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} \t\t # PBR-Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} \t\t # PBR-Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}downloadallgit${COLOR_RESET} \t # Alle Git-Repos herunterladen"
     log "${SYM_VOR} ${COLOR_OK}versionrevision${COLOR_RESET} \t # Versionsverwaltung aktivieren"
     echo " "
@@ -5882,10 +6281,11 @@ function prohelp() {
     log "${SYM_VOR} ${COLOR_OK}opensimcopy${COLOR_RESET} \t\t\t # OpenSim Dateien kopieren"
     log "${SYM_VOR} ${COLOR_OK}opensimupgrade${COLOR_RESET} \t\t # OpenSim aktualisieren"
     log "${SYM_VOR} ${COLOR_OK}database_setup${COLOR_RESET} \t\t # Datenbank für OpenSim einrichten"
+    log "${SYM_VOR} ${COLOR_OK}removeconfigfiles${COLOR_RESET} \t\t # Konfigurationsdateien entfernen"
+    log "${SYM_VOR} ${COLOR_OK}cleanconfig${COLOR_RESET} \t\t\t # Konfiguration bereinigen"
     echo " "
     log "${SYM_VOR} ${COLOR_OK}autoupgrade${COLOR_RESET} \t\t\t # Führt automatisches Update durch"
     log "${SYM_VOR} ${COLOR_OK}autoupgradefast${COLOR_RESET} \t\t # Automatisches OpenSim Parallel upgraden"
-
     log "${SYM_VOR} ${COLOR_OK}regionbackup${COLOR_RESET} \t\t\t # Sichert aktuelle Regionen-Daten"
     log "${SYM_VOR} ${COLOR_OK}robustbackup${COLOR_RESET} \t\t\t # Backup der Robust-Datenbank (mit Zeitraumfilter)"
     log "${SYM_VOR} ${COLOR_OK}robustrestore <user> <pass> [teil]${COLOR_RESET}  # Wiederherstellung aus robustbackup ${COLOR_BAD} experimentell${COLOR_RESET}"
@@ -5905,16 +6305,23 @@ function prohelp() {
     log "${SYM_VOR} ${COLOR_WARNING}osslenableiniconfig${COLOR_RESET} \t\t # Konfiguriert osslEnable.ini"
     log "${SYM_VOR} ${COLOR_WARNING}welcomeiniconfig${COLOR_RESET} \t\t # Konfiguriert Begrüßungsregion"
     log "${SYM_VOR} ${COLOR_WARNING}regionsiniconfig${COLOR_RESET} \t\t # Startet neue Regionen-Konfigurationen"
+    log "${SYM_VOR} ${COLOR_WARNING}database_set_iniconfig${COLOR_RESET} \t # Datenbank-Konfiguration setzen"
+    log "${SYM_VOR} ${COLOR_WARNING}oswebinterfaceconfig${COLOR_RESET} \t\t # Webinterface konfigurieren"
     log "${SYM_VOR} ${COLOR_WARNING}iniconfig${COLOR_RESET} \t\t\t # Startet ALLE Konfigurationen"
     echo " "
 
-    #* XML & INI-Operationen
+    #* INI-Operationen
     log "${COLOR_SECTION}${SYM_SCRIPT} INI-Operationen:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}verify_ini_section${COLOR_RESET} \t\t # INI-Abschnitt verifizieren"
     log "${SYM_VOR} ${COLOR_OK}verify_ini_key${COLOR_RESET} \t\t # INI-Schlüssel verifizieren"
     log "${SYM_VOR} ${COLOR_OK}add_ini_section${COLOR_RESET} \t\t # INI-Abschnitt hinzufügen"
+    log "${SYM_VOR} ${COLOR_OK}add_ini_before_section${COLOR_RESET} \t # INI-Abschnitt vor anderem einfügen"
     log "${SYM_VOR} ${COLOR_OK}set_ini_key${COLOR_RESET} \t\t\t # INI-Schlüssel setzen"
+    log "${SYM_VOR} ${COLOR_OK}add_ini_key${COLOR_RESET} \t\t\t # INI-Schlüssel hinzufügen"
     log "${SYM_VOR} ${COLOR_WARNING}del_ini_section${COLOR_RESET} \t\t # INI-Abschnitt löschen"
+    log "${SYM_VOR} ${COLOR_OK}uncomment_ini_line${COLOR_RESET} \t\t # INI-Zeile entkommentieren"
+    log "${SYM_VOR} ${COLOR_OK}uncomment_ini_section_line${COLOR_RESET} \t # INI-Zeile in Abschnitt entkommentieren"
+    log "${SYM_VOR} ${COLOR_OK}comment_ini_line${COLOR_RESET} \t\t # INI-Zeile auskommentieren"
     echo " "
 
     #* XML-Operationen
@@ -5924,12 +6331,25 @@ function prohelp() {
     log "${SYM_VOR} ${COLOR_WARNING}del_xml_section${COLOR_RESET} \t\t # XML-Abschnitt löschen"
     echo " "
 
+    #* Experimental
+    log "${COLOR_SECTION}${SYM_WARNING} Experimental:${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_WARNING}configure_pbr_textures${COLOR_RESET} \t # PBR-Texturen konfigurieren"
+    log "${SYM_VOR} ${COLOR_OK}buildopensim${COLOR_RESET} \t\t\t # OpenSim Experimental Build"
+    log "${SYM_VOR} ${COLOR_OK}rootrights${COLOR_RESET} \t\t\t # Root-Rechte setzen"
+    echo " "
+
     #* System-Bereinigung
     log "${COLOR_SECTION}${SYM_CLEAN} Systembereinigung:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}reboot${COLOR_RESET} \t\t # Linux Server neu starten"
+    log "${SYM_VOR} ${COLOR_OK}dataclean${COLOR_RESET} \t\t # OpenSimulator Daten bereinigen"
+    log "${SYM_VOR} ${COLOR_OK}pathclean${COLOR_RESET} \t\t # Pfade bereinigen"
     log "${SYM_VOR} ${COLOR_OK}cacheclean${COLOR_RESET} \t\t # OpenSimulator Cache bereinigen"
     log "${SYM_VOR} ${COLOR_OK}logclean${COLOR_RESET} \t\t # OpenSimulator Logs bereinigen"
     log "${SYM_VOR} ${COLOR_OK}mapclean${COLOR_RESET} \t\t # OpenSimulator Maptiles bereinigen"
+    log "${SYM_VOR} ${COLOR_OK}autoallclean${COLOR_RESET} \t\t # Automatische Komplettbereinigung"
+    echo " "
+    log "${SYM_VOR} ${COLOR_OK}regionsclean${COLOR_RESET} \t\t # Alle Regionsdateien löschen"
+    log "${SYM_VOR} ${COLOR_OK}cleanall${COLOR_RESET} \t\t # Löscht OpenSim komplett"
     log "${SYM_VOR} ${COLOR_OK}renamefiles${COLOR_RESET} \t\t # OpenSimulator Beispieldateien umbenennen"
     log "${SYM_VOR} ${COLOR_OK}clean_linux_logs${COLOR_RESET} \t # Linux-Logs bereinigen"
     log "${SYM_VOR} ${COLOR_OK}delete_opensim${COLOR_RESET} \t # OpenSimulator mit Verzeichnisse entfernen"
@@ -5938,7 +6358,10 @@ function prohelp() {
     #* Hilfe
     log "${COLOR_SECTION}${SYM_INFO} Hilfe:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}help${COLOR_RESET} \t\t # Einfache Hilfeseite anzeigen"
+    log "${SYM_VOR} ${COLOR_OK}prohelp${COLOR_RESET} \t\t # Diese erweiterte Hilfe anzeigen"
+    #log "${SYM_VOR} ${COLOR_OK}generate_all_name${COLOR_RESET} \t\t # Namen generieren"
     echo " "
+    log "${COLOR_SECTION}${SYM_INFO} Aufruf mit: bash osmtool.sh <Befehl>${COLOR_RESET}"
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -5954,11 +6377,6 @@ case $KOMMANDO in
     simstart)                  simstart "$2" ;;
     simstop)                   simstop "$2" ;;
     simrestart)                simrestart "$2" ;;
-    simstatus)                 simstatus ;;
-    simlist)                   simlist ;;
-    simrestartall)             simrestartall ;;
-    simstopall)                simstopall ;;
-    simstartall)               simstartall ;;
 
     #  SYSTEM-CHECKS & SETUP  #
     servercheck)       servercheck ;;
@@ -6042,7 +6460,6 @@ case $KOMMANDO in
     regionsclean)      regionsclean ;;
     cleanall)          cleanall ;;
     renamefiles)       renamefiles ;;
-    colortest)         colortest ;;
     clean_linux_logs)  clean_linux_logs ;;
     delete_opensim)    delete_opensim ;;
 
@@ -6060,6 +6477,15 @@ case $KOMMANDO in
     rootrights)                     rootrights ;;
     buildopensim)                   buildopensim ;;
     buildstandalone)                buildstandalone ;;
+    setup_email_server)             setup_email_server ;;
+    remove_ubuntu_pro)              remove_ubuntu_pro ;;
+    simkill)                        simkill "$2" ;;
+    newservercheck)                 newservercheck ;;
+
+    # Laden und Speichern von iar und oar
+    loadinventar)                   loadinventar "$2" "$3" "$4" "$5" ;; #loadinventar MyInventory mydirectory mypassword myinventory.iar
+    saveinventar)                   saveinventar "$2" "$3" "$4" "$5" ;; #saveinventar "MeinInventar" "/pfad/zum/verzeichnis" "geheimesPasswort" "inventar.iar"
+    loadoar)                        loadoar  "$2" "$3" "$4" ;; #loadoar "RestoreScreen" "MyRegion"
 
     #  HILFE & SONSTIGES      #
     generate_all_name)  generate_all_name ;;
