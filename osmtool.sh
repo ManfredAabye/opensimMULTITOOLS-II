@@ -140,7 +140,7 @@ SCRIPTNAME="opensimMULTITOOL II"
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
-VERSION="V25.5.128.428"
+VERSION="V25.5.130.437"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
 echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
 echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
@@ -165,18 +165,29 @@ COLOR_VALUE='\e[36m'       # Cyan für Werte
 COLOR_ACTION='\e[92m'      # Hellgrün für Aktionen
 COLOR_RESET='\e[0m'        # Farbreset
 COLOR_RESTART='\e[93m'     # Gelb (RESTART)
+COLOR_INFO='\e[31m'        # Rot (INFO)
+COLOR_SERVER='\e[34m'      # Blau (SERVER)
+
+# Standardfarben
+# COLOR_RED='\e[31m'        # Rot
+# COLOR_GREEN='\e[32m'      # Grün
+# COLOR_YELLOW='\e[33m'     # Gelb
+# COLOR_BLUE='\e[34m'       # Blau (korrigiert für SERVER)
+# COLOR_MAGENTA='\e[35m'    # Magenta (dein aktueller "SERVER"-Wert)
+# COLOR_CYAN='\e[36m'       # Cyan
+# COLOR_WHITE='\e[37m'      # Weiß
 
 #* SYMBOLDEFINITIONEN
 SYM_OK="${COLOR_OK}✓${COLOR_RESET}"
 SYM_BAD="${COLOR_BAD}✗${COLOR_RESET}"
-SYM_INFO="${COLOR_VALUE}❓${COLOR_RESET}"
+SYM_INFO="${COLOR_INFO}❓${COLOR_RESET}"
 SYM_WAIT="${COLOR_VALUE}⏳${COLOR_RESET}"
 SYM_LOG="${COLOR_VALUE}📋${COLOR_RESET}"
 COLOR_SECTION='\e[0;35m'                         # Magenta für Sektionsnamen
 COLOR_FILE='\e[0;33m'                            # Gelb für Dateipfade
 
 #* SYSTEM & SERVER
-SYM_SERVER="${COLOR_VALUE}💻${COLOR_RESET}"      # Server/Computer
+SYM_SERVER="${COLOR_SERVER}💻${COLOR_RESET}"      # Server/Computer
 #SYM_STORAGE="${COLOR_VALUE}💾${COLOR_RESET}"     # Speicher (Diskette)
 #SYM_NETWORK="${COLOR_VALUE}📡${COLOR_RESET}"     # Netzwerk/Antenne
 #SYM_SECURITY="${COLOR_VALUE}🔒${COLOR_RESET}"    # Sicherheit
@@ -191,11 +202,11 @@ SYM_FILE="${COLOR_VALUE}📄${COLOR_RESET}"        # Dokument
 SYM_TOOLS="${COLOR_VALUE}🧮${COLOR_RESET}"       # Werkzeuge
 SYM_CONFIG="${COLOR_VALUE}🔧${COLOR_RESET}"      # Konfiguration
 #SYM_MAINTENANCE="${COLOR_VALUE}🛠️${COLOR_RESET}" # Wartung
-SYM_CLEAN="${COLOR_VALUE}🧹${COLOR_RESET}"       # Bereinigung
+SYM_CLEAN="${COLOR_WARNING}🧹${COLOR_RESET}"       # Bereinigung
 
 #* DOKUMENTATION
 SYM_SCRIPT="${COLOR_VALUE}📜${COLOR_RESET}"      # Skript
-#SYM_BOOK="${COLOR_VALUE}📖${COLOR_RESET}"        # Dokumentation
+SYM_BOOK="${COLOR_VALUE}📖${COLOR_RESET}"        # Dokumentation
 #SYM_NOTES="${COLOR_VALUE}📝${COLOR_RESET}"       # Notizen
 
 #* STATUS & KONTROLLE
@@ -222,10 +233,18 @@ KOMMANDO=$1 #! Eingabeauswertung fuer Funktionen.
 
 #* Leere Zeile
 function blankline() {
-    # Einfache Leerezeile
-    #sleep 0.25; echo " "
-    # Einfache Linie
-    sleep 0.25; echo "____________________________________________________________________________________"; echo " "
+    # Konfiguration: Zeichen für Linien (beliebig erweiterbar)
+    #local line_chars=("-" "_" "=" "#" "*" "~")
+    local line_chars=("_")
+    local line_length=80  # Standardlänge der Linie
+
+    sleep 0.25
+    
+    # Erzeuge jede Linie mit Verzögerung
+    for char in "${line_chars[@]}"; do        
+        printf "%${line_length}s\n" | tr " " "$char"  # Linie dynamisch generieren
+        echo " "  # Leerzeile nach jeder Linie
+    done
 }
 
 #* Hauptpfad des Skripts automatisch setzen
@@ -239,20 +258,33 @@ blankline
 #* Rootrechte erforderlich
 function rootrights() {
     # Root-Privilegien erforderlich
-    if [[ "$EUID" -ne 0 ]]; then
-        log "${COLOR_WARNING}Dieses Skript muss als Root ausgeführt werden (z. B. mit sudo)." >&2
-        log "Ohne Root-Privilegien müssen Sie z.B. das Passwort der Datenbank" >&2
-        log "bei jeder Tabelle oder AssetType eingeben." >&2
-        log "Um dies zu verhindern, kann das Skript mit sudo ausgeführt werden.${COLOR_RESET}" >&2
-        log "Möchten Sie trotzdem ohne Root-Privilegien fortfahren? (ja/nein): " >&2
-        read -r answer
-        # Akzeptiere j, J, ja, Ja, JA
-        if [[ ! "$answer" =~ ^([Jj]([Aa])?)$ ]]; then
-            log "${COLOR_STOP}Abbruch.${COLOR_RESET}" >&2
-            exit 1
-        fi
+    if [[ $EUID -ne 0 ]]; then
+        log "${COLOR_WARNING}Warning: Dieses Skript kann als Benutzer ausgeführt werden," >&2
+        log "aber einige Funktionen benötigen Root-Rechte.${COLOR_RESET}" >&2
+        log "[sudo bash osmtool.sh]" >&2
+        
+        while true; do
+            log "Möchten Sie trotzdem ohne Root-Privilegien fortfahren? (ja/nein): " >&2
+            read -r answer
+            
+            # Akzeptiere: j/J/ja/Ja/JA/y/Y/yes/Yes/YES + n/N/nein/Nein/NEIN
+            case "${answer,,}" in  # ${answer,,} wandelt in Kleinbuchstaben um
+                j|ja|y|yes)
+                    log "Fortfahren ohne Root-Rechte..." >&2
+                    return 0  # Erfolg, fortfahren
+                    ;;
+                n|nein|no)
+                    log "${COLOR_STOP}Abbruch.${COLOR_RESET}" >&2
+                    exit 1
+                    ;;
+                *)
+                    log "${COLOR_WARNING}Ungültige Eingabe. Bitte 'ja' oder 'nein' eingeben.${COLOR_RESET}" >&2
+                    ;;
+            esac
+        done
     fi
 }
+
 
 #* Soll im Hypergrid Modus gearbeitet werden oder in einem Geschlossenen Grid?
 function hypergrid() {
@@ -1345,7 +1377,7 @@ opensim_clone() {
 }
 
 function opensimgitcopy() {
-    log "${SYM_SYNC}${COLOR_HEADING} OpenSimulator GitHub-Verwaltung${COLOR_RESET}"
+    log "${SYM_BOOK}${COLOR_HEADING} OpenSimulator GitHub-Verwaltung${COLOR_RESET}"
     
     # Zuerst versuchen, ein einfaches git pull durchzuführen, falls Repository existiert
     if [[ -d "opensim/.git" ]]; then
@@ -3188,7 +3220,7 @@ function robustrepair() {
             mysqlcheck -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"
             ;;
         repair)
-            log "${SYM_SYNC} ${COLOR_LABEL}Repariere beschädigte Tabellen automatisch...${COLOR_RESET}"
+            log "${SYM_BOOK} ${COLOR_LABEL}Repariere beschädigte Tabellen automatisch...${COLOR_RESET}"
             mysqlcheck -u"$DB_USER" -p"$DB_PASS" --auto-repair "$DB_NAME"
             ;;
         truncate)
@@ -3242,13 +3274,15 @@ function robustrepair() {
     esac
 }
 
+# todo: Wenn die Parameter der Eingabe nicht stimmt, ausgeben was fehlt und der Aufruf der Funktion anzeigen:
+
 ###* load und save oar und iar
 
 # - $1: Der Name des Besitzers.
 # - $2: Das Verzeichnis, in das das IAR geladen werden soll
 # - $3: Das Passwort fuer das IAR
 # - $4: Der Dateiname des IAR
-# loadinventar "Vorname Nachname" "/" "Benutzerpasswort" Inventarname.iar
+# bash osmtool.sh loadinventar "Vorname Nachname" "/pfad/zum/verzeichnis" "Benutzerpasswort" "/pfad/zum/Inventarname.iar"
 function loadinventar() {
 	# Letzte Bearbeitung 30.09.2023
 	LOADINVSCREEN="sim1"
@@ -3256,6 +3290,12 @@ function loadinventar() {
 	VERZEICHNIS=$2
 	local PASSWORD=$3
 	DATEI=$4
+
+    if [ $# -ne 4 ]; then
+        echo "Falsche Anzahl an Parametern."
+        echo 'Verwendung: bash osmtool.sh loadinventar "Vorname Nachname" "/pfad/zum/verzeichnis" "Benutzerpasswort" "/pfad/zum/Inventarname.iar"'
+        return 1
+    fi
 
     # Benutzer um Bestätigung fragen
     echo "Soll die Datei '$DATEI' von '$VERZEICHNIS' für '$NAME' hochgeladen werden? (j/n)"
@@ -3282,7 +3322,7 @@ function loadinventar() {
 # $3 - Passwort (optional)
 # $4 - Dateiname, unter dem das Inventar gespeichert wird
 #? Verwendungsbeispiel:
-# saveinventar "MeinInventar" "/pfad/zum/verzeichnis" "geheimesPasswort" "inventar.iar"
+# bash osmtool.sh saveinventar "Vorname Nachname" "/pfad/zum/verzeichnis" "Benutzerpasswort" "/pfad/zum/Inventarname.iar"
 function saveinventar() {
 	# Letzte Bearbeitung 01.10.2023
 	SAVEINVSCREEN="sim1"
@@ -3290,6 +3330,12 @@ function saveinventar() {
 	VERZEICHNIS=$2
 	local PASSWORD=$3
 	DATEI=$4
+
+    if [ $# -ne 4 ]; then
+        echo "Falsche Anzahl an Parametern."
+        echo 'Verwendung: bash osmtool.sh saveinventar "Vorname Nachname" "/pfad/zum/verzeichnis" "Benutzerpasswort" "/pfad/zum/Inventarname.iar"'
+        return 1
+    fi
 
     # Benutzer um Bestätigung fragen
     echo "Soll die Datei '$DATEI' von '$VERZEICHNIS' für '$NAME' wirklich gespeichert werden? (j/n)"
@@ -3312,11 +3358,17 @@ function saveinventar() {
 }
 
 #? Verwendungsbeispiel:
-#   loadoar "sim1" "MeineRegion" "Sicherungsname.oar"
+# bash osmtool.sh loadoar "sim1" "TestRegion" "backup.oar"
 function loadoar() {
 	RESTOREVERZEICHNISSCREENNAME=$1
 	REGIONSNAME=$2
     OARFILE=$3
+
+    if [ $# -ne 3 ]; then
+        echo "Falsche Anzahl an Parametern."
+        echo 'Verwendung: bash osmtool.sh loadoar "sim1" "TestRegion" "backup.oar"'
+        return 1
+    fi
 
     # Benutzer um Bestätigung fragen
     echo "Soll die Region '$REGIONSNAME' mit der Datei '$OARFILE.oar' wirklich wiederhergestellt werden? (j/n)"
@@ -3337,6 +3389,141 @@ function loadoar() {
 
 	log "OSRESTORE: Region $REGIONSNAME wird wiederhergestellt"
 	return 0
+}
+
+# Aufruf: saveoar "sim1" "testregion" "/pfad/zum/backup.oar"
+function saveoar() {
+    local SCREENNAME=$1
+    local REGIONNAME=$2
+    local OARFILE=$3
+
+    if [ $# -ne 3 ]; then
+        echo "Falsche Anzahl an Parametern."
+        echo 'Verwendung: bash osmtool.sh saveoar "sim1" "testregion" "/pfad/zum/backup.oar"'
+        return 1
+    fi
+
+    # Prüfen, ob alle Parameter gesetzt sind
+    if [[ -z "$SCREENNAME" || -z "$REGIONNAME" || -z "$OARFILE" ]]; then
+        echo "Fehler: Screen-Name, Regionsname und OAR-Datei müssen angegeben werden!"
+        return 1
+    fi
+
+    # Benutzer um Bestätigung fragen
+    echo "Soll die Region '$REGIONNAME' wirklich in '$OARFILE' gesichert werden? (j/n)"
+    read -r ANTWORT
+
+    if [[ "$ANTWORT" != "j" ]]; then
+        echo "Speicherung abgebrochen."
+        return 1
+    fi
+
+    # Prüfen, ob der Screen existiert
+    if ! screen -list | grep -q "$SCREENNAME"; then
+        echo "$SCREENNAME"
+        echo "Fehler: Der Screen '$SCREENNAME' existiert nicht!"
+        return 1
+    fi
+
+    # Region auswählen und OAR-Datei speichern
+    echo "Sichere Region '$REGIONNAME' in '$OARFILE'..."
+    screen -S "$SCREENNAME" -p 0 -X eval "stuff 'change region $REGIONNAME'^M"
+    screen -S "$SCREENNAME" -p 0 -X eval "stuff 'save oar \"$OARFILE\"'^M"
+
+    echo "Region erfolgreich gesichert!"
+    return 0
+}
+
+# bash osmtool.sh autoregionbackup
+function autoregionbackup() {
+    # Konfiguration
+    local BACKUP_ROOT="$SCRIPT_DIR/backup"  # Relativer Pfad
+    local BACKUP_WAIT=180        # 180, 300 , 500 Wartezeit zwischen Backups, zu kleine Werte uberfordern den Server.
+    DATUM=$(date +%Y%m%d_%H%M%S)
+
+    # Backup-Verzeichnis erstellen
+    mkdir -p "$BACKUP_ROOT" || {
+        echo "FEHLER: Backup-Verzeichnis konnte nicht erstellt werden"
+        return 1
+    }
+
+    # Funktion zum Extrahieren des Regionsnamens aus der INI-Datei
+    get_region_name() {
+        local ini_file="$1"
+        # Extrahiere den Namen zwischen [ ]
+        grep -oP '^\[\K[^\]]+' "$ini_file" | head -1
+    }
+
+    # Durchsuche alle simX/bin/Regions-Verzeichnisse
+    for ((i=1; i<=999; i++)); do
+        local sim_name="sim$i"
+        local regions_dir="$sim_name/bin/Regions"
+        
+        if [[ -d "$sim_name/bin" && -d "$regions_dir" ]]; then
+            echo "Verarbeite Simulator: $sim_name"
+            
+            # Backup-Verzeichnis erstellen
+            mkdir -p "$BACKUP_ROOT/$sim_name" || {
+                echo "FEHLER: Backup-Verzeichnis konnte nicht erstellt werden"
+                return 1
+            }
+            
+            # Verarbeite jede Regions-Konfiguration
+            for region_file in "$regions_dir"/*.ini; do
+                [[ -f "$region_file" ]] || continue
+                
+                # Extrahiere den echten Regionsnamen aus der INI-Datei (mit Leerzeichen)
+                display_name=$(get_region_name "$region_file")
+                safe_name=$(basename "$region_file" .ini)  # Dateiname als Fallback
+                
+                # Verwende den echten Namen wenn vorhanden, sonst Dateinamen
+                local region_name=${display_name:-$safe_name}
+                safe_filename=$(echo "$region_name" | tr ' ' '_')  # Für Dateinamen
+                
+                # Überspringe Offline-Regionen
+                if [[ -f "$region_file.offline" ]]; then
+                    echo "Überspringe offline Region: $region_name"
+                    continue
+                fi
+
+                echo "Starte Backup von: $sim_name $region_name"
+                
+                # 1. Region auswählen (mit Originalname und Leerzeichen)
+                screen -S "$sim_name" -p 0 -X eval "stuff 'change region \"${region_name//\"/}\"'^M"
+                echo "change region \"$region_name\""
+                sleep 1
+                
+                # 2. OAR-Backup (mit safe_filename)
+                screen -S "$sim_name" -p 0 -X eval "stuff 'save oar \"$BACKUP_ROOT/$sim_name/$DATUM-${safe_filename}.oar\"'^M"
+                echo "Backup: $DATUM-${safe_filename}.oar"
+                sleep 1
+                
+                # 3. XML2-Backup
+                screen -S "$sim_name" -p 0 -X eval "stuff 'save xml2 \"$BACKUP_ROOT/$sim_name/$DATUM-${safe_filename}.xml2\"'^M"
+                echo "Backup: $DATUM-${safe_filename}.xml2"
+                sleep 1
+                
+                # 4. Terrain-Backups
+                screen -S "$sim_name" -p 0 -X eval "stuff 'terrain save \"$BACKUP_ROOT/$sim_name/$DATUM-${safe_filename}.png\"'^M"
+                screen -S "$sim_name" -p 0 -X eval "stuff 'terrain save \"$BACKUP_ROOT/$sim_name/$DATUM-${safe_filename}.raw\"'^M"
+                echo "Terrain: $DATUM-${safe_filename}.png/.raw"
+                sleep 1
+                
+                # 5. Regions-Konfiguration kopieren
+                if [[ -f "$region_file" ]]; then
+                    cp "$region_file" "$BACKUP_ROOT/$sim_name/$DATUM-${safe_filename}.ini"
+                    echo "Kopiere: $DATUM-${safe_filename}.ini"
+                    sleep 1
+                fi
+                
+                echo "Erstelle Backup: $BACKUP_ROOT/$sim_name/$DATUM-${safe_filename}.*"
+                sleep "$BACKUP_WAIT"
+            done
+        fi
+    done
+
+    echo "Backup aller Regionen abgeschlossen"
+    return 0
 }
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -6161,13 +6348,16 @@ function help() {
     log "${SYM_VOR} ${COLOR_STOP}standalonestop${COLOR_RESET} \t # Standalone stoppen"
     log "${SYM_VOR} ${COLOR_RESTART}standalonerestart${COLOR_RESET} \t # Standalone neu starten"
     echo ""
-    log "${SYM_VOR} ${COLOR_RESTART}simkill${COLOR_RESET} \t # Wenn der Simulator nicht beendet werden kann"
+    log "${SYM_VOR} ${COLOR_RESTART}simkill${COLOR_RESET} \t\t # Wenn der Simulator nicht beendet werden kann"
     echo ""
 
-    # System-Checks & Setup
-    log "${COLOR_SECTION}${SYM_TOOLS} System-Checks & Setup:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}check_screens${COLOR_RESET} \t # Prüft laufende Prozesse und handelt entsprechend"
-    echo
+    # System-Checks
+    log "${COLOR_SECTION}${SYM_TOOLS} System-Checks:${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_OK}check_screens${COLOR_RESET} \t\t # Prüft laufende Prozesse und handelt entsprechend"
+    echo ""
+
+    # Setup
+    log "${COLOR_SECTION}${SYM_TOOLS} Setup:${COLOR_RESET}"
     #log "${SYM_VOR} ${COLOR_OK}servercheck${COLOR_RESET} \t\t # Installiert und Prüft den Server"
     #log "${SYM_VOR} ${COLOR_OK}createdirectory${COLOR_RESET} \t\t # Erstellt alle benötigten Verzeichnisse"
     log "${SYM_VOR} ${COLOR_OK}autoinstall${COLOR_RESET} \t\t # OpenSimulator Automatisiert installieren und einrichten"
@@ -6175,7 +6365,7 @@ function help() {
     echo ""
 
     # Git-Operationen
-    #log "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
+    #log "${COLOR_SECTION}${SYM_BOOK} Git-Operationen:${COLOR_RESET}"
     #log "${SYM_VOR} ${COLOR_OK}opensimgitcopy${COLOR_RESET} \t\t # Klont den OpenSim Code"
     #log "${SYM_VOR} ${COLOR_OK}moneygitcopy${COLOR_RESET} \t\t # Baut den MoneyServer in den OpenSimulator ein"
     #log "${SYM_VOR} ${COLOR_OK}osslscriptsgit${COLOR_RESET} \t\t # Klont OSSL-Skripte"
@@ -6219,7 +6409,7 @@ function prohelp() {
     log "${SYM_VOR} ${COLOR_START}opensimstart${COLOR_RESET} \t\t # OpenSim starten"
     log "${SYM_VOR} ${COLOR_STOP}opensimstop${COLOR_RESET} \t\t # OpenSim stoppen"
     log "${SYM_VOR} ${COLOR_RESTART}opensimrestart${COLOR_RESET} \t # OpenSim neu starten"
-    log "${SYM_VOR} ${COLOR_OK}check_screens${COLOR_RESET} \t # Laufende OpenSim-Prozesse prüfen und neu starten"
+    log "${SYM_VOR} ${COLOR_OK}check_screens${COLOR_RESET} \t\t # Laufende OpenSim-Prozesse prüfen und neu starten"
     log "${SYM_VOR} ${COLOR_OK}autoupgrade${COLOR_RESET} \t\t # Automatisches OpenSim upgrade"
     echo " "
     log "${SYM_VOR} ${COLOR_START}opensimstartParallel${COLOR_RESET} \t # Startet alle Regionen parallel"
@@ -6230,7 +6420,7 @@ function prohelp() {
     log "${SYM_VOR} ${COLOR_STOP}simstop${COLOR_RESET} \t\t # Stoppt eine bestimmte Region"
     log "${SYM_VOR} ${COLOR_RESTART}simrestart${COLOR_RESET} \t\t # Startet eine bestimmte Region neu"
     echo " "
-    log "${SYM_VOR} ${COLOR_RESTART}simkill${COLOR_RESET} \t # Wenn der Simulator nicht beendet werden kann"
+    log "${SYM_VOR} ${COLOR_RESTART}simkill${COLOR_RESET} \t\t # Wenn der Simulator nicht beendet werden kann"
     echo ""
 
     #* Standalone-Operationen
@@ -6249,28 +6439,33 @@ function prohelp() {
     log "${SYM_VOR} ${COLOR_OK}createmasteruser${COLOR_RESET} \t\t # Master-Benutzer erstellen"
     echo " "
 
-    #* System-Checks & Setup
-    log "${COLOR_SECTION}${SYM_TOOLS} System-Checks & Setup:${COLOR_RESET}"
+    #* System-Checks
+    log "${COLOR_SECTION}${SYM_TOOLS} System-Checks:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}servercheck${COLOR_RESET} \t\t # Serverbereitschaft prüfen und Abhängigkeiten installieren"
+    echo " "
+
+    #* Setup
+    log "${COLOR_SECTION}${SYM_TOOLS} Setup:${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}createdirectory${COLOR_RESET} \t # OpenSim-Verzeichnisse erstellen"
     log "${SYM_VOR} ${COLOR_OK}setcrontab${COLOR_RESET} \t\t # Crontab Automatisierungen einrichten"
-    log "${SYM_VOR} ${COLOR_OK}setup_webserver${COLOR_RESET} \t\t # Webserver einrichten"
+    log "${SYM_VOR} ${COLOR_OK}setup_webserver${COLOR_RESET} \t # Webserver einrichten"
     log "${SYM_VOR} ${COLOR_OK}webinstall${COLOR_RESET} \t\t # Webinterface installieren"
-    log "${SYM_VOR} ${COLOR_OK}osWebinterfacegit${COLOR_RESET} \t\t # Webinterface aus Git holen"
+    log "${SYM_VOR} ${COLOR_OK}osWebinterfacegit${COLOR_RESET} \t # Webinterface aus Git holen"
     log "${SYM_VOR} ${COLOR_OK}autoinstall${COLOR_RESET} \t\t # OpenSimulator Automatisiert installieren und einrichten"
     log "${SYM_VOR} ${COLOR_OK}firststart${COLOR_RESET} \t\t # Erststart-Konfiguration durchführen"
-    log "${SYM_VOR} ${COLOR_OK}setup_email_server${COLOR_RESET} \t\t # E-Mail-Server einrichten"
-    log "${SYM_VOR} ${COLOR_OK}remove_ubuntu_pro${COLOR_RESET} \t\t # Ubuntu Pro entfernen"
+    log "${SYM_VOR} ${COLOR_OK}setup_email_server${COLOR_RESET} \t # E-Mail-Server einrichten"
+    log "${SYM_VOR} ${COLOR_OK}remove_ubuntu_pro${COLOR_RESET} \t # Ubuntu Pro entfernen"
     echo " "
 
     #* Git-Operationen
-    log "${COLOR_SECTION}${SYM_SYNC} Git-Operationen:${COLOR_RESET}"
+    log "${COLOR_SECTION}${SYM_BOOK} Git-Operationen:${COLOR_RESET}"
+
     log "${SYM_VOR} ${COLOR_OK}opensimgitcopy${COLOR_RESET} \t # OpenSim aus Git herunterladen"
     log "${SYM_VOR} ${COLOR_OK}moneygitcopy${COLOR_RESET} \t\t # MoneyServer aus Git holen"
     log "${SYM_VOR} ${COLOR_WARNING}ruthrothgit${COLOR_RESET} \t\t # Ruth Roth IAR Dateien ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_WARNING}avatarassetsgit${COLOR_RESET} \t\t # Avatar-Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_WARNING}avatarassetsgit${COLOR_RESET} \t # Avatar-Assets ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}osslscriptsgit${COLOR_RESET} \t # OSSL Beispielskripte herunterladen"
-    log "${SYM_VOR} ${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} \t\t # PBR-Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
+    log "${SYM_VOR} ${COLOR_WARNING}pbrtexturesgit${COLOR_RESET} \t # PBR-Texturen ${COLOR_BAD}(Vorsicht)${COLOR_RESET}"
     log "${SYM_VOR} ${COLOR_OK}downloadallgit${COLOR_RESET} \t # Alle Git-Repos herunterladen"
     log "${SYM_VOR} ${COLOR_OK}versionrevision${COLOR_RESET} \t # Versionsverwaltung aktivieren"
     echo " "
@@ -6357,7 +6552,7 @@ function prohelp() {
 
     #* Hilfe
     log "${COLOR_SECTION}${SYM_INFO} Hilfe:${COLOR_RESET}"
-    log "${SYM_VOR} ${COLOR_OK}help${COLOR_RESET} \t\t # Einfache Hilfeseite anzeigen"
+    log "${SYM_VOR} ${COLOR_OK}help${COLOR_RESET} \t\t\t # Einfache Hilfeseite anzeigen"
     log "${SYM_VOR} ${COLOR_OK}prohelp${COLOR_RESET} \t\t # Diese erweiterte Hilfe anzeigen"
     #log "${SYM_VOR} ${COLOR_OK}generate_all_name${COLOR_RESET} \t\t # Namen generieren"
     echo " "
@@ -6485,7 +6680,9 @@ case $KOMMANDO in
     # Laden und Speichern von iar und oar
     loadinventar)                   loadinventar "$2" "$3" "$4" "$5" ;; #loadinventar MyInventory mydirectory mypassword myinventory.iar
     saveinventar)                   saveinventar "$2" "$3" "$4" "$5" ;; #saveinventar "MeinInventar" "/pfad/zum/verzeichnis" "geheimesPasswort" "inventar.iar"
-    loadoar)                        loadoar  "$2" "$3" "$4" ;; #loadoar "RestoreScreen" "MyRegion"
+    loadoar)                        loadoar  "$2" "$3" "$4" ;; #loadoar "RestoreScreen" "MyRegion" "/pfad/zum/verzeichnis"
+    saveoar)                        saveoar  "$2" "$3"  "$4" ;; #saveoar "RestoreScreen" "MyRegion" "/pfad/zum/verzeichnis"
+    autoregionbackup)               autoregionbackup ;;
 
     #  HILFE & SONSTIGES      #
     generate_all_name)  generate_all_name ;;
