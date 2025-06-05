@@ -181,6 +181,19 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ---
 
+## **📂 Backup**
+
+| Befehl              | Beschreibung                                                                 | Status                   |
+|---------------------|------------------------------------------------------------------------------|--------------------------|
+| `loadiar`           | Lädt ein Inventar-Archiv (IAR) zu einem Avatar hoch                         | Test                     |
+| `saveiar`           | Speichert das Inventar eines Avatars als IAR-Datei                          | Test                     |
+| `loadoar`           | Lädt ein vollständiges Regionen-Backup (OAR) in eine Region                  | Test                     |
+| `saveoar`           | Erstellt ein vollständiges Backup (OAR) einer Region                         | Test                     |
+| `autoregionbackup`  | Führt automatisierte Backups aller Regionen aus                              | Test                  |
+
+
+---
+
 ## **❓ Hilfen**
 
 | Befehl    | Beschreibung                                                | Status                   |
