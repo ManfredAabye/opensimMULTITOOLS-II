@@ -597,20 +597,36 @@ function sichere_wordweb_und_money() {
     echo "📦 Sicherung abgeschlossen: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$logfile"
 }
 
+function restore_wordweb_und_money() {
+    username=$1
+    password=$2
+    for dbname in wordweb money; do
+        restorepath="/$STARTVERZEICHNIS/backup/${dbname}"
+        latestfile=$(ls -t "$restorepath"/*.sql.zip | head -n 1)
+        if [[ -f "$latestfile" ]]; then
+            echo "🔄 Wiederherstellung: $dbname aus $latestfile"
+            unzip -p "$latestfile" | mysql -u"$username" -p"$password" "$dbname"
+        else
+            echo "⚠️ Keine Backup-Datei gefunden für $dbname"
+        fi
+    done
+}
+
 
 case $KOMMANDO in
-    "regionsiniteilen")        regionsiniteilen "$2" "$3" "$4"        ;;
-    "autoregionsiniteilen")        autoregionsiniteilen        ;;
-    "createregionlist")        createregionlist        ;;
-    "regionbackup")        regionbackup "$2" "$3"        ;;
-    "autoallclean")        autoallclean        ;;
-    "autoregionbackup")        autoregionbackup        ;;
-    "datenbanktabellen")        datenbanktabellen "$2" "$3" "$4"        ;;
-    "backuptabelle_noassets")        backuptabelle_noassets "$2" "$3" "$4"        ;;
-    "asset_backup")        asset_backup "$2" "$3" "$4"        ;;
-    "db_restoretabelle_noassets")        db_restoretabelle_noassets "$2" "$3" "$4"        ;;
-    "asset_restore")        asset_restore "$2" "$3" "$4"        ;;
-    "sichere_wordweb_und_money")        sichere_wordweb_und_money "$2" "$3"        ;;
+    "regionsiniteilen") regionsiniteilen "$2" "$3" "$4" ;;
+    "autoregionsiniteilen") autoregionsiniteilen ;;
+    "createregionlist") createregionlist ;;
+    "regionbackup") regionbackup "$2" "$3" ;;
+    "autoallclean") autoallclean ;;
+    "autoregionbackup") autoregionbackup ;;
+    "datenbanktabellen") datenbanktabellen "$2" "$3" "$4" ;;
+    "backuptabelle_noassets") backuptabelle_noassets "$2" "$3" "$4" ;;
+    "asset_backup") asset_backup "$2" "$3" "$4" ;;
+    "db_restoretabelle_noassets") db_restoretabelle_noassets "$2" "$3" "$4" ;;
+    "asset_restore") asset_restore "$2" "$3" "$4" ;;
+    "sichere_wordweb_und_money") sichere_wordweb_und_money "$2" "$3" ;;
+    "restore_wordweb_und_money") restore_wordweb_und_money "$2" "$3" ;;
     *) echo "Unbekanntes Kommando: $KOMMANDO" ;;
 esac
 # Ende des Skripts
