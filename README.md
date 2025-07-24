@@ -205,18 +205,26 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ---
 
-osmtool_backup.sh
+## `osmtool_backup.sh`
 
-* Ist dafür gemacht ein komplettes Grid so zu sichern das ein umzug auf einen neuen Server einfach und reibungslos ist.
+Dieses Skript dient dazu, ein komplettes Grid so zu sichern, dass ein Umzug auf einen neuen Server **einfach und reibungslos** durchgeführt werden kann.
 
-osmtool_restart.sh
+---
 
-Das ist ein schmales Skript den Server neu zu starten und zu prüfen ob alles läuft.
+## `osmtool_restart.sh`
 
-* Wenn robustserver nicht läuft wird das Grid neu gestartet.
-* Wenn moneyserver nicht läuft wird das Grid neu gestartet.
-* Wenn sim1 also die Welcome Region nicht läuft wird das Grid neu gestartet.
-* Wenn sim2 - sim99 nicht läuft wird die einzelne Region neu gestartet.
+Ein schlankes Skript zum Neustart des Servers und zur Überprüfung, ob alle Komponenten ordnungsgemäß laufen.
+
+### Verhalten bei Ausfällen:
+
+- Wenn der **RobustServer** nicht läuft, wird das **gesamte Grid neu gestartet**.
+- Wenn der **MoneyServer** nicht läuft, wird das **gesamte Grid neu gestartet**.
+- Wenn **sim1** (die Welcome-Region) nicht läuft, wird das **gesamte Grid neu gestartet**.
+- Wenn eine Region von **sim2 bis sim99** nicht läuft, wird **nur diese einzelne Region neu gestartet**.
+
+---
+
+Wenn du möchtest, kann ich das auch in eine README-Datei umwandeln oder mit Beispielen ergänzen. Lust auf eine schön formatierte Dokumentation?
 
 ---
 
