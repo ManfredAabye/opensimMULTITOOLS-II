@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Backup Version 1.0
+
 STARTVERZEICHNIS="/opt" # Startverzeichnis
 ROBUSTVERZEICHNIS="Robust" # Robust Verzeichnis
 REGIONSDATEI="osmregionlist.ini" # Regionsdatei
@@ -94,7 +96,7 @@ function regionsiniteilen() {
 	INI_FILE="/$STARTVERZEICHNIS/$INIVERZEICHNIS/bin/Regions/Regions.ini" # Auszulesende Datei
 
 	if [ ! -d "$INI_FILE" ]; then
-		log info "REGIONSINITEILEN: Schreiben der Werte fuer $RTREGIONSNAME"
+		echo info "REGIONSINITEILEN: Schreiben der Werte fuer $RTREGIONSNAME"
 		# Schreiben der einzelnen Punkte nur wenn vorhanden ist.
 		# shellcheck disable=SC2005
 		{
@@ -125,7 +127,7 @@ function regionsiniteilen() {
 			echo "$(get_value_from_Region_key "${INI_FILE}" "$RTREGIONSNAME" "MasterAvatarSandboxPassword")"
 		} >>"/$STARTVERZEICHNIS/$INIVERZEICHNIS/bin/Regions/$RTREGIONSNAME.ini"
 	else
-		log error "REGIONSINITEILEN: $INI_FILE wurde nicht gefunden"
+		echo error "REGIONSINITEILEN: $INI_FILE wurde nicht gefunden"
 	fi
 	return 0
 }
@@ -147,8 +149,8 @@ function autoregionsiniteilen() {
 	makeverzeichnisliste
 	sleep 1
 	for ((i = 0; i < "$ANZAHLVERZEICHNISSLISTE"; i++)); do
-		log info "Region.ini ${VERZEICHNISSLISTE[$i]} zerlegen"
-		log line
+		echo info "Region.ini ${VERZEICHNISSLISTE[$i]} zerlegen"
+		echo line
 		VERZEICHNIS="${VERZEICHNISSLISTE[$i]}"
 		# Regions.ini teilen:
 		echo "$VERZEICHNIS"                                                # OK geht
@@ -159,7 +161,7 @@ function autoregionsiniteilen() {
 		for MeineRegion in ${TARGETS[@]}; do
 			regionsiniteilen "$VERZEICHNIS" "$MeineRegion"
 			sleep 1
-			log rohtext "regionsiniteilen $VERZEICHNIS $MeineRegion"
+			echo rohtext "regionsiniteilen $VERZEICHNIS $MeineRegion"
 		done
 		#  Dann umbenennen:
 		# Pruefung ob Datei vorhanden ist, wenn ja umbenennen.
@@ -195,7 +197,7 @@ function createregionlist() {
 	makeverzeichnisliste
 	sleep 1
 	for ((i = 0; i < "$ANZAHLVERZEICHNISSLISTE"; i++)); do
-		log info "Regionnamen ${VERZEICHNISSLISTE[$i]} schreiben"
+		echo info "Regionnamen ${VERZEICHNISSLISTE[$i]} schreiben"
 		VERZEICHNIS="${VERZEICHNISSLISTE[$i]}"
 		# shellcheck disable=SC2178
 		Dateien=$(find /$STARTVERZEICHNIS/"$VERZEICHNIS"/bin/Regions/ -name "*.ini")
@@ -612,12 +614,95 @@ function restore_wordweb_und_money() {
     done
 }
 
+# Backup-Konfigurationsdateien aus robust/bin und sim-Verzeichnissen
+# bash osmtool_backup.sh backup_config
+function backup_config() {
+    echo "${SYM_WAIT} ${COLOR_START}Sichere Konfigurationsdateien...${COLOR_RESET}"
+
+    # Zielverzeichnis für Backups
+    backup_root="/opt/backup/config"
+
+    # Backup aus robust/bin
+    if [[ -d "robust/bin" ]]; then
+        src_dir="robust/bin"
+        dest_dir="${backup_root}/${src_dir}"
+        echo "${SYM_OK} ${COLOR_START}Sichere ${COLOR_DIR}${src_dir}${COLOR_RESET} nach ${COLOR_DIR}${dest_dir}${COLOR_RESET}"
+        find "$src_dir" -type f -name "*.ini" | while read -r file; do
+            rel_path="${file#$src_dir/}"  # relativer Pfad
+            mkdir -p "${dest_dir}/$(dirname "$rel_path")"
+            cp "$file" "${dest_dir}/$rel_path"
+        done
+    else
+        echo "${SYM_BAD} ${COLOR_DIR}robust/bin${COLOR_RESET} nicht gefunden. Überspringe."
+    fi
+
+    # Backup aus sim-Verzeichnissen
+    for ((i=1; i<=999; i++)); do
+        sim_dir="sim$i/bin"
+        if [[ -d "$sim_dir" ]]; then
+            dest_dir="${backup_root}/${sim_dir}"
+            echo "${SYM_OK} ${COLOR_START}Sichere ${COLOR_DIR}${sim_dir}${COLOR_RESET} nach ${COLOR_DIR}${dest_dir}${COLOR_RESET}"
+            find "$sim_dir" -type f -name "*.ini" | while read -r file; do
+                rel_path="${file#$sim_dir/}"
+                mkdir -p "${dest_dir}/$(dirname "$rel_path")"
+                cp "$file" "${dest_dir}/$rel_path"
+            done
+        fi
+    done
+
+    echo "${SYM_OK} ${COLOR_START}Backup abgeschlossen.${COLOR_RESET}"
+    echo .
+}
+
+# Restore-Konfigurationsdateien aus dem backup Verzeichnis nach robust/bin und sim-Verzeichnissen
+# bash osmtool_backup.sh restore_config
+function restore_config() {
+    echo "${SYM_WAIT} ${COLOR_START}Stelle Konfigurationsdateien aus Backup wieder her...${COLOR_RESET}"
+
+    # Quellverzeichnis für Backups
+    backup_root="/opt/backup/config"
+
+    # Restore für robust/bin
+    src_dir="${backup_root}/robust/bin"
+    dest_dir="robust/bin"
+    if [[ -d "$src_dir" ]]; then
+        echo "${SYM_OK} ${COLOR_START}Stelle ${COLOR_DIR}${dest_dir}${COLOR_RESET} aus ${COLOR_DIR}${src_dir}${COLOR_RESET} wieder her"
+        find "$src_dir" -type f -name "*.ini" | while read -r file; do
+            rel_path="${file#$src_dir/}"
+            mkdir -p "${dest_dir}/$(dirname "$rel_path")"
+            cp "$file" "${dest_dir}/$rel_path"
+        done
+    else
+        echo "${SYM_BAD} ${COLOR_DIR}${src_dir}${COLOR_RESET} nicht gefunden. Überspringe."
+    fi
+
+    # Restore für sim-Verzeichnisse
+    for ((i=1; i<=999; i++)); do
+        src_dir="${backup_root}/sim$i/bin"
+        dest_dir="sim$i/bin"
+        if [[ -d "$src_dir" ]]; then
+            echo "${SYM_OK} ${COLOR_START}Stelle ${COLOR_DIR}${dest_dir}${COLOR_RESET} aus ${COLOR_DIR}${src_dir}${COLOR_RESET} wieder her"
+            find "$src_dir" -type f -name "*.ini" | while read -r file; do
+                rel_path="${file#$src_dir/}"
+                mkdir -p "${dest_dir}/$(dirname "$rel_path")"
+                cp "$file" "${dest_dir}/$rel_path"
+            done
+        fi
+    done
+
+    echo "${SYM_OK} ${COLOR_START}Wiederherstellung abgeschlossen.${COLOR_RESET}"
+    echo .
+}
+
+
 
 case $KOMMANDO in
     "regionsiniteilen") regionsiniteilen "$2" "$3" "$4" ;;
     "autoregionsiniteilen") autoregionsiniteilen ;;
     "createregionlist") createregionlist ;;
     "regionbackup") regionbackup "$2" "$3" ;;
+    "backup_config") backup_config ;;
+	"restore_config") restore_config ;;
     "autoallclean") autoallclean ;;
     "autoregionbackup") autoregionbackup ;;
     "datenbanktabellen") datenbanktabellen "$2" "$3" "$4" ;;
