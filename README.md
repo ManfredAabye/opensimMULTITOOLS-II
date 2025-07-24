@@ -207,7 +207,72 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ## `osmtool_backup.sh`
 
-Dieses Skript dient dazu, ein komplettes Grid so zu sichern, dass ein Umzug auf einen neuen Server **einfach und reibungslos** durchgeführt werden kann.
+Dieses Skript dient zur Sicherung und Verwaltung von OpenSimulator-Regionen und zugehörigen Datenbanken.
+
+Es bietet verschiedene Backup- und Restore-Funktionen für Regionen, Konfigurationsdateien und MySQL-Datenbanken.
+
+## Grundlegende Nutzung
+
+Das Skript wird mit einem Kommando und ggf. weiteren Parametern ausgeführt:
+
+```bash
+bash osmtool_backup.sh <KOMMANDO> [weitere Parameter]
+```
+
+### Wichtige Kommandos
+
+| Kommando                        | Beschreibung |
+|----------------------------------|-------------|
+| `regionsiniteilen <Verz> <Reg>`  | Teilt die Regions.ini einer Region in einzelne INI-Dateien auf. |
+| `autoregionsiniteilen`           | Teilt alle Regions.ini-Dateien automatisch auf. |
+| `createregionlist`               | Erstellt eine Liste aller Regionen. |
+| `regionbackup <Screen> <Region>` | Backup einer bestimmten Region inkl. OAR, Terrain und Konfiguration. |
+| `autoregionbackup`               | Automatisches Backup aller Regionen nacheinander. |
+| `backup_config`                  | Sichert Konfigurationsdateien aus robust/bin und sim-Verzeichnissen. |
+| `restore_config`                 | Stellt Konfigurationsdateien aus dem Backup wieder her. |
+| `autoallclean`                   | Löscht Log- und Binärdateien für eine saubere Neuinstallation. |
+| `datenbanktabellen <User> <Pw> <DB>` | Zählt Tabellen & Asset-Typen in einer Datenbank. |
+| `backuptabelle_noassets <User> <Pw> <DB>` | Sichert alle Tabellen (außer assets) als ZIP. |
+| `asset_backup <User> <Pw> <DB>`  | Sichert alle Asset-Typen einzeln. |
+| `db_restoretabelle_noassets <User> <Pw> <DB>` | Stellt alle Tabellen (außer assets) aus Backup wieder her. |
+| `asset_restore <User> <Pw> <DB>` | Stellt die Asset-Typen aus Backup wieder her. |
+| `sichere_wordweb_und_money <User> <Pw>` | Sichert die Datenbanken `wordweb` und `money`. |
+| `restore_wordweb_und_money <User> <Pw>` | Stellt die Datenbanken `wordweb` und `money` wieder her. |
+
+## Beispiele
+
+**Backup einer Region:**
+
+```bash
+bash osmtool_backup.sh regionbackup sim1 MeineRegion
+```
+
+**Automatisches Backup aller Regionen:**
+
+```bash
+bash osmtool_backup.sh autoregionbackup
+```
+
+**Backup der Konfigurationsdateien:**
+
+```bash
+bash osmtool_backup.sh backup_config
+```
+
+**Datenbanktabellen zählen:**
+
+```bash
+bash osmtool_backup.sh datenbanktabellen mein_benutzer geheim123 meine_datenbank
+```
+
+## Hinweise
+
+- Das Skript muss mit ausreichenden Rechten (ggf. als root) ausgeführt werden, um auf alle Verzeichnisse und Datenbanken zugreifen zu können.
+- Das Skript verwendet `screen`, `mysqldump`, und `zip` für Backups. Stelle sicher, dass diese Programme installiert sind.
+- Die meisten Funktionen sind für eine Standard-OpenSimulator-Struktur ausgelegt (`/opt/simX`, `/opt/robust` etc.).
+- Die Backups werden im Verzeichnis `/opt/backup` abgelegt.
+
+**Tipp:** Weitere Details und Beispiele findest du direkt im Skript in den Funktionskommentaren!
 
 ---
 
@@ -221,10 +286,6 @@ Ein schlankes Skript zum Neustart des Servers und zur Überprüfung, ob alle Kom
 - Wenn der **MoneyServer** nicht läuft, wird das **gesamte Grid neu gestartet**.
 - Wenn **sim1** (die Welcome-Region) nicht läuft, wird das **gesamte Grid neu gestartet**.
 - Wenn eine Region von **sim2 bis sim99** nicht läuft, wird **nur diese einzelne Region neu gestartet**.
-
----
-
-Wenn du möchtest, kann ich das auch in eine README-Datei umwandeln oder mit Beispielen ergänzen. Lust auf eine schön formatierte Dokumentation?
 
 ---
 
