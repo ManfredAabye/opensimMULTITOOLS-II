@@ -289,6 +289,49 @@ Ein schlankes Skript zum Neustart des Servers und zur Überprüfung, ob alle Kom
 
 ---
 
+## **❓ Häufige Fragen (FAQ)**
+
+### **Verzeichnisse und Ordner**
+
+**Q: Was ist das "Windows-metadata" Verzeichnis?**
+
+A: Das `Windows-metadata` Verzeichnis wird vom OpenSimulator unter Windows automatisch erstellt und enthält Laufzeit-Metadaten des .NET Frameworks. Es handelt sich um ein temporäres Systemverzeichnis, das:
+
+- Zur Optimierung der .NET Runtime verwendet wird
+- Cached Assemblies und JIT-kompilierten Code speichert
+- Automatisch vom OpenSimulator verwaltet wird
+- Normalerweise im `bin`-Verzeichnis erscheint
+
+**Wichtig:** Dieses Verzeichnis sollte NICHT manuell gelöscht werden, da es die Performance beeinträchtigen kann.
+
+**Q: Welche anderen Verzeichnisse erstellt OpenSimulator automatisch?**
+
+A: Folgende Verzeichnisse werden zur Laufzeit erstellt:
+- `assetcache/` - Asset-Cache (Texturen, Meshes, etc.)
+- `maptiles/` - Generierte Kartenkacheln
+- `MeshCache/` - Cache für Mesh-Dateien
+- `j2kDecodeCache/` - JPEG2000 Dekodierung-Cache
+- `ScriptEngines/` - Kompilierte LSL-Skripte
+- `bakes/` - Avatar-Baking Cache
+- `addin-db-*/` - Plugin-Datenbanken
+- `Windows-metadata/` - .NET Metadaten (nur Windows)
+
+**Q: Kann ich diese Verzeichnisse sicher löschen?**
+
+A: Die Cache-Verzeichnisse können bei gestopptem OpenSimulator gelöscht werden:
+```bash
+# Verwenden Sie die automatische Bereinigung
+bash osmtool.sh pathclean
+
+# Oder spezifische Bereinigungen
+bash osmtool.sh cacheclean  # Nur Asset-Cache
+bash osmtool.sh mapclean    # Nur Map-Tiles
+```
+
+**Warnung:** Löschen Sie niemals die Verzeichnisse während der Laufzeit!
+
+---
+
 ## **📜 Lizenz & Nutzung**
 
 * **Skriptname**: `osmtool.sh`
