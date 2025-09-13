@@ -42,7 +42,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 8. [OpenSim bereinigen](#-opensim-grid-bereinigen)
 9. [Systembefehle](#-systembefehle)
 10. [Hilfen](#-hilfen)
-11. [OpenSimulator auto- start stop restart](#-OpenSimulator auto- start stop restart)
+11. [OpenSimulator-crontabs](#-OpenSimulator-crontabs)
 
 ---
 
@@ -206,7 +206,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ---
 
-## OpenSimulator auto- start stop restart
+## **❓ OpenSimulator-crontabs**
 
 ### List crontabs:
      crontab -l
@@ -334,4 +334,5 @@ Ein schlankes Skript zum Neustart des Servers und zur Überprüfung, ob alle Kom
 * **Lizenz**: *MIT*
 
 ---
+
 
