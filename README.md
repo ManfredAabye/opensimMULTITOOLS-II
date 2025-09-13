@@ -42,6 +42,7 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 8. [OpenSim bereinigen](#-opensim-grid-bereinigen)
 9. [Systembefehle](#-systembefehle)
 10. [Hilfen](#-hilfen)
+11. [OpenSimulator auto- start stop restart](#-OpenSimulator auto- start stop restart)
 
 ---
 
@@ -205,6 +206,42 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
 ---
 
+## OpenSimulator auto- start stop restart
+
+### List crontabs:
+     crontab -l
+
+### Edit crontabs:
+     crontab -e
+```
+# * * * * * Befehl_der_ausgefuehrt_werden_soll
+# │ │ │ │ │
+# │ │ │ │ ─── Wochentag (0-7) (0 und 7 = Sonntag)
+# │ │ │ ───── Monat (1-12)
+# │ │ ─────── Tag des Monats (1-31)
+# │ ───────── Stunde (0-23)
+# ─────────── Minute (0-59)
+
+# Restart server on the first of each month to clear cache data debris.
+45 4 1 * * bash /opt/osmtool.sh reboot
+
+# Restart the grid every morning at 5 AM.
+0 5 * * * bash /opt/osmtool.sh autorestart
+
+# If Robust or the Welcome region fails, restart the grid.
+*/30 * * * * bash /opt/osmtool.sh check_screens
+
+# Restart icecast every morning at 7:15
+15 7 * * * /etc/init.d/icecast2 restart
+```
+### Save crontabs
+     ctrl O
+     Enter
+### Exit editor
+     ctrl X
+
+---
+
 ## `osmtool_backup.sh`
 
 Dieses Skript dient zur Sicherung und Verwaltung von OpenSimulator-Regionen und zugehörigen Datenbanken.
@@ -297,3 +334,4 @@ Ein schlankes Skript zum Neustart des Servers und zur Überprüfung, ob alle Kom
 * **Lizenz**: *MIT*
 
 ---
+
