@@ -231,6 +231,9 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 # If Robust or the Welcome region fails, restart the grid.
 */30 * * * * bash /opt/osmtool.sh check_screens
 
+# Restart Jauns WebRTC Server every morning at 4:30
+30 4 * * * bash /opt/bash janus.sh restart_janus
+
 # Restart icecast every morning at 7:15
 15 7 * * * /etc/init.d/icecast2 restart
 ```
@@ -334,5 +337,6 @@ Ein schlankes Skript zum Neustart des Servers und zur Überprüfung, ob alle Kom
 * **Lizenz**: *MIT*
 
 ---
+
 
 
