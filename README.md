@@ -50,11 +50,15 @@ Fuer die Aufteilung in einzelne Aufgaben gibt es jetzt eine modulare Basis:
 ### Beispiele
 
 ```bash
-# CLI: zentrale Server-Vorbereitung als Pflichtschritt
-bash osmtool_main.sh --module install --action bootstrap-server --workdir /opt --profile grid-sim
-
 # CLI: Ubuntu vorbereiten
 bash osmtool_main.sh --module install --action prepare-ubuntu
+
+# CLI: OpenSim-Abhaengigkeiten und dotnet installieren
+bash osmtool_main.sh --module install --action install-opensim-deps --workdir /opt --profile grid-sim
+bash osmtool_main.sh --module install --action install-dotnet8 --workdir /opt --profile grid-sim
+
+# CLI: Server-Readiness pruefen
+bash osmtool_main.sh --module install --action server-check --workdir /opt --profile grid-sim
 
 # CLI: OpenSim klonen, Zusatzmodule einbinden und bauen
 bash osmtool_main.sh --module install --action install-opensim --workdir /opt --profile grid-sim
@@ -105,7 +109,7 @@ bash osmtool_main.sh --mode ui
 
 Hinweis Janus:
 
-- `bootstrap-server` ist Pflicht vor `install-opensim`, `compile-janus`, `configure-janus` und `install-janus`.
+- Startreihenfolge: `prepare-ubuntu` -> `install-opensim-deps` -> `install-dotnet8` -> `server-check`.
 - `configure-opensim` erzeugt fehlende Runtime-INI aus den Beispielvorlagen.
 - `configure-database` erzeugt MariaDB Datenbanken fuer `robust` und gefundene `sim*` Verzeichnisse sowie Benutzer/Grants.
 - Datenbankbasis ist MariaDB; `server-check` prueft `mysqldump` als Pflichttool fuer Backups.
@@ -127,16 +131,16 @@ Hinweis Janus:
 ## **📋 Inhaltsverzeichnis**
 
 1. [OpenSim starten/stoppen](#-opensim-starten-stoppen-und-neustarten)
-2. [OpenSim-Grid erstellen/aktualisieren](#-opensim-grid-erstellen-oder-aktualisieren)
+2. OpenSim-Grid erstellen/aktualisieren
 3. [Diverse Git-Downloads](#-diverse-git-downloads)
-4. [Konfiguration](#-konfiguration)
-5. [INI-Operationen](#-ini-operationen)
-6. [XML-Operationen](#-xml-operationen)
-7. [Standalone-Modus](#-standalone-modus)
+4. Konfiguration
+5. INI-Operationen
+6. XML-Operationen
+7. Standalone-Modus
 8. [OpenSim bereinigen](#-opensim-grid-bereinigen)
-9. [Systembefehle](#-systembefehle)
+9. Systembefehle
 10. [Hilfen](#-hilfen)
-11. [OpenSimulator-crontabs](#-OpenSimulator-crontabs)
+11. [OpenSimulator-crontabs](#-opensimulator-crontabs)
 
 ---
 
@@ -254,14 +258,14 @@ Hinweis Janus:
 
 | Befehl             | Beschreibung                                                 | Status                   |
 | ------------------ | ------------------------------------------------------------ | ------------------------ |
-| `dataclean`        | Alte Dateien löschen (⚡ Neuinstallation erforderlich!)       | Test                     |
-| `pathclean`        | Alte Verzeichnisse löschen (⚡ Neuinstallation erforderlich!) | Test                     |
+| `dataclean`        | Alte Dateien löschen (⚡ Neuinstallation erforderlich!)      | Test                     |
+| `pathclean`        | Alte Verzeichnisse löschen (⚡ Neuinstallation erforderlich!)| Test                     |
 | `cacheclean`       | Cache bereinigen.                                            | Stabil                   |
 | `logclean`         | Logs löschen.                                                | Stabil                   |
 | `mapclean`         | Maptiles löschen.                                            | Stabil                   |
-| `autoallclean`     | Komplettbereinigung (⚡ Neuinstallation erforderlich!)        | Test                     |
+| `autoallclean`     | Komplettbereinigung (⚡ Neuinstallation erforderlich!)       | Test                     |
 | `regionsclean`     | Alle Regionen löschen.                                       | Test                     |
-| `cleanall`         | Alles bereinigen (⚡ Neuinstallation erforderlich!)           | Test                     |
+| `cleanall`         | Alles bereinigen (⚡ Neuinstallation erforderlich!)          | Test                     |
 | `renamefiles`      | Umbenennung aller \*.example Dateien.                        | Test                     |
 | `clean_linux_logs` | Linux-Systemlogs bereinigen.                                 | Test                     |
 | `delete_opensim`   | Entfernt OpenSimulator komplett inkl. Verzeichnissen.        | Test                     |
@@ -278,14 +282,13 @@ Hinweis Janus:
 
 ## **📂 Backup**
 
-| Befehl              | Beschreibung                                                                 | Status                   |
-|---------------------|------------------------------------------------------------------------------|--------------------------|
-| `loadiar`           | Lädt ein Inventar-Archiv (IAR) zu einem Avatar hoch                         | Test                     |
-| `saveiar`           | Speichert das Inventar eines Avatars als IAR-Datei                          | Test                     |
-| `loadoar`           | Lädt ein vollständiges Regionen-Backup (OAR) in eine Region                  | Test                     |
-| `saveoar`           | Erstellt ein vollständiges Backup (OAR) einer Region                         | Test                     |
-| `autoregionbackup`  | Führt automatisierte Backups aller Regionen aus                              | Test                  |
-
+|Befehl|Beschreibung|Status|
+|---|---|---|
+|`loadiar`|Lädt ein Inventar-Archiv (IAR) zu einem Avatar hoch|Test|
+|`saveiar`|Speichert das Inventar eines Avatars als IAR-Datei|Test|
+|`loadoar`|Lädt ein vollständiges Regionen-Backup (OAR) in eine Region|Test|
+|`saveoar`|Erstellt ein vollständiges Backup (OAR) einer Region|Test|
+|`autoregionbackup`|Führt automatisierte Backups aller Regionen aus|Test|
 
 ---
 
@@ -302,12 +305,19 @@ Hinweis Janus:
 
 ## **❓ OpenSimulator-crontabs**
 
-### List crontabs:
-     crontab -l
+### List crontabs
 
-### Edit crontabs:
-     crontab -e
+```bash
+crontab -l
 ```
+
+### Edit crontabs
+
+```bash
+crontab -e
+```
+
+```text
 # * * * * * Befehl_der_ausgefuehrt_werden_soll
 # │ │ │ │ │
 # │ │ │ │ ─── Wochentag (0-7) (0 und 7 = Sonntag)
@@ -331,11 +341,19 @@ Hinweis Janus:
 # Restart icecast every morning at 7:15
 15 7 * * * /etc/init.d/icecast2 restart
 ```
+
 ### Save crontabs
-     ctrl O
-     Enter
+
+```text
+ctrl O
+Enter
+```
+
 ### Exit editor
-     ctrl X
+
+```text
+ctrl X
+```
 
 ---
 
@@ -355,25 +373,25 @@ bash osmtool_backup.sh <KOMMANDO> [weitere Parameter]
 
 ### Wichtige Kommandos
 
-| Kommando                        | Beschreibung |
-|----------------------------------|-------------|
-| `regionsiniteilen <Verz> <Reg>`  | Teilt die Regions.ini einer Region in einzelne INI-Dateien auf. |
-| `autoregionsiniteilen`           | Teilt alle Regions.ini-Dateien automatisch auf. |
-| `createregionlist`               | Erstellt eine Liste aller Regionen. |
-| `regionbackup <Screen> <Region>` | Backup einer bestimmten Region inkl. OAR, Terrain und Konfiguration. |
-| `autoregionbackup`               | Automatisches Backup aller Regionen nacheinander. |
-| `backup_config`                  | Sichert Konfigurationsdateien aus robust/bin und sim-Verzeichnissen. |
-| `restore_config`                 | Stellt Konfigurationsdateien aus dem Backup wieder her. |
-| `autoallclean`                   | Löscht Log- und Binärdateien für eine saubere Neuinstallation. |
-| `datenbanktabellen <User> <Pw> <DB>` | Zählt Tabellen & Asset-Typen in einer Datenbank. |
-| `backuptabelle_noassets <User> <Pw> <DB>` | Sichert alle Tabellen (außer assets) als ZIP. |
-| `asset_backup <User> <Pw> <DB>`  | Sichert alle Asset-Typen einzeln. |
-| `db_restoretabelle_noassets <User> <Pw> <DB>` | Stellt alle Tabellen (außer assets) aus Backup wieder her. |
-| `asset_restore <User> <Pw> <DB>` | Stellt die Asset-Typen aus Backup wieder her. |
-| `sichere_wordweb_und_money <User> <Pw>` | Sichert die Datenbanken `wordweb` und `money`. |
-| `restore_wordweb_und_money <User> <Pw>` | Stellt die Datenbanken `wordweb` und `money` wieder her. |
+|Kommando|Beschreibung|
+|---|---|
+|`regionsiniteilen <Verz> <Reg>`|Teilt die Regions.ini einer Region in einzelne INI-Dateien auf.|
+|`autoregionsiniteilen`|Teilt alle Regions.ini-Dateien automatisch auf.|
+|`createregionlist`|Erstellt eine Liste aller Regionen.|
+|`regionbackup <Screen> <Region>`|Backup einer bestimmten Region inkl. OAR, Terrain und Konfiguration.|
+|`autoregionbackup`|Automatisches Backup aller Regionen nacheinander.|
+|`backup_config`|Sichert Konfigurationsdateien aus robust/bin und sim-Verzeichnissen.|
+|`restore_config`|Stellt Konfigurationsdateien aus dem Backup wieder her.|
+|`autoallclean`|Löscht Log- und Binärdateien für eine saubere Neuinstallation.|
+|`datenbanktabellen <User> <Pw> <DB>`|Zählt Tabellen und Asset-Typen in einer Datenbank.|
+|`backuptabelle_noassets <User> <Pw> <DB>`|Sichert alle Tabellen (außer assets) als ZIP.|
+|`asset_backup <User> <Pw> <DB>`|Sichert alle Asset-Typen einzeln.|
+|`db_restoretabelle_noassets <User> <Pw> <DB>`|Stellt alle Tabellen (außer assets) aus Backup wieder her.|
+|`asset_restore <User> <Pw> <DB>`|Stellt die Asset-Typen aus Backup wieder her.|
+|`sichere_wordweb_und_money <User> <Pw>`|Sichert die Datenbanken `wordweb` und `money`.|
+|`restore_wordweb_und_money <User> <Pw>`|Stellt die Datenbanken `wordweb` und `money` wieder her.|
 
-## Beispiele
+## Beispiele osmtool_backup.sh
 
 **Backup einer Region:**
 
@@ -414,7 +432,7 @@ bash osmtool_backup.sh datenbanktabellen mein_benutzer geheim123 meine_datenbank
 
 Ein schlankes Skript zum Neustart des Servers und zur Überprüfung, ob alle Komponenten ordnungsgemäß laufen.
 
-### Verhalten bei Ausfällen:
+### Verhalten bei Ausfällen
 
 - Wenn der **RobustServer** nicht läuft, wird das **gesamte Grid neu gestartet**.
 - Wenn der **MoneyServer** nicht läuft, wird das **gesamte Grid neu gestartet**.
@@ -425,12 +443,9 @@ Ein schlankes Skript zum Neustart des Servers und zur Überprüfung, ob alle Kom
 
 ## **📜 Lizenz & Nutzung**
 
-* **Skriptname**: `osmtool.sh`
-* **Version**: *V25.5.109.442*
-* **Autor**: *Manfred Aabye*
-* **Lizenz**: *MIT*
+- **Skriptname**: `osmtool.sh`
+- **Version**: *V25.5.109.442*
+- **Autor**: *Manfred Aabye*
+- **Lizenz**: *MIT*
 
 ---
-
-
-

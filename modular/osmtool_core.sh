@@ -48,7 +48,7 @@ profile_action_allowed() {
 
   case "$module:$profile" in
     install:grid-sim|install:robust|install:standalone)
-      case "$action" in bootstrap-server|server-check|prepare-ubuntu|install-opensim-deps|install-dotnet8|install-opensim|configure-opensim|configure-database|compile-janus|configure-janus|install-janus) return 0 ;; esac
+      case "$action" in server-check|prepare-ubuntu|install-opensim-deps|install-dotnet8|install-opensim|configure-opensim|configure-database|compile-janus|configure-janus|install-janus) return 0 ;; esac
       ;;
     startstop:grid-sim|startstop:robust|startstop:standalone)
       case "$action" in start|stop|restart) return 0 ;; esac

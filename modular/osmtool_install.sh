@@ -2,13 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./osmtool_core.sh
+# shellcheck source=/dev/null
 source "$SCRIPT_DIR/osmtool_core.sh"
 
 usage() {
   cat <<'EOF'
 Usage:
-  osmtool_install.sh [--workdir <path>] --action <bootstrap-server|server-check|prepare-ubuntu|install-opensim-deps|install-dotnet8|install-opensim|configure-opensim|configure-database|compile-janus|configure-janus|install-janus>
+  osmtool_install.sh [--workdir <path>] --action <server-check|prepare-ubuntu|install-opensim-deps|install-dotnet8|install-opensim|configure-opensim|configure-database|compile-janus|configure-janus|install-janus>
     [--opensim-dir <path>] [--opensim-repo <url>] [--opensim-branch <name>] [--repo-mode <update|fresh>]
     [--tsassets-dir <path>] [--currency-dir <path>] [--data-backup-dir <path>]
     [--deploy-binaries <true|false>] [--legacy-patch-dir <path>]
@@ -18,7 +18,6 @@ Usage:
     [--api-secret <value>] [--admin-secret <value>]
 
 Actions:
-  bootstrap-server Server zentral vorbereiten (Pflicht vor Build/Install)
   server-check     Validate server readiness and required dependencies
   prepare-ubuntu   Basic apt update/upgrade and base packages
   install-opensim-deps Install OpenSim runtime dependencies
@@ -31,7 +30,7 @@ Actions:
   install-janus    Compile + configure Janus in one run
 
 Examples:
-  osmtool_install.sh --action bootstrap-server --workdir /opt
+  osmtool_install.sh --action server-check --workdir /opt
   osmtool_install.sh --action configure-opensim --profile grid-sim --workdir /opt
   osmtool_install.sh --action configure-database --workdir /opt --db-user opensim --db-pass secret
 EOF
@@ -264,7 +263,8 @@ install_dotnet8() {
 
   if ! apt-cache policy dotnet-sdk-8.0 | grep -q "Candidate:"; then
     local version_id pkg_url pkg_file
-    version_id="$(. /etc/os-release && echo "${VERSION_ID}")"
+    version_id="$(awk -F= '/^VERSION_ID=/{gsub(/\"/,"",$2); print $2; exit}' /etc/os-release 2>/dev/null || true)"
+    [[ -n "$version_id" ]] || die "Could not detect VERSION_ID from /etc/os-release"
     pkg_url="https://packages.microsoft.com/config/ubuntu/${version_id}/packages-microsoft-prod.deb"
     pkg_file="/tmp/packages-microsoft-prod.deb"
 
@@ -349,17 +349,6 @@ ensure_mariadb_service() {
   fi
 
   log INFO "No controllable MariaDB service unit detected; skipping service activation"
-}
-
-bootstrap_server() {
-  log INFO "Starting central server bootstrap"
-  prepare_ubuntu
-  install_opensim_deps
-  install_dotnet8
-  ensure_mariadb_service
-  server_check
-  mark_server_prepared
-  log INFO "Central server bootstrap completed"
 }
 
 copy_ini_if_missing() {
@@ -617,10 +606,12 @@ server_check() {
   log INFO "Running server readiness check"
 
   if [[ -f /etc/os-release ]]; then
-    # shellcheck disable=SC1091
-    source /etc/os-release
-    os_id="${ID:-unknown}"
-    log INFO "Detected OS: ${PRETTY_NAME:-unknown}"
+    os_id="$(awk -F= '/^ID=/{gsub(/\"/,"",$2); print $2; exit}' /etc/os-release 2>/dev/null || true)"
+    [[ -n "$os_id" ]] || os_id="unknown"
+    local os_pretty
+    os_pretty="$(awk -F= '/^PRETTY_NAME=/{gsub(/\"/,"",$2); print $2; exit}' /etc/os-release 2>/dev/null || true)"
+    [[ -n "$os_pretty" ]] || os_pretty="unknown"
+    log INFO "Detected OS: $os_pretty"
   fi
 
   if [[ "$os_id" != "ubuntu" && "$os_id" != "debian" ]]; then
@@ -727,29 +718,6 @@ generate_alnum_token() {
     return
   fi
   tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$length"
-}
-
-server_prep_marker() {
-  printf '%s' "$WORKDIR/.osmtool_server_prepared"
-}
-
-mark_server_prepared() {
-  local marker
-  marker="$(server_prep_marker)"
-  mkdir -p "$WORKDIR" 2>/dev/null || sudo mkdir -p "$WORKDIR"
-  cat <<EOF | sudo tee "$marker" >/dev/null
-PREPARED_AT=$(date '+%Y-%m-%d %H:%M:%S')
-WORKDIR=$WORKDIR
-PROFILE=$PROFILE
-DOTNET_REQUIRED=8.0
-EOF
-  log INFO "Server bootstrap marker created: $marker"
-}
-
-ensure_server_prepared() {
-  local marker
-  marker="$(server_prep_marker)"
-  [[ -f "$marker" ]] || die "Server preinstallation missing. Run install action bootstrap-server first."
 }
 
 compile_janus() {
@@ -994,12 +962,6 @@ case "$DEPLOY_BINARIES" in
   *) die "--deploy-binaries must be true or false" ;;
 esac
 
-case "$ACTION" in
-  install-opensim|configure-opensim|configure-database|compile-janus|configure-janus|install-janus)
-    ensure_server_prepared
-    ;;
-esac
-
 log INFO "Using workdir: $WORKDIR"
 log INFO "Using profile: $PROFILE"
 log INFO "Repo mode: $REPO_MODE"
@@ -1007,7 +969,6 @@ log INFO "OpenSim dir: $OPENSIM_DIR"
 log INFO "Janus prefix: $JANUS_PREFIX"
 
 case "$ACTION" in
-  bootstrap-server) bootstrap_server ;;
   server-check) server_check ;;
   prepare-ubuntu) prepare_ubuntu ;;
   install-opensim-deps) install_opensim_deps ;;

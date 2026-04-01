@@ -7,6 +7,7 @@ ROBUSTVERZEICHNIS="Robust" # Robust Verzeichnis
 REGIONSDATEI="osmregionlist.ini" # Regionsdatei
 SIMDATEI="osmsimlist.ini" # Simulationsdatei
 BACKUPWARTEZEIT=60 # Wartezeit in Sekunden zwischen den Backups
+DATUM=$(date '+%Y-%m-%d_%H-%M-%S') # Zeitstempel fuer Backupdateien
 
 KOMMANDO=$1
 
@@ -526,7 +527,7 @@ function db_restoretabelle_noassets() {
     echo "📦 Starte Wiederherstellung aus: $restorepath" | tee -a "$logfile"
 
     restored=0
-    total=$(grep -v "^assets$" liste.txt | wc -l)
+	total=$(grep -cv "^assets$" liste.txt)
     echo "🔍 Tabellen zur Wiederherstellung (ohne 'assets'): $total" | tee -a "$logfile"
 
     while IFS= read -r tabellenname; do
@@ -586,14 +587,14 @@ function sichere_wordweb_und_money() {
 
     # WORDWEB sichern
     echo "💾 Sichere Datenbank: wordweb" | tee -a "$logfile"
-    mysqldump -u"$username" -p"$password" wordweb | zip > /$STARTVERZEICHNIS/backup/wordweb/wordweb_${datum}.sql.zip
-    size_wordweb=$(du -sh /$STARTVERZEICHNIS/backup/wordweb/wordweb_${datum}.sql.zip | cut -f1)
+	mysqldump -u"$username" -p"$password" wordweb | zip > "/$STARTVERZEICHNIS/backup/wordweb/wordweb_${datum}.sql.zip"
+	size_wordweb=$(du -sh "/$STARTVERZEICHNIS/backup/wordweb/wordweb_${datum}.sql.zip" | cut -f1)
     echo "✅ wordweb gesichert → Größe: $size_wordweb" | tee -a "$logfile"
 
     # MONEY sichern
     echo "💾 Sichere Datenbank: money" | tee -a "$logfile"
-    mysqldump -u"$username" -p"$password" money | zip > /$STARTVERZEICHNIS/backup/money/money_${datum}.sql.zip
-    size_money=$(du -sh /$STARTVERZEICHNIS/backup/money/money_${datum}.sql.zip | cut -f1)
+	mysqldump -u"$username" -p"$password" money | zip > "/$STARTVERZEICHNIS/backup/money/money_${datum}.sql.zip"
+	size_money=$(du -sh "/$STARTVERZEICHNIS/backup/money/money_${datum}.sql.zip" | cut -f1)
     echo "✅ money gesichert → Größe: $size_money" | tee -a "$logfile"
 
     echo "📦 Sicherung abgeschlossen: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$logfile"
@@ -604,7 +605,7 @@ function restore_wordweb_und_money() {
     password=$2
     for dbname in wordweb money; do
         restorepath="/$STARTVERZEICHNIS/backup/${dbname}"
-        latestfile=$(ls -t "$restorepath"/*.sql.zip | head -n 1)
+		latestfile=$(find "$restorepath" -maxdepth 1 -type f -name "*.sql.zip" -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
         if [[ -f "$latestfile" ]]; then
             echo "🔄 Wiederherstellung: $dbname aus $latestfile"
             unzip -p "$latestfile" | mysql -u"$username" -p"$password" "$dbname"
@@ -628,7 +629,7 @@ function backup_config() {
         dest_dir="${backup_root}/${src_dir}"
         echo "${SYM_OK} ${COLOR_START}Sichere ${COLOR_DIR}${src_dir}${COLOR_RESET} nach ${COLOR_DIR}${dest_dir}${COLOR_RESET}"
         find "$src_dir" -type f -name "*.ini" | while read -r file; do
-            rel_path="${file#$src_dir/}"  # relativer Pfad
+			rel_path="${file#"$src_dir"/}"  # relativer Pfad
             mkdir -p "${dest_dir}/$(dirname "$rel_path")"
             cp "$file" "${dest_dir}/$rel_path"
         done
@@ -643,7 +644,7 @@ function backup_config() {
             dest_dir="${backup_root}/${sim_dir}"
             echo "${SYM_OK} ${COLOR_START}Sichere ${COLOR_DIR}${sim_dir}${COLOR_RESET} nach ${COLOR_DIR}${dest_dir}${COLOR_RESET}"
             find "$sim_dir" -type f -name "*.ini" | while read -r file; do
-                rel_path="${file#$sim_dir/}"
+				rel_path="${file#"$sim_dir"/}"
                 mkdir -p "${dest_dir}/$(dirname "$rel_path")"
                 cp "$file" "${dest_dir}/$rel_path"
             done
@@ -668,7 +669,7 @@ function restore_config() {
     if [[ -d "$src_dir" ]]; then
         echo "${SYM_OK} ${COLOR_START}Stelle ${COLOR_DIR}${dest_dir}${COLOR_RESET} aus ${COLOR_DIR}${src_dir}${COLOR_RESET} wieder her"
         find "$src_dir" -type f -name "*.ini" | while read -r file; do
-            rel_path="${file#$src_dir/}"
+			rel_path="${file#"$src_dir"/}"
             mkdir -p "${dest_dir}/$(dirname "$rel_path")"
             cp "$file" "${dest_dir}/$rel_path"
         done
@@ -683,7 +684,7 @@ function restore_config() {
         if [[ -d "$src_dir" ]]; then
             echo "${SYM_OK} ${COLOR_START}Stelle ${COLOR_DIR}${dest_dir}${COLOR_RESET} aus ${COLOR_DIR}${src_dir}${COLOR_RESET} wieder her"
             find "$src_dir" -type f -name "*.ini" | while read -r file; do
-                rel_path="${file#$src_dir/}"
+				rel_path="${file#"$src_dir"/}"
                 mkdir -p "${dest_dir}/$(dirname "$rel_path")"
                 cp "$file" "${dest_dir}/$rel_path"
             done

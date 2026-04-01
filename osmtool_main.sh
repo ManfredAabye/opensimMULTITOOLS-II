@@ -4,7 +4,7 @@ set -euo pipefail
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$BASE_DIR/modular"
 
-# shellcheck source=./modular/osmtool_core.sh
+# shellcheck source=/dev/null
 source "$MOD_DIR/osmtool_core.sh"
 init_i18n
 
@@ -12,8 +12,14 @@ usage() {
   cat <<'EOF'
 Usage:
   osmtool_main.sh [--mode <cli|ui>] [--lang <de|en|fr|es>] [--profile <grid-sim|robust|standalone>] --module <install|startstop|cleanup|health|backup|restore|update|config|report|smoke|cron> [module-options]
+  osmtool_main.sh server_install
+  osmtool_main.sh <opensimstart|opensimstop|opensimrestart|healthcheck|smoketest|dailyreport|croninstall|cronlist|janusinstall|janusrestart|dbsetup>
 
 Examples:
+  osmtool_main.sh server_install
+  osmtool_main.sh opensimstart
+  osmtool_main.sh opensimrestart
+  osmtool_main.sh croninstall
   osmtool_main.sh --module install --action prepare-ubuntu
   osmtool_main.sh --module startstop --target grid --action restart --workdir /opt
   osmtool_main.sh --module cleanup --action log-clean --workdir /opt
@@ -118,7 +124,6 @@ ui_flow() {
   case "$module" in
     install)
       action="$(show_menu "$(msg MENU_INSTALL)" "$(msg MENU_CHOOSE_ACTION)" \
-        "bootstrap-server" "bootstrap-server" \
         "server-check" "server-check" \
         "prepare-ubuntu" "prepare-ubuntu" \
         "install-opensim-deps" "install-opensim-deps" \
@@ -226,8 +231,113 @@ LANG_OVERRIDE="${OSM_LANG:-de}"
 PROFILE="grid-sim"
 
 if [[ $# -eq 0 ]]; then
+  MODE="ui"
+  ui_flow
+  exit 0
+fi
+
+if [[ "${1:-}" == "h" || "${1:-}" == "help" ]]; then
   usage
-  exit 1
+  exit 0
+fi
+
+if [[ "${1:-}" == "server_install" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+
+  log INFO "Running server_install shortcut (prepare-ubuntu -> install-opensim-deps -> install-dotnet8 -> server-check -> install-opensim -> configure-opensim)"
+  dispatch_module install --action prepare-ubuntu --workdir /opt
+  dispatch_module install --action install-opensim-deps --workdir /opt
+  dispatch_module install --action install-dotnet8 --workdir /opt
+  dispatch_module install --action server-check --workdir /opt
+  dispatch_module install --action install-opensim --workdir /opt
+  dispatch_module install --action configure-opensim --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "opensimstart" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module startstop --target "$(default_target_for_profile "$PROFILE")" --action start --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "opensimstop" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module startstop --target "$(default_target_for_profile "$PROFILE")" --action stop --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "opensimrestart" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module startstop --target "$(default_target_for_profile "$PROFILE")" --action restart --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "healthcheck" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module health --action run --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "smoketest" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module smoke --action run --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "dailyreport" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module report --action generate --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "croninstall" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module cron --action install --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "cronlist" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module cron --action list --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "janusinstall" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module install --action install-janus --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "janusrestart" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module startstop --target janus --action restart --workdir /opt
+  exit 0
+fi
+
+if [[ "${1:-}" == "dbsetup" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+
+  DB_USER_SHORT="${OSM_DB_USER:-opensim}"
+  DB_PASS_SHORT="${OSM_DB_PASS:-}"
+  DB_ROOT_USER_SHORT="${OSM_DB_ROOT_USER:-root}"
+  DB_ROOT_PASS_SHORT="${OSM_DB_ROOT_PASS:-}"
+
+  [[ -n "$DB_PASS_SHORT" ]] || die "dbsetup requires OSM_DB_PASS environment variable"
+
+  dispatch_module install --action configure-database --workdir /opt --db-user "$DB_USER_SHORT" --db-pass "$DB_PASS_SHORT" --db-root-user "$DB_ROOT_USER_SHORT" --db-root-pass "$DB_ROOT_PASS_SHORT"
+  exit 0
 fi
 
 while [[ $# -gt 0 ]]; do

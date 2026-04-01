@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-# shellcheck source=./osmtool_core.sh
+# shellcheck source=/dev/null
 source "$SCRIPT_DIR/osmtool_core.sh"
 
 usage() {
