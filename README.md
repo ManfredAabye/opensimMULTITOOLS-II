@@ -1,4 +1,4 @@
-# **opensimMULTITOOL II V25.5**
+# **opensimMULTITOOL II V26.4**
 
 Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, Installation).
 
@@ -27,6 +27,100 @@ Ein Bash-Skript zum Verwalten von OpenSim-Grids (Starten, Stoppen, Bereinigen, I
 
       → Ausführliche Tests in Ihrer spezifischen Umgebung sind zwingend erforderlich.
 ```
+
+---
+
+## **Neu: Modulare Struktur (osmtool_backup_*)**
+
+Fuer die Aufteilung in einzelne Aufgaben gibt es jetzt eine modulare Basis:
+
+- `osmtool_main.sh` (zentraler Starter, CLI + UI)
+- `modular/osmtool_install.sh` (Installation)
+- `modular/osmtool_startstop.sh` (Start/Stop/Restart)
+- `modular/osmtool_cleanup.sh` (Bereinigungen + Reboot)
+- `modular/osmtool_data.sh` (DB/OAR Backups)
+- `modular/osmtool_core.sh` (gemeinsame Funktionen)
+
+### Empfehlung UI: whiptail oder dialog?
+
+- Empfehlung: **whiptail als Default**, weil es auf Ubuntu meist schon vorhanden ist und weniger Abhaengigkeiten hat.
+- Fallback: **dialog**, falls whiptail nicht installiert ist.
+- Beide Wege sind im Starter beruecksichtigt: `whiptail -> dialog -> CLI`.
+
+### Beispiele
+
+```bash
+# CLI: zentrale Server-Vorbereitung als Pflichtschritt
+bash osmtool_main.sh --module install --action bootstrap-server --workdir /opt --profile grid-sim
+
+# CLI: Ubuntu vorbereiten
+bash osmtool_main.sh --module install --action prepare-ubuntu
+
+# CLI: OpenSim klonen, Zusatzmodule einbinden und bauen
+bash osmtool_main.sh --module install --action install-opensim --workdir /opt --profile grid-sim
+
+# CLI: OpenSim Runtime-INI aus Beispieldateien erzeugen
+bash osmtool_main.sh --module install --action configure-opensim --workdir /opt --profile grid-sim
+
+# CLI: MariaDB Datenbanken/Benutzer/Rechte fuer robust/sim* anlegen
+bash osmtool_main.sh --module install --action configure-database --workdir /opt --profile grid-sim --db-user opensim --db-pass 'OpenSim#2026'
+
+# CLI: OpenSim bauen ohne Verteilung in Laufzeitordner
+bash osmtool_main.sh --module install --action install-opensim --workdir /opt --profile grid-sim --deploy-binaries false
+
+# CLI: komplettes Grid neustarten
+bash osmtool_main.sh --module startstop --target grid --action restart --workdir /opt
+
+# CLI: Janus Gateway neustarten
+bash osmtool_main.sh --module startstop --target janus --action restart --workdir /opt
+
+# CLI: Janus zuerst kompilieren
+bash osmtool_main.sh --module install --action compile-janus --workdir /opt --profile grid-sim
+
+# CLI: Janus danach konfigurieren
+bash osmtool_main.sh --module install --action configure-janus --workdir /opt --profile grid-sim --public-host 127.0.0.1
+
+# CLI: Janus kompiliert + konfiguriert in einem Lauf
+bash osmtool_main.sh --module install --action install-janus --workdir /opt --profile grid-sim --public-host 127.0.0.1
+
+# CLI: Robust DB sichern
+bash osmtool_main.sh --module backup --action db-backup --db-user root --db-pass secret --db-name opensim --workdir /opt
+
+# CLI: OAR Export in laufende sim1 Session senden
+bash osmtool_main.sh --module backup --action oar-backup --workdir /opt --region sim1 --session sim1
+
+# CLI: Full Backup (MariaDB + OAR Command) mit gzip-Kompression
+bash osmtool_main.sh --module backup --action full-backup --workdir /opt --db-user root --db-pass secret --db-name opensim --region sim1 --session sim1 --compress true
+
+# CLI: OSMTool Cronjobs installieren
+bash osmtool_main.sh --module cron --action install --workdir /opt --db-user root --db-name opensim --region sim1 --session sim1
+
+# CLI: OSMTool Cronjobs anzeigen/entfernen
+bash osmtool_main.sh --module cron --action list --workdir /opt
+bash osmtool_main.sh --module cron --action remove --workdir /opt
+
+# UI Modus
+bash osmtool_main.sh --mode ui
+```
+
+Hinweis Janus:
+
+- `bootstrap-server` ist Pflicht vor `install-opensim`, `compile-janus`, `configure-janus` und `install-janus`.
+- `configure-opensim` erzeugt fehlende Runtime-INI aus den Beispielvorlagen.
+- `configure-database` erzeugt MariaDB Datenbanken fuer `robust` und gefundene `sim*` Verzeichnisse sowie Benutzer/Grants.
+- Datenbankbasis ist MariaDB; `server-check` prueft `mysqldump` als Pflichttool fuer Backups.
+- `install-opensim` klont oder aktualisiert `opensim`, `opensim-tsassets`, `opensimcurrencyserver-dotnet` und `os-data-backup`, fuehrt `runprebuild.sh` aus und baut `OpenSim.sln`.
+- Wenn `robust/bin`, `standalone/bin` oder `sim*/bin` existieren, verteilt `install-opensim` die gebauten Binaries dorthin, sofern `--deploy-binaries` nicht auf `false` gesetzt ist.
+- Janus muss vor Start/Restart zuerst kompiliert und konfiguriert sein.
+- `startstop --target janus` prueft Binary und Konfiguration und blockiert sonst mit klarer Fehlermeldung.
+
+### Sinnvolle weitere Skripte
+
+- `osmtool_backup_health.sh` (Healthcheck fuer screen sessions, ports, DB)
+- `osmtool_backup_restore.sh` (SQL Restore + OAR Restore mit Dry-Run)
+- `osmtool_backup_update.sh` (OpenSim/Janus Update-Workflow mit Rollback)
+- `osmtool_backup_cron.sh` (Cronjobs validieren und automatisch setzen)
+- `osmtool_backup_config.sh` (INI/JSON Validierung und Patchen)
 
 ---
 
