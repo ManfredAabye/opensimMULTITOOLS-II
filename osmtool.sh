@@ -1265,6 +1265,8 @@ function check_screens() {
         if [[ -z "$screenRO" ]]; then
             echo "$(date '+%Y-%m-%d %H:%M:%S') - RobustServer läuft nicht und muss neu gestartet werden." >> ProblemRestarts.log
             restart_all=true
+        else
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - RobustServer läuft ✓"
         fi
     fi
 
@@ -1274,6 +1276,8 @@ function check_screens() {
         if [[ -z "$screenMoney" ]]; then
             echo "$(date '+%Y-%m-%d %H:%M:%S') - MoneyServer läuft nicht und muss neu gestartet werden." >> ProblemRestarts.log
             restart_all=true
+        else
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - MoneyServer läuft ✓"
         fi
     fi
 
@@ -1283,6 +1287,8 @@ function check_screens() {
         if [[ -z "$screenSim1" ]]; then
             echo "$(date '+%Y-%m-%d %H:%M:%S') - Sim1 läuft nicht und muss neu gestartet werden." >> ProblemRestarts.log
             restart_all=true
+        else
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - Sim1 läuft ✓"
         fi
     fi
 
@@ -1305,6 +1311,8 @@ function check_screens() {
                 screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll
                 cd - >/dev/null 2>&1 || continue
                 sleep $Simulator_Start_wait
+            else
+                echo "$(date '+%Y-%m-%d %H:%M:%S') - Sim$i läuft ✓"
             fi
         fi
     done
