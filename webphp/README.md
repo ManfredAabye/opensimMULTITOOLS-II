@@ -1,21 +1,28 @@
 # OSMTool Web PHP (DE/EN/FR/ES)
 
-This folder contains a minimal and secure PHP web controller for `osmtool_main.sh`.
+This folder contains a complete PHP web interface for `osmtool_main.sh`.
 
 ## Features
 
 - Login-protected web UI
 - Language switch: `de`, `en`, `fr`, `es`
 - CSRF protection
-- Whitelisted actions only
+- Session-based execution history
+- Live status cards for screen sessions, ports and latest artifacts
+- Command preview and output viewer
+- External CSS and JavaScript assets
+- Whitelisted module/action execution only
 - Runner script wrapper for safer command execution
+- Configurable timeout for long-running commands
 
 ## File Layout
 
 - `public/index.php` - web UI and request handling
-- `src/bootstrap.php` - session, auth helpers, CSRF
+- `public/style.css` - layout and visual design
+- `public/app.js` - client-side form switching for modules and actions
+- `src/web_init.php` - session, auth helpers, CSRF
 - `src/i18n.php` - translations
-- `src/runner.php` - command whitelist and execution
+- `src/runner.php` - module catalog, command whitelist and execution
 - `src/config.sample.php` - configuration template
 - `bin/osmtool_web_runner.sh` - controlled bridge to `osmtool_main.sh`
 
@@ -60,18 +67,30 @@ www-data ALL=(manni) NOPASSWD: /var/www/html/osmtool-web/bin/osmtool_web_runner.
 
 Then keep `use_sudo=true` and `sudo_user=manni` in config.
 
-## Supported Actions
+## Supported Modules
 
-- `start`
-- `stop`
-- `restart`
-- `smoke`
-- `report`
+- `install`
+- `startstop`
+- `cleanup`
 - `health`
-- `cron-list`
+- `backup`
+- `restore`
+- `update`
+- `config`
+- `report`
+- `smoke`
+- `cron`
+
+## Notes On Scope
+
+- The web interface now exposes the modular command set instead of only a few shortcut actions.
+- Visible form fields change automatically depending on the selected module and action.
+- Sensitive values such as passwords and secrets are masked in the command preview.
+- Timeout handling uses `command_timeout_seconds` from `src/config.php` or `src/config.sample.php`.
+- Live status cards can be tuned with `status_ports` and `status_screens` in `src/config.php`.
 
 ## Notes
 
 - Do not expose this UI publicly without HTTPS and IP restrictions.
 - Keep the password strong and unique.
-- Extend actions only in `src/runner.php` and `bin/osmtool_web_runner.sh` together.
+- Extend modules or actions in `src/runner.php` and `bin/osmtool_web_runner.sh` together.

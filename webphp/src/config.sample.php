@@ -18,6 +18,19 @@ return [
     // Default workdir passed to osmtool_main.sh.
     'default_workdir' => '/opt',
 
+    // Optional dashboard overrides for live status cards.
+    'status_ports' => [
+        'grid-sim' => ['8002', '9000', '9001', '8088'],
+        'robust' => ['8002', '9000', '9001'],
+        'standalone' => ['9000'],
+    ],
+
+    'status_screens' => [
+        'grid-sim' => ['robustserver', 'sim1'],
+        'robust' => ['robustserver'],
+        'standalone' => ['standalone'],
+    ],
+
     // Allow running through sudo if needed.
     'use_sudo' => true,
 
