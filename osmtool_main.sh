@@ -13,13 +13,15 @@ usage() {
 Usage:
   osmtool_main.sh [--mode <cli|ui>] [--lang <de|en|fr|es>] [--profile <grid-sim|robust|standalone>] --module <install|startstop|cleanup|health|backup|restore|update|config|report|smoke|cron> [module-options]
   osmtool_main.sh server_install
-  osmtool_main.sh <opensimstart|opensimstop|opensimrestart|healthcheck|smoketest|dailyreport|croninstall|cronlist|janusinstall|janusrestart|dbsetup>
+  osmtool_main.sh <install-grid-sim|opensimstart|opensimstop|opensimrestart|healthcheck|smoketest|dailyreport|croninstall|cronlist|janusinstall|janusrestart|dbsetup|dbbackup>
 
 Examples:
+  osmtool_main.sh install-grid-sim
   osmtool_main.sh server_install
   osmtool_main.sh opensimstart
   osmtool_main.sh opensimrestart
   osmtool_main.sh croninstall
+  osmtool_main.sh dbbackup
   osmtool_main.sh --module install --action prepare-ubuntu
   osmtool_main.sh --module startstop --target grid --action restart --workdir /opt
   osmtool_main.sh --module cleanup --action log-clean --workdir /opt
@@ -255,6 +257,21 @@ if [[ "${1:-}" == "server_install" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "install-grid-sim" ]]; then
+  PROFILE="grid-sim"
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+
+  log INFO "Running install-grid-sim shortcut (prepare-ubuntu -> install-opensim-deps -> install-dotnet8 -> server-check -> install-opensim -> configure-opensim)"
+  dispatch_module install --action prepare-ubuntu --workdir /opt
+  dispatch_module install --action install-opensim-deps --workdir /opt
+  dispatch_module install --action install-dotnet8 --workdir /opt
+  dispatch_module install --action server-check --workdir /opt
+  dispatch_module install --action install-opensim --workdir /opt
+  dispatch_module install --action configure-opensim --workdir /opt
+  exit 0
+fi
+
 if [[ "${1:-}" == "opensimstart" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
@@ -337,6 +354,20 @@ if [[ "${1:-}" == "dbsetup" ]]; then
   [[ -n "$DB_PASS_SHORT" ]] || die "dbsetup requires OSM_DB_PASS environment variable"
 
   dispatch_module install --action configure-database --workdir /opt --db-user "$DB_USER_SHORT" --db-pass "$DB_PASS_SHORT" --db-root-user "$DB_ROOT_USER_SHORT" --db-root-pass "$DB_ROOT_PASS_SHORT"
+  exit 0
+fi
+
+if [[ "${1:-}" == "dbbackup" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+
+  DB_USER_SHORT="${OSM_DB_USER:-root}"
+  DB_PASS_SHORT="${OSM_DB_PASS:-}"
+  DB_NAME_SHORT="${OSM_DB_NAME:-opensim}"
+
+  [[ -n "$DB_PASS_SHORT" ]] || die "dbbackup requires OSM_DB_PASS environment variable"
+
+  dispatch_module backup --action db-backup --workdir /opt --db-user "$DB_USER_SHORT" --db-pass "$DB_PASS_SHORT" --db-name "$DB_NAME_SHORT"
   exit 0
 fi
 
