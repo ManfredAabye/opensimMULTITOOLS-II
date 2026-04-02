@@ -56,20 +56,40 @@ if (($_POST['form'] ?? '') === 'login') {
     $postedLang = detect_lang(supported_languages());
     $_SESSION['lang'] = $postedLang;
     $lang = $postedLang;
+    $loginIp = client_ip_address();
 
-    if (!verify_csrf($_POST['csrf'] ?? null)) {
+    $remainingLock = remaining_lock_seconds($config, $loginIp);
+    if ($remainingLock > 0) {
+        $minutes = (int)max(1, ceil($remainingLock / 60));
+        $message = str_replace('{minutes}', (string)$minutes, t($lang, 'login_locked'));
+        $messageType = 'error';
+        append_auth_audit_log($config, $loginIp, 'login_blocked', 'remaining_seconds=' . $remainingLock);
+    } elseif (!verify_csrf($_POST['csrf'] ?? null)) {
         $message = t($lang, 'csrf_error');
         $messageType = 'error';
+        append_auth_audit_log($config, $loginIp, 'csrf_invalid', 'login-form');
     } else {
         $password = (string)($_POST['password'] ?? '');
         $expected = (string)($config['web_password'] ?? '');
         if ($expected !== '' && hash_equals($expected, $password)) {
+            register_login_attempt($config, $loginIp, true);
+            append_auth_audit_log($config, $loginIp, 'login_success');
             session_regenerate_id(true);
             $_SESSION['auth'] = true;
             header('Location: index.php?lang=' . urlencode($lang));
             exit;
         }
-        $message = t($lang, 'invalid_login');
+
+        register_login_attempt($config, $loginIp, false);
+        $remainingAfterFail = remaining_lock_seconds($config, $loginIp);
+        if ($remainingAfterFail > 0) {
+            $minutes = (int)max(1, ceil($remainingAfterFail / 60));
+            $message = str_replace('{minutes}', (string)$minutes, t($lang, 'login_locked'));
+            append_auth_audit_log($config, $loginIp, 'login_failed_locked', 'remaining_seconds=' . $remainingAfterFail);
+        } else {
+            $message = t($lang, 'invalid_login');
+            append_auth_audit_log($config, $loginIp, 'login_failed_password');
+        }
         $messageType = 'error';
     }
 }
