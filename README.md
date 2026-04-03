@@ -1,7 +1,7 @@
 # opensimMULTITOOL II V26.4.230.588
 
-  Status: Es funktioniert noch nicht richtig.
-  Status: It's not working properly yet.
+    Status: Es funktioniert noch nicht richtig.
+    Status: It's not working properly yet.
 
 Diese README ist fuer Einsteiger geschrieben.
 
