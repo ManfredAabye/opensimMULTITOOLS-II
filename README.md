@@ -1,5 +1,8 @@
 # opensimMULTITOOL II V26.4.230.588
 
+  Status: Es funktioniert noch nicht richtig.
+  Status: It's not working properly yet.
+
 Diese README ist fuer Einsteiger geschrieben.
 
 Wenn du noch nie mit OpenSim oder Bash gearbeitet hast, starte mit den Schritten in diesem Dokument von oben nach unten.
