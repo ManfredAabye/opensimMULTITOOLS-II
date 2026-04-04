@@ -33,6 +33,113 @@ DEBUG_LOG="osmtool_debug.log"  # Default: im aktuellen Verzeichnis
 # Maximale Log-Größe in MB bevor Rotation erfolgt (0 = deaktiviert)
 MAX_LOG_SIZE_MB=10  # 10MB empfohlen
 
+#* 1b. KONFIGURATION AUS JSON (osmtool_config.json)
+#* ----------------------------------------------------------------------
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE_DEFAULT="$SCRIPT_DIR/osmtool_config.json"
+CONFIG_FILE="${OSMTOOL_CONFIG_FILE:-$CONFIG_FILE_DEFAULT}"
+
+function json_get_raw_value() {
+    local key="$1"
+    local file="$2"
+
+    [[ -f "$file" ]] || return 1
+
+    if command -v jq >/dev/null 2>&1; then
+        jq -r --arg k "$key" '.[$k] // empty' "$file" 2>/dev/null
+        return 0
+    fi
+
+    sed -n -E "s/^[[:space:]]*\"${key}\"[[:space:]]*:[[:space:]]*\"([^\"]*)\"[[:space:]]*,?[[:space:]]*$/\1/p" "$file" | head -n1
+}
+
+function json_get_string() {
+    local key="$1"
+    local default_value="$2"
+    local value
+
+    value="$(json_get_raw_value "$key" "$CONFIG_FILE")"
+    if [[ -n "$value" ]]; then
+        printf '%s' "$value"
+    else
+        printf '%s' "$default_value"
+    fi
+}
+
+function json_get_bool() {
+    local key="$1"
+    local default_value="$2"
+    local value
+
+    if command -v jq >/dev/null 2>&1; then
+        value="$(jq -r --arg k "$key" '.[$k] // empty' "$CONFIG_FILE" 2>/dev/null)"
+    else
+        value="$(sed -n -E "s/^[[:space:]]*\"${key}\"[[:space:]]*:[[:space:]]*(true|false)[[:space:]]*,?[[:space:]]*$/\1/p" "$CONFIG_FILE" | head -n1)"
+    fi
+
+    case "$value" in
+        true|false) printf '%s' "$value" ;;
+        *) printf '%s' "$default_value" ;;
+    esac
+}
+
+function json_get_int() {
+    local key="$1"
+    local default_value="$2"
+    local value
+
+    if command -v jq >/dev/null 2>&1; then
+        value="$(jq -r --arg k "$key" '.[$k] // empty' "$CONFIG_FILE" 2>/dev/null)"
+    else
+        value="$(sed -n -E "s/^[[:space:]]*\"${key}\"[[:space:]]*:[[:space:]]*([0-9]+)[[:space:]]*,?[[:space:]]*$/\1/p" "$CONFIG_FILE" | head -n1)"
+    fi
+
+    if [[ "$value" =~ ^[0-9]+$ ]]; then
+        printf '%s' "$value"
+    else
+        printf '%s' "$default_value"
+    fi
+}
+
+function resolve_cfg_path() {
+    local path_value="$1"
+    if [[ -z "$path_value" ]]; then
+        printf '%s' "$SCRIPT_DIR"
+        return
+    fi
+
+    if [[ "$path_value" = /* ]]; then
+        printf '%s' "$path_value"
+    else
+        printf '%s' "$SCRIPT_DIR/$path_value"
+    fi
+}
+
+if [[ -f "$CONFIG_FILE" ]]; then
+    LOG_ENABLED="$(json_get_bool "log_enabled" "$LOG_ENABLED")"
+    OLD_LOG_DEL="$(json_get_bool "old_log_del" "$OLD_LOG_DEL")"
+    DEBUG_LOG="$(json_get_string "debug_log" "$DEBUG_LOG")"
+    MAX_LOG_SIZE_MB="$(json_get_int "max_log_size_mb" "$MAX_LOG_SIZE_MB")"
+fi
+
+CFG_LANGUAGE="$(json_get_string "language" "de")"
+CFG_LANG_DIR_REL="$(json_get_string "path_lang_dir" "lang")"
+CFG_ROBUST_BIN_REL="$(json_get_string "path_robust_bin" "robust/bin")"
+CFG_OPENSIM_BIN_REL="$(json_get_string "path_opensim_bin" "opensim/bin")"
+CFG_WORKDIR_REL="$(json_get_string "path_workdir" ".")"
+
+LANG_DIR="$(resolve_cfg_path "$CFG_LANG_DIR_REL")"
+PATH_ROBUST_BIN="$(resolve_cfg_path "$CFG_ROBUST_BIN_REL")"
+PATH_OPENSIM_BIN="$(resolve_cfg_path "$CFG_OPENSIM_BIN_REL")"
+WORK_DIR="$(resolve_cfg_path "$CFG_WORKDIR_REL")"
+
+export LANG_DIR PATH_ROBUST_BIN PATH_OPENSIM_BIN WORK_DIR
+
+if [[ ! -d "$WORK_DIR" ]]; then
+    WORK_DIR="$SCRIPT_DIR"
+fi
+
 #* 2. LOG-SYSTEM INITIALISIERUNG
 #* ----------------------------------------------------------------------
 
@@ -120,6 +227,109 @@ function log() {
     fi
 }
 
+#* 5. I18N-SYSTEM (de|en|fr|es)
+#* ----------------------------------------------------------------------
+
+APP_LANG="${OSM_LANG:-$CFG_LANGUAGE}"
+
+declare -A I18N_CURRENT=()
+declare -A I18N_EN=()
+
+function normalize_lang() {
+    case "$1" in
+        de|en|fr|es) echo "$1" ;;
+        *) echo "de" ;;
+    esac
+}
+
+function load_lang_file() {
+    local lang_file="$1"
+    local target_array_name="$2"
+    local line key value
+
+    [[ -f "$lang_file" ]] || return 1
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
+        [[ "$line" == *=* ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        if [[ "$target_array_name" == "I18N_EN" ]]; then
+            I18N_EN["$key"]="$value"
+        else
+            I18N_CURRENT["$key"]="$value"
+        fi
+    done < "$lang_file"
+
+    return 0
+}
+
+function init_i18n() {
+    APP_LANG="$(normalize_lang "$APP_LANG")"
+    I18N_CURRENT=()
+    I18N_EN=()
+
+    load_lang_file "$LANG_DIR/en.lang" I18N_EN || true
+    load_lang_file "$LANG_DIR/${APP_LANG}.lang" I18N_CURRENT || true
+}
+
+function msg() {
+    local key="$1"
+    if [[ -n "${I18N_CURRENT[$key]:-}" ]]; then
+        printf '%s' "${I18N_CURRENT[$key]}"
+        return
+    fi
+    if [[ -n "${I18N_EN[$key]:-}" ]]; then
+        printf '%s' "${I18N_EN[$key]}"
+        return
+    fi
+    printf '%s' "$key"
+}
+
+function is_yes() {
+    case "${1,,}" in
+        j|ja|y|yes|o|oui|s|si) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+function is_no() {
+    case "${1,,}" in
+        n|no|nein|non) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+function parse_lang_arg() {
+    local -a filtered=()
+    local i=1
+    while [[ $i -le $# ]]; do
+        local arg="${!i}"
+        if [[ "$arg" == "--lang" ]]; then
+            local next_index=$((i + 1))
+            if [[ $next_index -le $# ]]; then
+                APP_LANG="$(normalize_lang "${!next_index}")"
+                i=$((i + 2))
+                continue
+            fi
+        elif [[ "$arg" == --lang=* ]]; then
+            APP_LANG="$(normalize_lang "${arg#--lang=}")"
+            i=$((i + 1))
+            continue
+        fi
+        filtered+=("$arg")
+        i=$((i + 1))
+    done
+
+    set -- "${filtered[@]}"
+    FILTERED_ARGS=("$@")
+}
+
+parse_lang_arg "$@"
+set -- "${FILTERED_ARGS[@]}"
+export OSM_LANG="$APP_LANG"
+init_i18n
+
 #* ======================================================================
 #* BEISPIELAUFRUFE:
 #*
@@ -142,9 +352,9 @@ SCRIPTNAME="opensimMULTITOOL II"
 # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
 VERSION="V26.4.230.588"
 log "\e[36m$SCRIPTNAME\e[0m $VERSION"
-echo "Dies ist ein Tool welches der Verwaltung von OpenSim Servern dient."
-echo "Bitte beachten Sie, dass die Anwendung auf eigene Gefahr und Verantwortung erfolgt."
-log "\e[33mZum Abbrechen bitte STRG+C oder CTRL+C drücken.\e[0m"
+echo "$(msg INFO_TOOL_PURPOSE)"
+echo "$(msg INFO_USE_OWN_RISK)"
+log "\e[33m$(msg INFO_ABORT_HINT)\e[0m"
 echo " "
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
@@ -229,7 +439,17 @@ Simulator_Stop_wait=15 # Sekunden
 MoneyServer_Stop_wait=30 # Sekunden
 RobustServer_Stop_wait=30 # Sekunden
 
-KOMMANDO=$1 #! Eingabeauswertung fuer Funktionen.
+if [[ -f "$CONFIG_FILE" ]]; then
+    Simulator_Start_wait="$(json_get_int "simulator_start_wait" "$Simulator_Start_wait")"
+    MoneyServer_Start_wait="$(json_get_int "moneyserver_start_wait" "$MoneyServer_Start_wait")"
+    RobustServer_Start_wait="$(json_get_int "robustserver_start_wait" "$RobustServer_Start_wait")"
+    Simulator_Stop_wait="$(json_get_int "simulator_stop_wait" "$Simulator_Stop_wait")"
+    MoneyServer_Stop_wait="$(json_get_int "moneyserver_stop_wait" "$MoneyServer_Stop_wait")"
+    RobustServer_Stop_wait="$(json_get_int "robustserver_stop_wait" "$RobustServer_Stop_wait")"
+fi
+
+# Sprachwert nach dem Bereinigen der Argumente fuer nachfolgende Logik sichern
+KOMMANDO="${1:-}"
 
 #* Leere Zeile
 function blankline() {
@@ -248,39 +468,33 @@ function blankline() {
 }
 
 #* Hauptpfad des Skripts automatisch setzen
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-cd "$SCRIPT_DIR" || exit 1
+cd "$WORK_DIR" || exit 1
 system_ip=$(hostname -I | awk '{print $1}')
-log "${COLOR_LABEL}Das Arbeitsverzeichnis ist:${COLOR_RESET} ${COLOR_VALUE}$SCRIPT_DIR${COLOR_RESET}"
-log "${COLOR_LABEL}Ihre IP Adresse ist:${COLOR_RESET} ${COLOR_VALUE}$system_ip${COLOR_RESET}"
+log "${COLOR_LABEL}$(msg INFO_WORKDIR)${COLOR_RESET} ${COLOR_VALUE}$WORK_DIR${COLOR_RESET}"
+log "${COLOR_LABEL}$(msg INFO_SYSTEM_IP)${COLOR_RESET} ${COLOR_VALUE}$system_ip${COLOR_RESET}"
 blankline
 
 #* Rootrechte erforderlich
 function rootrights() {
     # Root-Privilegien erforderlich
     if [[ $EUID -ne 0 ]]; then
-        log "${COLOR_WARNING}Warning: Dieses Skript kann als Benutzer ausgeführt werden," >&2
-        log "aber einige Funktionen benötigen Root-Rechte.${COLOR_RESET}" >&2
+        log "${COLOR_WARNING}$(msg ROOT_WARN_USER_MODE_1)${COLOR_RESET}" >&2
+        log "$(msg ROOT_WARN_USER_MODE_2)${COLOR_RESET}" >&2
         log "[sudo bash osmtool.sh]" >&2
         
         while true; do
-            log "Möchten Sie trotzdem ohne Root-Privilegien fortfahren? (ja/nein): " >&2
+            log "$(msg ROOT_PROMPT_CONTINUE_NO_ROOT)" >&2
             read -r answer
-            
-            # Akzeptiere: j/J/ja/Ja/JA/y/Y/yes/Yes/YES + n/N/nein/Nein/NEIN
-            case "${answer,,}" in  # ${answer,,} wandelt in Kleinbuchstaben um
-                j|ja|y|yes)
-                    log "Fortfahren ohne Root-Rechte..." >&2
-                    return 0  # Erfolg, fortfahren
-                    ;;
-                n|nein|no)
-                    log "${COLOR_STOP}Abbruch.${COLOR_RESET}" >&2
-                    exit 1
-                    ;;
-                *)
-                    log "${COLOR_WARNING}Ungültige Eingabe. Bitte 'ja' oder 'nein' eingeben.${COLOR_RESET}" >&2
-                    ;;
-            esac
+
+            if is_yes "$answer"; then
+                log "$(msg ROOT_CONTINUE_NO_ROOT)" >&2
+                return 0
+            elif is_no "$answer"; then
+                log "${COLOR_STOP}$(msg COMMON_ABORTED)${COLOR_RESET}" >&2
+                exit 1
+            else
+                log "${COLOR_WARNING}$(msg INPUT_INVALID_YES_NO)${COLOR_RESET}" >&2
+            fi
         done
     fi
 }
@@ -289,12 +503,12 @@ function rootrights() {
 #* Soll im Hypergrid Modus gearbeitet werden oder in einem Geschlossenen Grid?
 function hypergrid() {
     local modus="$1"
-    local robust_dir="$SCRIPT_DIR/robust/bin"  # Korrekter Pfad zu Robust-Dateien
+    local robust_dir="$PATH_ROBUST_BIN"  # Konfigurierbarer Pfad zu Robust-Dateien
     
-    echo "Modus Einstellung"
+    echo "$(msg MODE_CONFIG)"
     
     if [[ "$modus" == "hypergrid" ]]; then
-        echo "Hypergrid Modus aktiviert."
+        echo "$(msg MODE_HYPERGRID_ENABLED)"
         
         # Prüfen ob Robust.HG.ini existiert
         if [[ ! -f "$robust_dir/Robust.HG.ini" ]]; then
@@ -308,7 +522,7 @@ function hypergrid() {
         }
         
     else
-        echo "Geschlossener Grid Modus aktiviert."
+        echo "$(msg MODE_CLOSEDGRID_ENABLED)"
         
         # Prüfen ob Robust.local.ini existiert
         if [[ ! -f "$robust_dir/Robust.local.ini" ]]; then
@@ -322,7 +536,7 @@ function hypergrid() {
         }
     fi
     
-    log "${COLOR_OK}Modus erfolgreich auf $modus gesetzt${COLOR_RESET}"
+    log "${COLOR_OK}$(msg MODE_SET_OK): $modus${COLOR_RESET}"
     return 0
 }
 
@@ -2733,26 +2947,26 @@ function setcrontab() {
     log "  ${SYM_INFO} 4) logclean (inkl. automatischem stop vorher)"
     log "  ${SYM_INFO} 5) Vollständiger Neustart (stop → cacheclean → mapclean → logclean → reboot)"
     log "  ${SYM_INFO} 6) Nur Server neustarten (reboot)"
-    read -r -p "Auswahl (z.B. '2 3' oder '5'): " -a monthly_actions
+    read -r -p "$(msg CRON_PROMPT_MONTHLY_SELECTION) " -a monthly_actions
 
     # Abfrage ob nach clean-Operationen ein reboot erfolgen soll
     local needs_reboot=false
     if [[ " ${monthly_actions[*]} " =~ [234] ]]; then
-        read -r -p "Soll nach den Clean-Operationen ein Neustart erfolgen? (j/n) " add_reboot
-        [[ "$add_reboot" =~ [jJ] ]] && needs_reboot=true
+        read -r -p "$(msg CRON_PROMPT_REBOOT_AFTER_CLEAN) " add_reboot
+        is_yes "$add_reboot" && needs_reboot=true
     fi
 
     log "\n${COLOR_VALUE}=== Tägliche Wartung ===${COLOR_RESET}"
-    read -r -p "Soll ein täglicher Restart durchgeführt werden? (j/n) " daily_restart
-    if [[ "$daily_restart" =~ [jJ] ]]; then
-        read -r -p "Uhrzeit (Stunde, 0-23): " daily_hour
+    read -r -p "$(msg CRON_PROMPT_DAILY_RESTART) " daily_restart
+    if is_yes "$daily_restart"; then
+        read -r -p "$(msg CRON_PROMPT_DAILY_HOUR) " daily_hour
         daily_hour=${daily_hour:-5} # Default: 5 Uhr
     fi
 
     log "\n${COLOR_VALUE}=== Überwachung ===${COLOR_RESET}"
-    read -r -p "Soll die Überwachung aktiviert werden? (j/n) " enable_monitoring
-    if [[ "$enable_monitoring" =~ [jJ] ]]; then
-        read -r -p "Intervall in Minuten (Standard: 30): " monitor_interval
+    read -r -p "$(msg CRON_PROMPT_ENABLE_MONITORING) " enable_monitoring
+    if is_yes "$enable_monitoring"; then
+        read -r -p "$(msg CRON_PROMPT_MONITOR_INTERVAL) " monitor_interval
         monitor_interval=${monitor_interval:-30}
     fi
 
@@ -3233,9 +3447,9 @@ function robustrepair() {
             ;;
         truncate)
             log "${SYM_WARNING} ${COLOR_WARNING}${SYM_WARNING} Achtung: Leert alle Inhalte, behält aber Tabellenstrukturen!${COLOR_RESET}"
-            echo -ne "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}"
+            echo -ne "${COLOR_BAD}$(msg LEGACY_PROMPT_CONTINUE_YESNO): ${COLOR_RESET}"
             read -r confirm
-            if [[ "$confirm" == "ja" ]]; then
+            if is_yes "$confirm"; then
                 local tables
                 tables=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SHOW TABLES IN $DB_NAME;")
                 for t in $tables; do
@@ -3249,9 +3463,9 @@ function robustrepair() {
             ;;
         dropassets)
             log "${SYM_WARNING} ${COLOR_WARNING}${SYM_WARNING} Achtung: Löscht ALLE Einträge in der 'assets'-Tabelle!${COLOR_RESET}"
-            echo -ne "${COLOR_BAD}Fortfahren? (ja/nein): ${COLOR_RESET}"
+            echo -ne "${COLOR_BAD}$(msg LEGACY_PROMPT_CONTINUE_YESNO): ${COLOR_RESET}"
             read -r confirm
-            if [[ "$confirm" == "ja" ]]; then
+            if is_yes "$confirm"; then
                 mysql -u"$DB_USER" -p"$DB_PASS" -e "DELETE FROM $DB_NAME.assets;"
                 log "${SYM_OK} ${COLOR_OK}Tabelle 'assets' wurde geleert.${COLOR_RESET}"
             else
@@ -3260,9 +3474,9 @@ function robustrepair() {
             ;;
         dropall)
             log "${SYM_WARNING} ${COLOR_WARNING}${SYM_WARNING} Achtung: Alle Tabellen der Datenbank werden gelöscht!${COLOR_RESET}"
-            echo -ne "${COLOR_BAD}Wirklich ALLE Tabellen löschen? (ja/nein): ${COLOR_RESET}"
+            echo -ne "${COLOR_BAD}$(msg PROMPT_DROP_ALL_TABLES): ${COLOR_RESET}"
             read -r confirm
-            if [[ "$confirm" == "ja" ]]; then
+            if is_yes "$confirm"; then
                 local tables
                 tables=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SHOW TABLES IN $DB_NAME;")
                 for t in $tables; do
@@ -3718,13 +3932,12 @@ WARNUNG
     log "\e[0m"
 
     # Bestätigung mit Timeout (10 Sekunden) für Sicherheit
-    read -t 30 -r -p "Fortfahren? (ja/NEIN): " confirm || {
+    read -t 30 -r -p "$(msg PROMPT_CONTINUE_TIMEOUT_YESNO) " confirm || {
         log "\n\e[31mTimeout: Keine Bestätigung erhalten. Abbruch.\e[0m" >&2
         return 1
     }
 
-    case "${confirm,,}" in
-        ja|j|y|yes)
+    if is_yes "$confirm"; then
             log "\e[32mBereinigung wird gestartet...\e[0m" >&2
             # Jede Clean-Funktion mit Fehlerprüfung
             local clean_functions=(dataclean pathclean cacheclean logclean mapclean)
@@ -3739,12 +3952,10 @@ WARNUNG
                 }
             done
             log "\e[32mBereinigung abgeschlossen.\e[0m" >&2
-            ;;
-        *)
+    else
             log "\e[33mAbbruch: Bereinigung wurde nicht durchgeführt.\e[0m" >&2
             return 1
-            ;;
-    esac
+    fi
     blankline
 }
 
@@ -5844,11 +6055,11 @@ function clean_config() {
 
 # cleanall - Removes OpenSim completely
 function cleanall() {
-    echo "Möchtest du OpenSim komplett mit Konfigurationen entfernen? (ja/nein)"
+    echo "$(msg CLEANALL_PROMPT_REMOVE_ALL)"
     read -r answer
 
-    if [ "$answer" = "ja" ]; then
-        echo "Lösche OpenSim vollständig..."
+    if is_yes "$answer"; then
+        echo "$(msg CLEANALL_START_DELETE)"
         
         # robust/bin Verzeichnis leeren, falls vorhanden
         if [ -d "robust/bin" ]; then
@@ -5864,13 +6075,13 @@ function cleanall() {
             fi
         done
 
-        echo "Alle bin-Verzeichnisse wurden geleert."
+        echo "$(msg CLEANALL_BIN_CLEARED)"
 
-    elif [ "$answer" = "nein" ]; then
-        echo "OpenSim bleibt erhalten."
+    elif is_no "$answer"; then
+        echo "$(msg CLEANALL_KEEP)"
 
     else
-        echo "Ungültige Eingabe. Bitte 'ja' oder 'nein' eingeben."
+        echo "$(msg INPUT_INVALID_YES_NO)"
     fi
     blankline
 }
@@ -6180,7 +6391,7 @@ function createstandaloneuser() {
 
 function createstandalonregion() {
     # 12.05.2025 Standalone Region erstellen
-    local config_file="opensim/bin/Regions/opensim.ini"
+    local config_file="${PATH_OPENSIM_BIN}/Regions/opensim.ini"
     local region_name="OpenSim"
     local location="1000,1000"
     local port="9015"

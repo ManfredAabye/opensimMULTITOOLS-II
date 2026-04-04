@@ -1,0 +1,19 @@
+{
+  "language": "de",
+  "log_enabled": true,
+  "old_log_del": true,
+  "debug_log": "osmtool_debug.log",
+  "max_log_size_mb": 10,
+
+  "simulator_start_wait": 15,
+  "moneyserver_start_wait": 30,
+  "robustserver_start_wait": 30,
+  "simulator_stop_wait": 15,
+  "moneyserver_stop_wait": 30,
+  "robustserver_stop_wait": 30,
+
+  "path_workdir": ".",
+  "path_lang_dir": "lang",
+  "path_robust_bin": "robust/bin",
+  "path_opensim_bin": "opensim/bin"
+}

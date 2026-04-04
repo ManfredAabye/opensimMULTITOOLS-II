@@ -8,10 +8,11 @@ source "$SCRIPT_DIR/osmtool_core.sh"
 usage() {
   cat <<'EOF'
 Usage:
-  osmtool_config.sh [--workdir <path>] --action <validate-file|validate-runtime>
+  osmtool_config.sh [--workdir <path>] --action <init-config|validate-file|validate-runtime>
     [--file <path>] [--strict <true|false>]
 
 Examples:
+  osmtool_config.sh --action init-config
   osmtool_config.sh --action validate-file --file /opt/sim1/bin/OpenSim.ini
   osmtool_config.sh --action validate-runtime --profile grid-sim --workdir /opt
 EOF
@@ -184,6 +185,15 @@ done
 validate_profile "$PROFILE"
 ensure_profile_action_allowed config "$PROFILE" "$ACTION"
 
+if [[ "$ACTION" != "init-config" && ! -f "$OSMTOOL_CONFIG_FILE" ]]; then
+  if [[ -t 0 ]]; then
+    log INFO "Shared configuration not found. Starting interactive setup."
+    init_shared_config_interactive
+  else
+    log INFO "Shared configuration not found at $OSMTOOL_CONFIG_FILE (non-interactive mode)"
+  fi
+fi
+
 case "$STRICT" in
   true|false) ;;
   *) die "--strict must be true or false" ;;
@@ -192,6 +202,9 @@ esac
 log INFO "Using profile: $PROFILE"
 
 case "$ACTION" in
+  init-config)
+    init_shared_config_interactive
+    ;;
   validate-file)
     [[ -n "$FILE" ]] || die "validate-file requires --file"
     validate_file "$FILE"

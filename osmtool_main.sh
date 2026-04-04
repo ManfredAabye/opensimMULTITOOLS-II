@@ -13,7 +13,7 @@ usage() {
 Usage:
   osmtool_main.sh [--mode <cli|ui>] [--lang <de|en|fr|es>] [--profile <grid-sim|robust|standalone>] --module <install|startstop|cleanup|health|backup|restore|update|config|report|smoke|cron> [module-options]
   osmtool_main.sh server_install
-  osmtool_main.sh <install-grid-sim|opensimstart|opensimstop|opensimrestart|healthcheck|smoketest|dailyreport|croninstall|cronlist|janusinstall|janusrestart|dbsetup|dbbackup>
+  osmtool_main.sh <configinit|install-grid-sim|opensimstart|opensimstop|opensimrestart|healthcheck|smoketest|dailyreport|croninstall|cronlist|janusinstall|janusrestart|dbsetup|dbbackup>
 
 Examples:
   osmtool_main.sh install-grid-sim
@@ -43,37 +43,37 @@ dispatch_module() {
 
   case "$module" in
     install)
-      "$MOD_DIR/osmtool_install.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_install.sh" --profile "$PROFILE" "$@"
       ;;
     startstop)
-      "$MOD_DIR/osmtool_startstop.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_startstop.sh" --profile "$PROFILE" "$@"
       ;;
     cleanup)
-      "$MOD_DIR/osmtool_cleanup.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_cleanup.sh" --profile "$PROFILE" "$@"
       ;;
     health)
-      "$MOD_DIR/osmtool_health.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_health.sh" --profile "$PROFILE" "$@"
       ;;
     backup)
-      "$MOD_DIR/osmtool_data.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_data.sh" --profile "$PROFILE" "$@"
       ;;
     update)
-      "$MOD_DIR/osmtool_update.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_update.sh" --profile "$PROFILE" "$@"
       ;;
     config)
-      "$MOD_DIR/osmtool_config.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_config.sh" --profile "$PROFILE" "$@"
       ;;
     report)
-      "$MOD_DIR/osmtool_report.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_report.sh" --profile "$PROFILE" "$@"
       ;;
     smoke)
-      "$MOD_DIR/osmtool_smoke.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_smoke.sh" --profile "$PROFILE" "$@"
       ;;
     cron)
       bash "$MOD_DIR/osmtool_cron.sh" --profile "$PROFILE" "$@"
       ;;
     restore)
-      "$MOD_DIR/osmtool_restore.sh" --profile "$PROFILE" "$@"
+      bash "$MOD_DIR/osmtool_restore.sh" --profile "$PROFILE" "$@"
       ;;
     *)
       die "$(msg ERR_UNKNOWN_MODULE): $module"
@@ -229,7 +229,7 @@ ui_flow() {
 
 MODE="cli"
 MODULE=""
-LANG_OVERRIDE="${OSM_LANG:-de}"
+LANG_OVERRIDE="${OSM_LANG:-$APP_LANG}"
 PROFILE="grid-sim"
 
 if [[ $# -eq 0 ]]; then
@@ -248,12 +248,18 @@ if [[ "${1:-}" == "server_install" ]]; then
   validate_profile "$PROFILE"
 
   log INFO "Running server_install shortcut (prepare-ubuntu -> install-opensim-deps -> install-dotnet8 -> server-check -> install-opensim -> configure-opensim)"
-  dispatch_module install --action prepare-ubuntu --workdir /opt
-  dispatch_module install --action install-opensim-deps --workdir /opt
-  dispatch_module install --action install-dotnet8 --workdir /opt
-  dispatch_module install --action server-check --workdir /opt
-  dispatch_module install --action install-opensim --workdir /opt
-  dispatch_module install --action configure-opensim --workdir /opt
+  dispatch_module install --action prepare-ubuntu --workdir "$DEFAULT_WORKDIR"
+  dispatch_module install --action install-opensim-deps --workdir "$DEFAULT_WORKDIR"
+  dispatch_module install --action install-dotnet8 --workdir "$DEFAULT_WORKDIR"
+  dispatch_module install --action server-check --workdir "$DEFAULT_WORKDIR"
+  dispatch_module install --action install-opensim --workdir "$DEFAULT_WORKDIR"
+  dispatch_module install --action configure-opensim --workdir "$DEFAULT_WORKDIR"
+  exit 0
+fi
+
+if [[ "${1:-}" == "configinit" ]]; then
+  set_language "$LANG_OVERRIDE"
+  dispatch_module config --action init-config --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
@@ -262,83 +268,108 @@ if [[ "${1:-}" == "install-grid-sim" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
 
-  log INFO "Running install-grid-sim shortcut (prepare-ubuntu -> install-opensim-deps -> install-dotnet8 -> server-check -> install-opensim -> configure-opensim)"
-  dispatch_module install --action prepare-ubuntu --workdir /opt
-  dispatch_module install --action install-opensim-deps --workdir /opt
-  dispatch_module install --action install-dotnet8 --workdir /opt
-  dispatch_module install --action server-check --workdir /opt
-  dispatch_module install --action install-opensim --workdir /opt
-  dispatch_module install --action configure-opensim --workdir /opt
+  # Pflichtparameter: Datenbank-Credentials und Anzahl Simulatoren
+  _db_user="${OSM_DB_USER:-}"
+  _db_pass="${OSM_DB_PASS:-}"
+  _sim_count="${OSM_SIM_COUNT:-1}"
+  _hostname="${OSM_HOST:-}"
+  _gridname="${OSM_GRIDNAME:-}"
+
+  if [[ -z "$_db_user" || -z "$_db_pass" ]]; then
+    log ERROR "Datenbankzugangsdaten fehlen. Vor dem Aufruf setzen:"
+    log ERROR "  export OSM_DB_USER=opensim"
+    log ERROR "  export OSM_DB_PASS='MeinSicheresPasswort'"
+    log ERROR "  export OSM_SIM_COUNT=3        # Anzahl sim-Instanzen"
+    log ERROR "  export OSM_HOST=1.2.3.4       # Öffentliche IP oder Hostname"
+    log ERROR "  export OSM_GRIDNAME='Mein Grid'"
+    exit 1
+  fi
+
+  log INFO "Starte install-grid-sim (prepare-ubuntu → deps → dotnet8 → server-check → install-opensim → configure-database → configure-opensim)"
+
+  dispatch_module install --action prepare-ubuntu --workdir "$DEFAULT_WORKDIR"
+  dispatch_module install --action install-opensim-deps --workdir "$DEFAULT_WORKDIR"
+  dispatch_module install --action install-dotnet8 --workdir "$DEFAULT_WORKDIR"
+  dispatch_module install --action server-check --workdir "$DEFAULT_WORKDIR"
+  dispatch_module install --action install-opensim --workdir "$DEFAULT_WORKDIR"
+  # Datenbanken vor configure-opensim anlegen (ConnectionStrings werden danach geschrieben)
+  dispatch_module install --action configure-database --workdir "$DEFAULT_WORKDIR" \
+    --db-user "$_db_user" --db-pass "$_db_pass" --sim-count "$_sim_count"
+  # Ini-Dateien mit Credentials, Hostname und Gridname befüllen
+  dispatch_module install --action configure-opensim --workdir "$DEFAULT_WORKDIR" \
+    --db-user "$_db_user" --db-pass "$_db_pass" \
+    ${_hostname:+--public-host "$_hostname"} \
+    ${_gridname:+--gridname "$_gridname"}
   exit 0
 fi
 
 if [[ "${1:-}" == "opensimstart" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module startstop --target "$(default_target_for_profile "$PROFILE")" --action start --workdir /opt
+  dispatch_module startstop --target "$(default_target_for_profile "$PROFILE")" --action start --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
 if [[ "${1:-}" == "opensimstop" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module startstop --target "$(default_target_for_profile "$PROFILE")" --action stop --workdir /opt
+  dispatch_module startstop --target "$(default_target_for_profile "$PROFILE")" --action stop --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
 if [[ "${1:-}" == "opensimrestart" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module startstop --target "$(default_target_for_profile "$PROFILE")" --action restart --workdir /opt
+  dispatch_module startstop --target "$(default_target_for_profile "$PROFILE")" --action restart --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
 if [[ "${1:-}" == "healthcheck" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module health --action run --workdir /opt
+  dispatch_module health --action run --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
 if [[ "${1:-}" == "smoketest" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module smoke --action run --workdir /opt
+  dispatch_module smoke --action run --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
 if [[ "${1:-}" == "dailyreport" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module report --action generate --workdir /opt
+  dispatch_module report --action generate --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
 if [[ "${1:-}" == "croninstall" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module cron --action install --workdir /opt
+  dispatch_module cron --action install --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
 if [[ "${1:-}" == "cronlist" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module cron --action list --workdir /opt
+  dispatch_module cron --action list --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
 if [[ "${1:-}" == "janusinstall" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module install --action install-janus --workdir /opt
+  dispatch_module install --action install-janus --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
 if [[ "${1:-}" == "janusrestart" ]]; then
   set_language "$LANG_OVERRIDE"
   validate_profile "$PROFILE"
-  dispatch_module startstop --target janus --action restart --workdir /opt
+  dispatch_module startstop --target janus --action restart --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
@@ -353,7 +384,7 @@ if [[ "${1:-}" == "dbsetup" ]]; then
 
   [[ -n "$DB_PASS_SHORT" ]] || die "dbsetup requires OSM_DB_PASS environment variable"
 
-  dispatch_module install --action configure-database --workdir /opt --db-user "$DB_USER_SHORT" --db-pass "$DB_PASS_SHORT" --db-root-user "$DB_ROOT_USER_SHORT" --db-root-pass "$DB_ROOT_PASS_SHORT"
+  dispatch_module install --action configure-database --workdir "$DEFAULT_WORKDIR" --db-user "$DB_USER_SHORT" --db-pass "$DB_PASS_SHORT" --db-root-user "$DB_ROOT_USER_SHORT" --db-root-pass "$DB_ROOT_PASS_SHORT"
   exit 0
 fi
 
@@ -367,7 +398,7 @@ if [[ "${1:-}" == "dbbackup" ]]; then
 
   [[ -n "$DB_PASS_SHORT" ]] || die "dbbackup requires OSM_DB_PASS environment variable"
 
-  dispatch_module backup --action db-backup --workdir /opt --db-user "$DB_USER_SHORT" --db-pass "$DB_PASS_SHORT" --db-name "$DB_NAME_SHORT"
+  dispatch_module backup --action db-backup --workdir "$DEFAULT_WORKDIR" --db-user "$DB_USER_SHORT" --db-pass "$DB_PASS_SHORT" --db-name "$DB_NAME_SHORT"
   exit 0
 fi
 

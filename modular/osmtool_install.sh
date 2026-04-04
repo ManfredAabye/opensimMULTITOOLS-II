@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/osmtool_core.sh"
 usage() {
   cat <<'EOF'
 Usage:
-  osmtool_install.sh [--workdir <path>] --action <server-check|prepare-ubuntu|install-opensim-deps|install-dotnet8|install-opensim|configure-opensim|configure-database|compile-janus|configure-janus|install-janus>
+  osmtool_install.sh [--workdir <path>] --action <init-config|server-check|prepare-ubuntu|install-opensim-deps|install-dotnet8|install-opensim|configure-opensim|configure-database|compile-janus|configure-janus|install-janus>
     [--opensim-dir <path>] [--opensim-repo <url>] [--opensim-branch <name>] [--repo-mode <update|fresh>]
     [--tsassets-dir <path>] [--currency-dir <path>] [--data-backup-dir <path>]
     [--deploy-binaries <true|false>] [--legacy-patch-dir <path>]
@@ -18,6 +18,7 @@ Usage:
     [--api-secret <value>] [--admin-secret <value>]
 
 Actions:
+  init-config      Create/update shared osmtool configuration interactively
   server-check     Validate server readiness and required dependencies
   prepare-ubuntu   Basic apt update/upgrade and base packages
   install-opensim-deps Install OpenSim runtime dependencies
@@ -466,14 +467,72 @@ configure_opensim_runtime() {
   fi
 
   if [[ -n "$cfg_user" && -n "$cfg_pass" ]]; then
+    local db_conn_robust db_conn_sim sim_name_inner
+
+    # MoneyServer Credentials
     set_ini_key_value "$WORKDIR/robust/bin/MoneyServer.ini" "username" "$cfg_user"
     set_ini_key_value "$WORKDIR/robust/bin/MoneyServer.ini" "password" "$cfg_pass"
-    log INFO "Updated MoneyServer.ini database credentials from configured values"
+
+    # Robust.ini ConnectionString (zwingend erforderlich für Datenbankverbindung)
+    db_conn_robust="Data Source=localhost;Database=robust;User ID=${cfg_user};Password=${cfg_pass};Old Guids=true;"
+    if [[ -f "$WORKDIR/robust/bin/Robust.ini" ]]; then
+      upsert_key "$WORKDIR/robust/bin/Robust.ini" "ConnectionString" "\"${db_conn_robust}\""
+    fi
+
+    # Jede simX/bin/OpenSim.ini ConnectionString (zwingend, sonst startet sim nicht)
+    shopt -s nullglob
+    for sim_dir in "$WORKDIR"/sim[0-9]*/bin; do
+      sim_name_inner="$(basename "$(dirname "$sim_dir")")"
+      [[ "$sim_name_inner" =~ ^sim[0-9]+$ ]] || continue
+      [[ -f "$sim_dir/OpenSim.ini" ]] || continue
+      db_conn_sim="Data Source=localhost;Database=${sim_name_inner};User ID=${cfg_user};Password=${cfg_pass};Old Guids=true;"
+      upsert_key "$sim_dir/OpenSim.ini" "ConnectionString" "\"${db_conn_sim}\""
+    done
+    shopt -u nullglob
+
+    log INFO "Updated ConnectionStrings in Robust.ini, MoneyServer.ini und simX/OpenSim.ini"
   else
-    log INFO "MoneyServer.ini credentials unchanged (no DB credentials available in parameters/UserInfo.ini)"
+    log INFO "Keine DB-Credentials verfügbar — ConnectionString nicht gesetzt. Erst configure-database ausführen."
   fi
 
-  log INFO "OpenSim runtime ini configuration completed"
+  # Hostname/IP in alle Konfigurationsdateien einsetzen (YOURHOST ersetzen)
+  if [[ -n "$PUBLIC_HOST" && "$PUBLIC_HOST" != "127.0.0.1" ]]; then
+    local h_escaped
+    h_escaped="$(printf '%s' "$PUBLIC_HOST" | sed 's/[\/&]/\\&/g')"
+    local cfg_f
+    for cfg_f in \
+      "$WORKDIR/robust/bin/Robust.ini" \
+      "$WORKDIR/robust/bin/config-include/GridCommon.ini" \
+      "$WORKDIR/standalone/bin/config-include/StandaloneCommon.ini"; do
+      [[ -f "$cfg_f" ]] || continue
+      sed -i "s|YOURHOST|${h_escaped}|g" "$cfg_f"
+    done
+    shopt -s nullglob
+    for sim_dir in "$WORKDIR"/sim[0-9]*/bin; do
+      for cfg_f in "$sim_dir/OpenSim.ini" "$sim_dir/config-include/GridCommon.ini"; do
+        [[ -f "$cfg_f" ]] || continue
+        sed -i "s|YOURHOST|${h_escaped}|g" "$cfg_f"
+      done
+    done
+    shopt -u nullglob
+    log INFO "Hostname ($PUBLIC_HOST) in Konfigurationsdateien eingesetzt"
+  fi
+
+  # Gridname in Konfigurationsdateien setzen
+  if [[ -n "$GRIDNAME" ]]; then
+    local cfg_f
+    for cfg_f in \
+      "$WORKDIR/robust/bin/Robust.ini" \
+      "$WORKDIR/robust/bin/config-include/GridCommon.ini" \
+      "$WORKDIR/standalone/bin/config-include/StandaloneCommon.ini"; do
+      [[ -f "$cfg_f" ]] || continue
+      upsert_key "$cfg_f" "GridName" "\"${GRIDNAME}\""
+      upsert_key "$cfg_f" "WelcomeMessage" "\"Willkommen bei ${GRIDNAME}\""
+    done
+    log INFO "Gridname ($GRIDNAME) in Konfigurationsdateien gesetzt"
+  fi
+
+  log INFO "OpenSim runtime ini Konfiguration abgeschlossen"
 }
 
 sql_escape() {
@@ -550,13 +609,24 @@ configure_database() {
     log INFO "Ensured database: robust"
   fi
 
-  sim_db_list="$(discover_sim_databases)"
+  # Sim-Datenbanken: bei --sim-count N explizit, sonst Verzeichnisse ermitteln
+  local sim_db_list=""
+  if [[ "$SIM_COUNT" -gt 0 ]]; then
+    sim_db_list="$(for ((i=1; i<=SIM_COUNT; i++)); do echo "sim${i}"; done)"
+    log INFO "--sim-count $SIM_COUNT: erstelle Datenbanken sim1..sim${SIM_COUNT}"
+  else
+    sim_db_list="$(discover_sim_databases)"
+    if [[ -z "$sim_db_list" ]]; then
+      log INFO "Keine sim*-Verzeichnisse unter $WORKDIR gefunden — sim-Datenbanken übersprungen. Mit --sim-count N erzwingen."
+    fi
+  fi
+
   if [[ -n "$sim_db_list" ]]; then
     while IFS= read -r db_name; do
       [[ -n "$db_name" ]] || continue
-      db_ident="\`$db_name\`"
+      local db_ident="\`$db_name\`"
       run_mariadb_sql "CREATE DATABASE IF NOT EXISTS $db_ident CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-      log INFO "Ensured database: $db_name"
+      log INFO "Datenbank sichergestellt: $db_name"
     done <<< "$sim_db_list"
   fi
 
@@ -570,7 +640,7 @@ configure_database() {
   if [[ -n "$sim_db_list" ]]; then
     while IFS= read -r db_name; do
       [[ -n "$db_name" ]] || continue
-      db_ident="\`$db_name\`"
+      local db_ident="\`$db_name\`"
       run_mariadb_sql "GRANT ALL PRIVILEGES ON $db_ident.* TO '$escaped_user'@'localhost';"
     done <<< "$sim_db_list"
   fi
@@ -578,7 +648,7 @@ configure_database() {
   run_mariadb_sql "FLUSH PRIVILEGES;"
 
   write_db_credentials_file
-  log INFO "MariaDB database setup completed"
+  log INFO "MariaDB Datenbank-Setup abgeschlossen"
 }
 
 server_check() {
@@ -793,11 +863,37 @@ configure_janus() {
     upsert_key "$http_cfg" "admin_http" "false"
   fi
 
-  local snippet_file
+  local snippet_file secrets_file
   snippet_file="$WORKDIR/opensim-janus-config.generated.ini"
+  secrets_file="$HOME/janus_opensim_secrets.env"
 
   mkdir -p "$WORKDIR" 2>/dev/null || sudo mkdir -p "$WORKDIR"
+
+  # Vollstaendiges OpenSim/Robust-Snippet (entspricht config-janus-linux.sh)
   cat <<EOF | sudo tee "$snippet_file" >/dev/null
+; ==========================================================
+; OpenSim WebRTC/Janus Config  (generiert von osmtool)
+; ==========================================================
+
+; ----------------------------
+; OpenSim.ini  [WebRtcVoice]
+; ----------------------------
+[WebRtcVoice]
+  Enabled = true
+  SpatialVoiceService = WebRtcVoice.dll:WebRtcVoiceServiceConnector
+  NonSpatialVoiceService = WebRtcVoice.dll:WebRtcVoiceServiceConnector
+  WebRtcVoiceServerURI = http://$PUBLIC_HOST:8003
+
+; ----------------------------
+; Robust.ini  [ServiceList] + [WebRtcVoice] + [JanusWebRtcVoice]
+; ----------------------------
+[ServiceList]
+  VoiceServiceConnector = "8000/OpenSim.Server.Handlers.dll:OpenSim.Server.Handlers.WebRtcVoiceServerConnector"
+
+[WebRtcVoice]
+  Enabled = true
+  NonSpatialVoiceService = WebRtcJanusService.dll:WebRtcJanusService
+
 [JanusWebRtcVoice]
   JanusGatewayURI = http://$PUBLIC_HOST:$HTTP_PORT/janus
   APIToken = $api_secret
@@ -814,6 +910,16 @@ EOF
   MessageDetails = false
 EOF
 
+  # Secrets sichern (analog janus_instal.sh)
+  {
+    echo "JANUS_API_SECRET=$api_secret"
+    [[ -n "$admin_secret" ]] && echo "JANUS_ADMIN_SECRET=$admin_secret"
+    echo "JANUS_HTTP_PORT=$HTTP_PORT"
+    echo "JANUS_PUBLIC_HOST=$PUBLIC_HOST"
+  } > "$secrets_file"
+  chmod 600 "$secrets_file"
+  log INFO "Janus Secrets gespeichert: $secrets_file (chmod 600)"
+
   cat <<EOF | sudo tee "$JANUS_PREFIX/.osmtool_janus_ready" >/dev/null
 JANUS_PREFIX=$JANUS_PREFIX
 HTTP_PORT=$HTTP_PORT
@@ -823,7 +929,10 @@ RTP_RANGE=$RTP_RANGE
 PUBLIC_HOST=$PUBLIC_HOST
 EOF
 
-  log INFO "Janus configured. Marker created: $JANUS_PREFIX/.osmtool_janus_ready"
+  log INFO "Janus konfiguriert. Snippet: $snippet_file — Marker: $JANUS_PREFIX/.osmtool_janus_ready"
+  log INFO "Firewall oeffnen: TCP $HTTP_PORT, UDP ${RTP_RANGE%%-*}-${RTP_RANGE##*-}"
+  log INFO "Janus neu starten: sudo systemctl restart janus"
+  log INFO "Snippet-Inhalt in OpenSim.ini und Robust.ini uebernehmen."
 }
 
 prepare_ubuntu() {
@@ -848,19 +957,32 @@ install_opensim() {
   sync_git_repo "$OPENSIM_REPO" "$OPENSIM_DIR" "$OPENSIM_BRANCH" "$REPO_MODE"
   ensure_user_owns_path "$OPENSIM_DIR"
 
+  # Patch-Dateien nur mit Bestaetigung einspielen
   if [[ -n "$LEGACY_PATCH_DIR" ]]; then
-    apply_legacy_patches "$LEGACY_PATCH_DIR"
+    if confirm_addon "Patch-Dateien" "Verzeichnis: $LEGACY_PATCH_DIR"; then
+      apply_legacy_patches "$LEGACY_PATCH_DIR"
+    fi
   fi
 
-  sync_support_repo "opensim-tsassets" "$TSASSETS_REPO" "$TSASSETS_DIR"
-  sync_support_repo "opensimcurrencyserver" "$CURRENCY_REPO" "$CURRENCY_DIR"
-  sync_support_repo "os-data-backup" "$DATA_BACKUP_REPO" "$DATA_BACKUP_DIR"
+  # opensim-tsassets (Texturen/Assets)
+  if confirm_addon "opensim-tsassets" "$TSASSETS_REPO"; then
+    sync_support_repo "opensim-tsassets" "$TSASSETS_REPO" "$TSASSETS_DIR"
+    copy_tree_contents "$TSASSETS_DIR/bin" "$OPENSIM_DIR/bin" "tsassets bin content"
+    copy_tree_contents "$TSASSETS_DIR/OpenSim" "$OPENSIM_DIR/OpenSim" "tsassets OpenSim content"
+  fi
 
-  copy_tree_contents "$TSASSETS_DIR/bin" "$OPENSIM_DIR/bin" "tsassets bin content"
-  copy_tree_contents "$TSASSETS_DIR/OpenSim" "$OPENSIM_DIR/OpenSim" "tsassets OpenSim content"
-  copy_tree_contents "$CURRENCY_DIR/addon-modules" "$OPENSIM_DIR/addon-modules" "currency addon modules"
-  copy_tree_contents "$CURRENCY_DIR/bin" "$OPENSIM_DIR/bin" "currency bin content"
-  copy_tree_contents "$DATA_BACKUP_DIR" "$OPENSIM_DIR/addon-modules/os-data-backup" "os-data-backup content"
+  # opensimcurrencyserver-dotnet (Geldsystem)
+  if confirm_addon "opensimcurrencyserver-dotnet" "$CURRENCY_REPO"; then
+    sync_support_repo "opensimcurrencyserver" "$CURRENCY_REPO" "$CURRENCY_DIR"
+    copy_tree_contents "$CURRENCY_DIR/addon-modules" "$OPENSIM_DIR/addon-modules" "currency addon modules"
+    copy_tree_contents "$CURRENCY_DIR/bin" "$OPENSIM_DIR/bin" "currency bin content"
+  fi
+
+  # os-data-backup
+  if confirm_addon "os-data-backup" "$DATA_BACKUP_REPO"; then
+    sync_support_repo "os-data-backup" "$DATA_BACKUP_REPO" "$DATA_BACKUP_DIR"
+    copy_tree_contents "$DATA_BACKUP_DIR" "$OPENSIM_DIR/addon-modules/os-data-backup" "os-data-backup content"
+  fi
 
   log INFO "Running OpenSim prebuild"
   (
@@ -882,9 +1004,80 @@ install_opensim() {
   log INFO "OpenSim install/build flow completed"
 }
 
+# Allgemeine Bestaetigungsfunktion fuer externe Addons.
+# Umgebungsvariable ADDON_CONFIRMED=true ueberspringt die Abfrage (CI/Automation).
+confirm_addon() {
+  local addon_name="${1:-Addon}"
+  local addon_desc="${2:-}"
+  local answer
+
+  if [[ "${ADDON_CONFIRMED:-}" == "true" ]]; then
+    return 0
+  fi
+
+  echo
+  echo "======================================================="
+  echo "  $(msg PROMPT_EXTERNAL_ADDON): $addon_name"
+  [[ -n "$addon_desc" ]] && echo "  $addon_desc"
+  echo "  $(msg PROMPT_ADDON_INFO_1)"
+  echo "  $(msg PROMPT_ADDON_INFO_2)"
+  echo "======================================================="
+  read -r -p "  $(msg PROMPT_INSTALL_YESNO) " answer
+  case "${answer,,}" in
+    j|ja|y|yes|o|oui|s|si|sí) return 0 ;;
+    *)
+      log INFO "$(msg INFO_ADDON_SKIPPED): $addon_name"
+      return 1
+      ;;
+  esac
+}
+
+confirm_janus() {
+  local action_label="${1:-Janus-Aktion}"
+  local answer
+
+  # Im nicht-interaktiven Betrieb (z. B. CI) Var JANUS_CONFIRMED=true setzen
+  if [[ "${JANUS_CONFIRMED:-}" == "true" ]]; then
+    return 0
+  fi
+
+  echo
+  echo "======================================================="
+  echo "  $(msg PROMPT_JANUS_TITLE): $action_label"
+  echo "======================================================="
+  echo "  $(msg PROMPT_JANUS_INFO_1)"
+  echo "  $(msg PROMPT_JANUS_INFO_2)"
+  echo "  $(msg PROMPT_JANUS_INFO_3) $JANUS_PREFIX."
+  echo "======================================================="
+  read -r -p "  $(msg PROMPT_CONTINUE_YESNO) " answer
+  case "${answer,,}" in
+    j|ja|y|yes|o|oui|s|si|sí) return 0 ;;
+    *)
+      log INFO "$(msg INFO_JANUS_CANCELLED)"
+      exit 0
+      ;;
+  esac
+}
+
 install_janus() {
+  confirm_janus "Installation + Konfiguration"
   compile_janus
   configure_janus
+}
+
+ensure_shared_config_for_install() {
+  if [[ -f "$OSMTOOL_CONFIG_FILE" ]]; then
+    return 0
+  fi
+
+  if [[ -t 0 ]]; then
+    log INFO "Shared configuration not found. Starting interactive setup."
+    init_shared_config_interactive
+    return 0
+  fi
+
+  log INFO "Shared configuration not found at $OSMTOOL_CONFIG_FILE (non-interactive mode)"
+  return 0
 }
 
 WORKDIR="$DEFAULT_WORKDIR"
@@ -893,7 +1086,7 @@ PROFILE="grid-sim"
 REPO_MODE="${REPO_MODE:-update}"
 OPENSIM_REPO="${OPENSIM_REPO:-https://github.com/opensim/opensim.git}"
 OPENSIM_BRANCH="${OPENSIM_BRANCH:-master}"
-OPENSIM_DIR="${OPENSIM_DIR:-$WORKDIR/opensim}"
+OPENSIM_DIR="${OPENSIM_DIR:-${CONFIG_OPENSIM_DIR:-$WORKDIR/opensim}}"
 TSASSETS_REPO="${TSASSETS_REPO:-https://github.com/ManfredAabye/opensim-tsassets.git}"
 TSASSETS_DIR="${TSASSETS_DIR:-$WORKDIR/opensim-tsassets}"
 CURRENCY_REPO="${CURRENCY_REPO:-https://github.com/ManfredAabye/opensimcurrencyserver-dotnet.git}"
@@ -902,19 +1095,21 @@ DATA_BACKUP_REPO="${DATA_BACKUP_REPO:-https://github.com/ManfredAabye/os-data-ba
 DATA_BACKUP_DIR="${DATA_BACKUP_DIR:-$WORKDIR/os-data-backup}"
 DEPLOY_BINARIES="${DEPLOY_BINARIES:-true}"
 LEGACY_PATCH_DIR="${LEGACY_PATCH_DIR:-}"
-DB_ROOT_USER="${DB_ROOT_USER:-root}"
-DB_ROOT_PASS="${DB_ROOT_PASS:-}"
-DB_USER="${DB_USER:-opensimuser}"
-DB_PASS="${DB_PASS:-}"
-JANUS_PREFIX="${JANUS_PREFIX:-/opt/janus}"
+DB_ROOT_USER="${DB_ROOT_USER:-${CONFIG_DB_ROOT_USER:-root}}"
+DB_ROOT_PASS="${DB_ROOT_PASS:-${CONFIG_DB_ROOT_PASS:-}}"
+DB_USER="${DB_USER:-${CONFIG_DB_USER:-opensimuser}}"
+DB_PASS="${DB_PASS:-${CONFIG_DB_PASS:-}}"
+JANUS_PREFIX="${JANUS_PREFIX:-${CONFIG_JANUS_PREFIX:-/opt/janus}}"
 JANUS_SRC="${JANUS_SRC:-$WORKDIR/janus-gateway}"
-PUBLIC_HOST="${PUBLIC_HOST:-127.0.0.1}"
+PUBLIC_HOST="${PUBLIC_HOST:-${CONFIG_PUBLIC_HOST:-127.0.0.1}}"
 HTTP_PORT="${HTTP_PORT:-8088}"
 ADMIN_PORT="${ADMIN_PORT:-7088}"
 RTP_RANGE="${RTP_RANGE:-10000-10200}"
 ENABLE_ADMIN="${ENABLE_ADMIN:-false}"
 API_SECRET="${API_SECRET:-}"
 ADMIN_SECRET="${ADMIN_SECRET:-}"
+GRIDNAME="${GRIDNAME:-${CONFIG_GRIDNAME:-}}"
+SIM_COUNT="${SIM_COUNT:-0}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -942,8 +1137,8 @@ while [[ $# -gt 0 ]]; do
     --rtp-range) RTP_RANGE="$2"; shift 2 ;;
     --enable-admin) ENABLE_ADMIN="$2"; shift 2 ;;
     --api-secret) API_SECRET="$2"; shift 2 ;;
-    --admin-secret) ADMIN_SECRET="$2"; shift 2 ;;
-    --help|-h) usage; exit 0 ;;
+    --admin-secret) ADMIN_SECRET="$2"; shift 2 ;;    --gridname) GRIDNAME="$2"; shift 2 ;;
+    --sim-count) SIM_COUNT="$2"; shift 2 ;;    --help|-h) usage; exit 0 ;;
     *) die "Unknown option: $1" ;;
   esac
 done
@@ -951,6 +1146,10 @@ done
 [[ -n "$ACTION" ]] || die "Missing --action"
 validate_profile "$PROFILE"
 ensure_profile_action_allowed install "$PROFILE" "$ACTION"
+
+if [[ "$ACTION" != "init-config" ]]; then
+  ensure_shared_config_for_install
+fi
 
 case "$REPO_MODE" in
   update|fresh) ;;
@@ -969,6 +1168,9 @@ log INFO "OpenSim dir: $OPENSIM_DIR"
 log INFO "Janus prefix: $JANUS_PREFIX"
 
 case "$ACTION" in
+  init-config)
+    init_shared_config_interactive
+    ;;
   server-check) server_check ;;
   prepare-ubuntu) prepare_ubuntu ;;
   install-opensim-deps) install_opensim_deps ;;
@@ -976,8 +1178,14 @@ case "$ACTION" in
   install-opensim) install_opensim ;;
   configure-opensim) configure_opensim_runtime ;;
   configure-database) configure_database ;;
-  compile-janus) compile_janus ;;
-  configure-janus) configure_janus ;;
+  compile-janus)
+    confirm_janus "Kompilierung"
+    compile_janus
+    ;;
+  configure-janus)
+    confirm_janus "Konfiguration"
+    configure_janus
+    ;;
   install-janus) install_janus ;;
   *) die "Unsupported action: $ACTION" ;;
 esac
