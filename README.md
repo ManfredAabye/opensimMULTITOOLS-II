@@ -199,3 +199,43 @@ Loesung:
 - Version: V26.4.230.588
 - Autor: Manfred Aabye
 - Lizenz: MIT
+
+## Beispiel OpenSimulator Automatisierung
+
+Liste crontabs:
+
+	crontab -l
+
+Editiere crontabs:
+
+	crontab -e
+	
+Beispiel:
+
+	# === OpenSimGrid-Automatisierung ===
+	# Bedeutung: Minute Stunde Tag Monat Jahr Befehlskette
+
+	# Woechentliches OpenSim Regionsbackup jeden Montag um 03:00 Uhr
+	0 2 * * 1 /bin/bash /opt/osmtool.sh autoregionbackup
+
+	# Monatliche Wartung am 1. des Monats
+	30 4 1 * * bash '/opt/osmtool.sh' stop
+	35 4 1 * * bash '/opt/osmtool.sh' cacheclean
+	40 4 1 * * bash '/opt/osmtool.sh' mapclean
+	45 4 1 * * bash '/opt/osmtool.sh' logclean
+	50 4 1 * * bash '/opt/osmtool.sh' reboot
+
+	# Täglicher Restart
+	0 5 * * * bash '/opt/osmtool.sh' restart
+
+	# Überwachung
+	*/15 * * * * bash '/opt/osmtool.sh' check_screens
+
+Save crontabs
+
+	ctrl O
+	Enter
+
+Exit editor
+
+	ctrl X
