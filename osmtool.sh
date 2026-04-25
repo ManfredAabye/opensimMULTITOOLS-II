@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Shellcheck abschalten für bestimmte berreiche.
-#   shellcheck disable=SC2154,SC2317,SC2318,SC2319,SC2320,SC2321,SC2322,SC2323,SC2324,SC2325,SC2326,SC2327,SC2328
-
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Debug in log Datei
 #! ACHTUNG das loggen speichert alles auch vertrauliche Daten.
@@ -475,7 +472,7 @@ function serverinfo() {
     SCRIPTNAME="opensimMULTITOOL II"
 
     # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
-    VERSION="V26.4.231.589"
+    VERSION="V26.4.232.590"
     log "\e[36m$SCRIPTNAME\e[0m $VERSION"
     echo "$(msg INFO_TOOL_PURPOSE)"
     echo "$(msg INFO_USE_OWN_RISK)"
@@ -3462,6 +3459,146 @@ function robustrestore() {
     esac
 
     log "${SYM_OK} ${COLOR_OK}Wiederherstellung erfolgreich abgeschlossen für Bereich: ${COLOR_VALUE}${RESTORE_SCOPE}${COLOR_RESET}"
+}
+
+# robustmergeassets <dbuser> <dbpass> [target_table] [source_like_pattern]
+# dbuser: SQL-Benutzername
+# dbpass: Passwort des SQL-Benutzers
+# target_table: Name der neuen Zieltabelle (Default: assets_merged)
+# source_like_pattern: LIKE-Pattern der Quelltabellen (Default: assets\_%)
+# bash osmtool.sh robustmergeassets <dbuser> <dbpass> [target_table] [source_like_pattern]
+function robustmergeassets() {
+    local DB_USER=$1
+    local DB_PASS=$2
+    local DB_NAME="robust"
+    local TARGET_TABLE=${3:-assets_merged}
+    local SOURCE_PATTERN=${4:-assets\\_%}
+
+    if [[ -z "$DB_USER" || -z "$DB_PASS" ]]; then
+        log "${SYM_BAD} ${COLOR_BAD}Fehler: Aufruf ${COLOR_VALUE}robustmergeassets <dbuser> <dbpass> [target_table] [source_like_pattern]${COLOR_RESET}"
+        return 1
+    fi
+
+    log "${COLOR_HEADING}${SYM_PACKAGE} Starte Asset-Merge in neue Tabelle: ${COLOR_VALUE}${TARGET_TABLE}${COLOR_RESET}"
+    log "${SYM_LOG} Suche Quelltabellen in ${COLOR_VALUE}${DB_NAME}${COLOR_RESET} mit Pattern ${COLOR_VALUE}${SOURCE_PATTERN}${COLOR_RESET}"
+
+    local source_tables
+    source_tables=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e \
+        "SELECT table_name FROM information_schema.tables WHERE table_schema='${DB_NAME}' AND table_name LIKE '${SOURCE_PATTERN}' AND table_name <> '${TARGET_TABLE}' ORDER BY table_name;")
+
+    if [[ -z "$source_tables" ]]; then
+        log "${SYM_BAD} ${COLOR_BAD}Fehler: Keine Quelltabellen für Pattern '${SOURCE_PATTERN}' gefunden.${COLOR_RESET}"
+        return 1
+    fi
+
+    local first_table
+    first_table=$(echo "$source_tables" | head -n1)
+    log "${SYM_INFO} Erste Quelltabelle für Schema-Kopie: ${COLOR_VALUE}${first_table}${COLOR_RESET}"
+
+    mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "DROP TABLE IF EXISTS \`${TARGET_TABLE}\`; CREATE TABLE \`${TARGET_TABLE}\` LIKE \`${first_table}\`;"
+
+    local merged_rows=0
+    local table_rows
+    local table_name
+
+    while IFS= read -r table_name; do
+        [[ -z "$table_name" ]] && continue
+        table_rows=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SELECT COUNT(*) FROM \`${table_name}\`;" "$DB_NAME")
+        log "${SYM_FILE} Merge ${COLOR_LABEL}${table_name}${COLOR_RESET} (${table_rows} Zeilen) ${COLOR_ACTION}-> ${COLOR_LABEL}${TARGET_TABLE}${COLOR_RESET}"
+        mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "INSERT IGNORE INTO \`${TARGET_TABLE}\` SELECT * FROM \`${table_name}\`;"
+        ((merged_rows += table_rows))
+    done <<< "$source_tables"
+
+    local final_rows
+    final_rows=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SELECT COUNT(*) FROM \`${TARGET_TABLE}\`;" "$DB_NAME")
+
+    log "${SYM_OK} ${COLOR_OK}Asset-Merge abgeschlossen.${COLOR_RESET}"
+    log "${SYM_LOG} Quellzeilen gesamt: ${COLOR_VALUE}${merged_rows}${COLOR_RESET}, Zielzeilen in ${COLOR_VALUE}${TARGET_TABLE}${COLOR_RESET}: ${COLOR_VALUE}${final_rows}${COLOR_RESET}"
+    log "${SYM_WARNING} Hinweis: Verwendet wurde ${COLOR_VALUE}INSERT IGNORE${COLOR_RESET}; doppelte Schluessel wurden uebersprungen."
+}
+
+# robustmergeassetdir <dbuser> <dbpass> <asset_dir> [target_table] [db_name]
+# dbuser: SQL-Benutzername
+# dbpass: Passwort des SQL-Benutzers
+# asset_dir: Verzeichnis mit Dateien im Schema assets_*.sql.gz
+# target_table: Name der neuen Zieltabelle (Default: assets2)
+# db_name: Name der Datenbank (Default: robust)
+function robustmergeassetdir() {
+    local DB_USER=$1
+    local DB_PASS=$2
+    local ASSET_DIR=$3
+    local TARGET_TABLE=${4:-assets2}
+    local DB_NAME=${5:-robust}
+
+    if [[ -z "$DB_USER" || -z "$DB_PASS" || -z "$ASSET_DIR" ]]; then
+        log "${SYM_BAD} ${COLOR_BAD}Fehler: Aufruf ${COLOR_VALUE}robustmergeassetdir <dbuser> <dbpass> <asset_dir> [target_table] [db_name]${COLOR_RESET}"
+        return 1
+    fi
+
+    if [[ ! -d "$ASSET_DIR" ]]; then
+        log "${SYM_BAD} ${COLOR_BAD}Fehler: Verzeichnis nicht gefunden: ${COLOR_FILE}${ASSET_DIR}${COLOR_RESET}"
+        return 1
+    fi
+
+    if [[ ! "$TARGET_TABLE" =~ ^[A-Za-z0-9_]+$ ]]; then
+        log "${SYM_BAD} ${COLOR_BAD}Fehler: Ungueltiger Tabellenname: ${COLOR_VALUE}${TARGET_TABLE}${COLOR_RESET}"
+        return 1
+    fi
+
+    if [[ ! "$DB_NAME" =~ ^[A-Za-z0-9_]+$ ]]; then
+        log "${SYM_BAD} ${COLOR_BAD}Fehler: Ungueltiger Datenbankname: ${COLOR_VALUE}${DB_NAME}${COLOR_RESET}"
+        return 1
+    fi
+
+    local -a ASSET_FILES
+    mapfile -t ASSET_FILES < <(find "$ASSET_DIR" -maxdepth 1 -type f -name 'assets_*.sql.gz' | sort)
+
+    if [[ ${#ASSET_FILES[@]} -eq 0 ]]; then
+        log "${SYM_BAD} ${COLOR_BAD}Fehler: Keine Dateien im Muster ${COLOR_VALUE}assets_*.sql.gz${COLOR_BAD} in ${COLOR_FILE}${ASSET_DIR}${COLOR_RESET} gefunden."
+        return 1
+    fi
+
+    log "${COLOR_HEADING}${SYM_PACKAGE} Starte Dateimarge in ${COLOR_VALUE}${DB_NAME}.${TARGET_TABLE}${COLOR_RESET}"
+    log "${SYM_LOG} Gefundene Asset-Dumps: ${COLOR_VALUE}${#ASSET_FILES[@]}${COLOR_RESET}"
+
+    local assets_exists
+    assets_exists=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e \
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}' AND table_name='assets';")
+
+    local start_index=0
+    if [[ "$assets_exists" -gt 0 ]]; then
+        log "${SYM_INFO} Erzeuge ${COLOR_VALUE}${TARGET_TABLE}${COLOR_RESET} per ${COLOR_VALUE}CREATE TABLE LIKE assets${COLOR_RESET}"
+        mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e \
+            "DROP TABLE IF EXISTS \`${TARGET_TABLE}\`; CREATE TABLE \`${TARGET_TABLE}\` LIKE \`assets\`;"
+    else
+        log "${SYM_INFO} Tabelle ${COLOR_VALUE}assets${COLOR_RESET} nicht vorhanden - nutze ersten Dump fuer Schema + Daten"
+        if ! gunzip -c "${ASSET_FILES[0]}" | sed "s/\`assets\`/\`${TARGET_TABLE}\`/g" | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"; then
+            log "${SYM_BAD} ${COLOR_BAD}Fehler beim Initialimport aus: ${COLOR_FILE}${ASSET_FILES[0]}${COLOR_RESET}"
+            return 1
+        fi
+        start_index=1
+    fi
+
+    local file
+    local final_rows
+    for ((i=start_index; i<${#ASSET_FILES[@]}; i++)); do
+        file="${ASSET_FILES[$i]}"
+        log "${SYM_FILE} Importiere ${COLOR_FILE}$(basename "$file")${COLOR_RESET} -> ${COLOR_LABEL}${TARGET_TABLE}${COLOR_RESET}"
+
+        if ! gunzip -c "$file" | awk -v target_table="$TARGET_TABLE" '
+            /^INSERT INTO `assets`/ {
+                sub(/^INSERT INTO `assets`/, "INSERT IGNORE INTO `" target_table "`")
+                print
+            }
+        ' | mysql -u"$DB_USER" -p"$DB_PASS" "$DB_NAME"; then
+            log "${SYM_BAD} ${COLOR_BAD}Fehler beim Import von: ${COLOR_FILE}${file}${COLOR_RESET}"
+            return 1
+        fi
+    done
+
+    final_rows=$(mysql -u"$DB_USER" -p"$DB_PASS" -N -e "SELECT COUNT(*) FROM \`${TARGET_TABLE}\`;" "$DB_NAME")
+    log "${SYM_OK} ${COLOR_OK}Merge abgeschlossen. ${COLOR_VALUE}${DB_NAME}.${TARGET_TABLE}${COLOR_RESET} enthaelt ${COLOR_VALUE}${final_rows}${COLOR_RESET} Zeilen."
+    log "${SYM_WARNING} Hinweis: Es wird ${COLOR_VALUE}INSERT IGNORE${COLOR_RESET} verwendet; doppelte Schluessel werden uebersprungen."
 }
 
 # todo: Testen, ob alles funktioniert.
@@ -6936,6 +7073,8 @@ case $KOMMANDO in
     regionbackup)                   regionbackup ;;
     robustbackup)                   robustbackup ;;
     robustrestore)                  robustrestore "$2" "$3" "$4" ;;
+    robustmergeassets)              robustmergeassets "$2" "$3" "$4" "$5" ;;
+    robustmergeassetdir)            robustmergeassetdir "$2" "$3" "$4" "$5" "$6" ;;
     robustrepair)                   robustrepair "$2" "$3" "$4" ;;
     restoreRobustDump)              restoreRobustDump "$2" "$3" "$4" "$5" ;;
     rootrights)                     rootrights ;;
