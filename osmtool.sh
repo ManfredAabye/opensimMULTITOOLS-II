@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Shellcheck abschalten für bestimmte berreiche.
+#   shellcheck disable=SC2154,SC2317,SC2318,SC2319,SC2320,SC2321,SC2322,SC2323,SC2324,SC2325,SC2326,SC2327,SC2328
+
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Debug in log Datei
 #! ACHTUNG das loggen speichert alles auch vertrauliche Daten.
@@ -250,6 +253,7 @@ function load_lang_file() {
     [[ -f "$lang_file" ]] || return 1
 
     while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"  # Windows-Zeilenenden (\r\n) entfernen
         [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
         [[ "$line" == *=* ]] || continue
         key="${line%%=*}"
@@ -341,21 +345,11 @@ init_i18n
 #* Informationen Kopfzeile
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
-# Quelle:
-# https://github.com/ManfredAabye/opensimMULTITOOLS-II/blob/main/osmtool.sh
-
-tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
-SCRIPTNAME="opensimMULTITOOL II"
-
 #testmodus=1 # Testmodus: 1=aktiviert, 0=deaktiviert
 
-# Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
-VERSION="V26.4.230.588"
-log "\e[36m$SCRIPTNAME\e[0m $VERSION"
-echo "$(msg INFO_TOOL_PURPOSE)"
-echo "$(msg INFO_USE_OWN_RISK)"
-log "\e[33m$(msg INFO_ABORT_HINT)\e[0m"
-echo " "
+
+
+
 
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Variablen setzen
@@ -470,9 +464,56 @@ function blankline() {
 #* Hauptpfad des Skripts automatisch setzen
 cd "$WORK_DIR" || exit 1
 system_ip=$(hostname -I | awk '{print $1}')
-log "${COLOR_LABEL}$(msg INFO_WORKDIR)${COLOR_RESET} ${COLOR_VALUE}$WORK_DIR${COLOR_RESET}"
-log "${COLOR_LABEL}$(msg INFO_SYSTEM_IP)${COLOR_RESET} ${COLOR_VALUE}$system_ip${COLOR_RESET}"
-blankline
+# log "${COLOR_LABEL}$(msg INFO_WORKDIR)${COLOR_RESET} ${COLOR_VALUE}$WORK_DIR${COLOR_RESET}"
+# log "${COLOR_LABEL}$(msg INFO_SYSTEM_IP)${COLOR_RESET} ${COLOR_VALUE}$system_ip${COLOR_RESET}"
+# blankline
+
+# shellcheck disable=SC2005
+function serverinfo() {    
+    tput reset # Bildschirmausgabe loeschen inklusive dem Scrollbereich.
+    blankline
+    SCRIPTNAME="opensimMULTITOOL II"
+
+    # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
+    VERSION="V26.4.231.589"
+    log "\e[36m$SCRIPTNAME\e[0m $VERSION"
+    echo "$(msg INFO_TOOL_PURPOSE)"
+    echo "$(msg INFO_USE_OWN_RISK)"
+    log "\e[33m$(msg INFO_ABORT_HINT)\e[0m"
+    echo " "
+
+    # Betriebssystem
+    if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        log "${COLOR_LABEL}Betriebssystem:${COLOR_RESET} ${COLOR_SERVER}$NAME $VERSION${COLOR_RESET}"
+    else
+        log "${COLOR_LABEL}Betriebssystem:${COLOR_RESET} ${COLOR_SERVER}Unbekannt${COLOR_RESET}"
+    fi
+    # CPU-Architektur
+    arch=$(uname -m)
+    log "${COLOR_LABEL}CPU-Architektur:${COLOR_RESET} ${COLOR_SERVER}$arch${COLOR_RESET}"
+    # Hostname
+    hostname=$(hostname)
+    log "${COLOR_LABEL}Hostname:${COLOR_RESET} ${COLOR_SERVER}$hostname${COLOR_RESET}"
+    # IP-Adresse
+    ip_address=$(hostname -I | awk '{print $1}')
+    log "${COLOR_LABEL}IP-Adresse:${COLOR_RESET} ${COLOR_SERVER}$ip_address${COLOR_RESET}"
+    # RAM-Verfügbarkeit
+    if command -v free >/dev/null 2>&1; then
+        total_ram=$(free -h | awk '/^Mem:/ {print $2}')
+        log "${COLOR_LABEL}Gesamter RAM:${COLOR_RESET} ${COLOR_SERVER}$total_ram${COLOR_RESET}"
+    fi
+    # Festplattenplatz
+    if command -v df >/dev/null 2>&1; then
+        disk_usage=$(df -h / | awk 'NR==2 {print $4 " frei von " $2}')
+        log "${COLOR_LABEL}Festplattenplatz:${COLOR_RESET} ${COLOR_SERVER}$disk_usage${COLOR_RESET}"
+    fi
+    blankline
+}
+
+# Kopfzeile mit Skriptname und Version anzeigen.
+serverinfo
 
 #* Rootrechte erforderlich
 function rootrights() {
@@ -499,7 +540,7 @@ function rootrights() {
     fi
 }
 
-
+# shellcheck disable=SC2005
 #* Soll im Hypergrid Modus gearbeitet werden oder in einem Geschlossenen Grid?
 function hypergrid() {
     local modus="$1"
@@ -1142,7 +1183,7 @@ function standalonestop() {
     fi
     blankline
 }
-
+# shellcheck disable=SC2086
 # Standalone-Service-Neustart (ohne Logbereinigung)
 function standalonerestart() {
     standalonestop
@@ -1283,6 +1324,7 @@ function simrestart() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 #* OpenSim starten (robust → money → sim1 bis sim999)
+# shellcheck disable=SC2086
 function opensimstart() {
     log "${SYM_WAIT} ${COLOR_START}Starte das Grid!${COLOR_RESET}"
     
@@ -1378,6 +1420,7 @@ function opensimstartParallel() {
 }
 
 #* OpenSim stoppen (sim999 bis sim1 → money → robust)
+# shellcheck disable=SC2086
 function opensimstop() {
     log "${SYM_WAIT} ${COLOR_STOP}Stoppe das Grid!${COLOR_RESET}"
 
@@ -1413,6 +1456,7 @@ function opensimstop() {
 }
 
 # Das parallele Stoppen in der Reihenfolge sim999 → sim2 parallel, dann sim1 → MoneyServer → RobustServer
+# shellcheck disable=SC2086
 function opensimstopParallel() {
     log "${SYM_WAIT} ${COLOR_STOP}Stoppe das Grid!${COLOR_RESET}"
     local MAX_PARALLEL=10  # Maximale parallele Stopp-Vorgänge
@@ -1468,6 +1512,7 @@ function opensimstopParallel() {
 }
 
 # check_screens ist eine Grid Funktion und funktioniert nicht im Standalone.
+# shellcheck disable=SC2086
 function check_screens() {
     # echo "Überprüfung der laufenden OpenSim-Prozesse..."
 
@@ -2581,7 +2626,7 @@ function database_setup() {
     log "${COLOR_OK} Datenbank Setup abgeschlossen!${COLOR_RESET}"
 }
 
-
+# shellcheck disable=SC2086
 function createmasteruser() {
     # 02.05.2025 Master Avatar MasterAvatar
 
@@ -3072,7 +3117,7 @@ calculate_relative_time() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 #* Backup und Upgrade des OpenSimulators Grids
 #?──────────────────────────────────────────────────────────────────────────────────────────
-
+# shellcheck disable=SC2086
 function opensimupgrade() {
     log "\n${COLOR_WARNING}${SYM_WARNING} Der OpenSimulator muss zuerst im Verzeichnis 'opensim' vorliegen!${COLOR_RESET}"
     log "${COLOR_LABEL}Möchten Sie den OpenSimulator aktualisieren? (${COLOR_BAD}[no]${COLOR_LABEL}/yes)${COLOR_RESET}"
@@ -6054,6 +6099,7 @@ function clean_config() {
 }
 
 # cleanall - Removes OpenSim completely
+# shellcheck disable=SC2005
 function cleanall() {
     echo "$(msg CLEANALL_PROMPT_REMOVE_ALL)"
     read -r answer
@@ -6091,6 +6137,7 @@ function cleanall() {
 #?──────────────────────────────────────────────────────────────────────────────────────────
 
 # Kompletter OpenSim-Neustart mit Logrotation
+# shellcheck disable=SC2086
 function opensimrestart() {
     opensimstop
     sleep $Simulator_Stop_wait  # Wartezeit für Dienst-Stopp
@@ -6102,6 +6149,7 @@ function opensimrestart() {
 }
 
 # Kompletter OpenSim-Neustart mit Logrotation
+# shellcheck disable=SC2086
 function opensimrestartParallel() {
     opensimstopParallel
     sleep $Simulator_Stop_wait  # Wartezeit für Dienst-Stopp
@@ -6113,6 +6161,7 @@ function opensimrestartParallel() {
 }
 
 # Server-Reboot mit Vorbereitung
+# shellcheck disable=SC2086
 function reboot() {
     log "\033[1;33m🔥 Server-Neustart wird eingeleitet...\033[0m"
 
@@ -6145,6 +6194,7 @@ function webinstall() {
     fi
 }
 
+# shellcheck disable=SC2086
 function autoinstall() {
     # 06.05.2025
 
