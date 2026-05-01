@@ -11,9 +11,9 @@ init_i18n
 usage() {
   cat <<'EOF'
 Usage:
-  osmtool_main.sh [--mode <cli|ui>] [--lang <de|en|fr|es>] [--profile <grid-sim|robust|standalone>] --module <install|startstop|cleanup|health|backup|restore|update|config|report|smoke|cron> [module-options]
+  osmtool_main.sh [--mode <cli|ui>] [--lang <de|en|fr|es>] [--profile <grid-sim|robust|standalone>] --module <install|startstop|cleanup|health|backup|restore|update|config|report|smoke|cron|estate> [module-options]
   osmtool_main.sh server_install
-  osmtool_main.sh <configinit|install-grid-sim|opensimstart|opensimstop|opensimrestart|healthcheck|smoketest|dailyreport|croninstall|cronlist|janusinstall|janusrestart|dbsetup|dbbackup>
+  osmtool_main.sh <configinit|install-grid-sim|opensimstart|opensimstop|opensimrestart|healthcheck|smoketest|dailyreport|croninstall|cronlist|janusinstall|janusrestart|dbsetup|dbbackup|firststart|createmasteruser|createmasterestate|createmasterestateall>
 
 Examples:
   osmtool_main.sh install-grid-sim
@@ -22,6 +22,8 @@ Examples:
   osmtool_main.sh opensimrestart
   osmtool_main.sh croninstall
   osmtool_main.sh dbbackup
+  osmtool_main.sh firststart
+  osmtool_main.sh createmasterestateall
   osmtool_main.sh --module install --action prepare-ubuntu
   osmtool_main.sh --module startstop --target grid --action restart --workdir /opt
   osmtool_main.sh --module cleanup --action log-clean --workdir /opt
@@ -72,6 +74,9 @@ dispatch_module() {
     cron)
       bash "$MOD_DIR/osmtool_cron.sh" --profile "$PROFILE" "$@"
       ;;
+    estate)
+      bash "$MOD_DIR/osmtool_estate.sh" --profile "$PROFILE" "$@"
+      ;;
     restore)
       bash "$MOD_DIR/osmtool_restore.sh" --profile "$PROFILE" "$@"
       ;;
@@ -121,7 +126,8 @@ ui_flow() {
     "config" "$(msg MENU_CONFIG)" \
     "report" "$(msg MENU_REPORT)" \
     "smoke" "$(msg MENU_SMOKE)" \
-    "cron" "$(msg MENU_CRON)")"
+    "cron" "$(msg MENU_CRON)" \
+    "estate" "$(msg MENU_ESTATE)")"
 
   case "$module" in
     install)
@@ -221,6 +227,14 @@ ui_flow() {
         "remove" "$(msg ACTION_CRON_REMOVE)")"
       dispatch_module cron --action "$action"
       ;;
+    estate)
+      action="$(show_menu "$(msg MENU_ESTATE)" "$(msg MENU_CHOOSE_ACTION)" \
+        "firststart" "$(msg ACTION_FIRSTSTART)" \
+        "createmasteruser" "$(msg ACTION_CREATE_MASTER_USER)" \
+        "createmasterestate" "$(msg ACTION_CREATE_MASTER_ESTATE)" \
+        "createmasterestateall" "$(msg ACTION_CREATE_MASTER_ESTATE_ALL)")"
+      dispatch_module estate --action "$action" --workdir "$DEFAULT_WORKDIR"
+      ;;
     *)
       die "$(msg ERR_UNKNOWN_UI_MODULE): $module"
       ;;
@@ -300,6 +314,13 @@ if [[ "${1:-}" == "install-grid-sim" ]]; then
     --db-user "$_db_user" --db-pass "$_db_pass" \
     ${_hostname:+--public-host "$_hostname"} \
     ${_gridname:+--gridname "$_gridname"}
+  exit 0
+fi
+
+if [[ "${1:-}" == "firststart" || "${1:-}" == "createmasteruser" || "${1:-}" == "createmasterestate" || "${1:-}" == "createmasterestateall" ]]; then
+  set_language "$LANG_OVERRIDE"
+  validate_profile "$PROFILE"
+  dispatch_module estate --action "${1:-}" --workdir "$DEFAULT_WORKDIR"
   exit 0
 fi
 
