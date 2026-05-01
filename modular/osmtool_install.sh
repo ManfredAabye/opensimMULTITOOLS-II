@@ -290,7 +290,7 @@ install_dotnet8() {
   fi
 
   die "dotnet SDK 8.x installation failed"
-}
+} 
 
 install_opensim_deps() {
   local tokens=(
