@@ -1,0 +1,23 @@
+# Alle Textdateien mit LF normalisieren
+* text=auto eol=lf
+
+# Shell-Skripte explizit auf LF erzwingen
+*.sh text eol=lf
+
+# Konfigurationsdateien
+*.json text eol=lf
+*.md text eol=lf
+*.lang text eol=lf
+*.php text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+
+# Binärdateien unverändert lassen
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.gz binary
+*.tar binary
