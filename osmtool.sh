@@ -472,7 +472,7 @@ function serverinfo() {
     SCRIPTNAME="opensimMULTITOOL II"
 
     # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
-    VERSION="V26.4.232.591"
+    VERSION="V26.4.232.591" 
     log "\e[36m$SCRIPTNAME\e[0m $VERSION"
     echo "$(msg INFO_TOOL_PURPOSE)"
     echo "$(msg INFO_USE_OWN_RISK)"
