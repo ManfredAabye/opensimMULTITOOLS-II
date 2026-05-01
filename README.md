@@ -244,8 +244,8 @@ Exit editor
 
 Test Ubuntu 22.04, 24.04, 26.04 erfolgreich.
 
-## Todo
+CRLF -> LF über gitattributes eingestellt.
 
-CRLF -> LF über gitattributes einstellen. OK
+## Todo
 
 Für die Regionen werden keine Besitzer und Estate angelegt diese müssen für jeden Simulator einzeln angelegt werden.
