@@ -1,4 +1,4 @@
-# opensimMULTITOOL II V26.4.230.588
+# opensimMULTITOOL II V26.4.232.591
 
 Diese README ist fuer Einsteiger geschrieben.
 
@@ -239,13 +239,3 @@ Save crontabs
 Exit editor
 
 	ctrl X
-
-## Stand
-
-Test Ubuntu 22.04, 24.04, 26.04 erfolgreich.
-
-CRLF -> LF über gitattributes eingestellt.
-
-## Todo
-
-Für die Regionen werden keine Besitzer und Estate angelegt diese müssen für jeden Simulator einzeln angelegt werden.
