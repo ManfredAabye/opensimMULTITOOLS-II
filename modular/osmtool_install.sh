@@ -269,6 +269,12 @@ install_dotnet8() {
     pkg_url="https://packages.microsoft.com/config/ubuntu/${version_id}/packages-microsoft-prod.deb"
     pkg_file="/tmp/packages-microsoft-prod.deb"
 
+    # Ubuntu 26.04: Microsoft bietet noch kein eigenes Repo an; 24.04 (noble) ist kompatibel
+    if [[ "$version_id" == "26.04" ]]; then
+      log INFO "Ubuntu 26.04 erkannt – verwende Microsoft-Repo fuer Ubuntu 24.04 (noble)"
+      pkg_url="https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb"
+    fi
+
     log INFO "Adding Microsoft package repository for Ubuntu ${version_id}"
     wget -q -O "$pkg_file" "$pkg_url"
     sudo dpkg -i "$pkg_file"

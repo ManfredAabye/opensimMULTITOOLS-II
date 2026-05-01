@@ -290,6 +290,9 @@ profile_action_allowed() {
     smoke:grid-sim|smoke:robust|smoke:standalone)
       case "$action" in run) return 0 ;; esac
       ;;
+    estate:grid-sim)
+      case "$action" in createmasteruser|createmasterestate|createmasterestateall|firststart) return 0 ;; esac
+      ;;
   esac
 
   return 1
