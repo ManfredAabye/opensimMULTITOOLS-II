@@ -239,3 +239,13 @@ Save crontabs
 Exit editor
 
 	ctrl X
+
+## Stand
+
+Test Ubuntu 22.04, 24.04, 26.04 erfolgreich.
+
+## Todo
+
+CRLF -> LF über gitattributes einstellen. OK
+
+Für die Regionen werden keine Besitzer und Estate angelegt diese müssen für jeden Simulator einzeln angelegt werden.
