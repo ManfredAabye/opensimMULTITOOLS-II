@@ -687,6 +687,9 @@ function install_dotnet() {
             elif [[ "$os_version" == "24.04" ]]; then
                 required_dotnet=${dotnet_pkg[$os_id]}
                 log "${SYM_INFO} Ubuntu 24.04 verwendet das .NET Repository für 22.04 (jammy)"
+            elif [[ "$os_version" == "26.04" ]]; then
+                required_dotnet=${dotnet_pkg[$os_id]}
+                log "${SYM_INFO} Ubuntu 26.04 (Noble+) wird mit dotnet-sdk-8.0 unterstützt"
             elif dpkg --compare-versions "$os_version" ge "20.04"; then
                 required_dotnet=${dotnet_pkg[$os_id]}
             else
@@ -778,7 +781,15 @@ function add_microsoft_repo() {
         log "${SYM_INFO} Füge Microsoft-Repository hinzu..."
         
         # Download & Install mit Fehlerabfrage
-        if ! wget -qO packages-microsoft-prod.deb "https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb"; then
+        # Repo-URL je nach Ubuntu-Version wählen
+        local _repo_ver="22.04"
+        if [[ "${os_version:-}" == "24.04" ]]; then
+            _repo_ver="24.04"
+        elif [[ "${os_version:-}" == "26.04" ]]; then
+            _repo_ver="24.04"  # Microsoft stellt für 26.04 noch kein eigenes Repo bereit; 24.04 (noble) ist kompatibel
+        fi
+
+        if ! wget -qO packages-microsoft-prod.deb "https://packages.microsoft.com/config/ubuntu/${_repo_ver}/packages-microsoft-prod.deb"; then
             log "${SYM_BAD} Download des Microsoft-Repos fehlgeschlagen!"
             return 1
         fi
@@ -856,10 +867,13 @@ function servercheck() {
             required_dotnet="dotnet-sdk-6.0"
         elif dpkg --compare-versions "$os_version" ge "20.04"; then
             required_dotnet=${dotnet_pkg[$os_id]}
-            
+
             # Spezialfall Ubuntu 24.04 (verwendet jammy Repository)
             if [[ "$os_version" == "24.04" ]]; then
                 log "${SYM_INFO} Ubuntu 24.04 verwendet das .NET Repository für Ubuntu 22.04 (jammy)"
+            # Spezialfall Ubuntu 26.04 (verwendet noble/24.04 Repo, dotnet-sdk-8.0 bleibt gültig)
+            elif [[ "$os_version" == "26.04" ]]; then
+                log "${SYM_INFO} Ubuntu 26.04 (Noble+) wird mit dotnet-sdk-8.0 unterstützt"
             fi
         else
             log "${SYM_BAD} ${COLOR_WARNING}Nicht unterstützte Ubuntu-Version: $os_version!${COLOR_RESET}"
@@ -907,7 +921,13 @@ function servercheck() {
             # Microsoft Repository hinzufügen für Debian/Ubuntu-basierte Systeme
             if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" || "$os_id" == "linuxmint" || "$os_id" == "pop_os" || "$os_id" == "raspbian" ]]; then
                 log "${SYM_INFO} Füge Microsoft Repository hinzu..."
-                wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+                local _sc_repo_ver="22.04"
+                if [[ "${os_version:-}" == "24.04" ]]; then
+                    _sc_repo_ver="24.04"
+                elif [[ "${os_version:-}" == "26.04" ]]; then
+                    _sc_repo_ver="24.04"  # 26.04 noch nicht im MS-Repo; 24.04 (noble) ist kompatibel
+                fi
+                wget "https://packages.microsoft.com/config/ubuntu/${_sc_repo_ver}/packages-microsoft-prod.deb" -O packages-microsoft-prod.deb
                 sudo dpkg -i packages-microsoft-prod.deb
                 rm packages-microsoft-prod.deb
                 sudo apt-get update
