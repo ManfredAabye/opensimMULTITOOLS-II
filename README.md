@@ -1,5 +1,7 @@
 # opensimMULTITOOL II V26.4.232.591
 
+<img src="https://raw.githubusercontent.com/ManfredAabye/opensimMULTITOOLS-II/refs/heads/main/opensimMULTITOOLS-II-Logo.png" alt="Project Badge" width="500">
+
 Diese README ist fuer Einsteiger geschrieben.
 
 Wenn du noch nie mit OpenSim oder Bash gearbeitet hast, starte mit den Schritten in diesem Dokument von oben nach unten.
