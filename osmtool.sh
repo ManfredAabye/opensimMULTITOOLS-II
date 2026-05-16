@@ -472,7 +472,7 @@ function serverinfo() {
     SCRIPTNAME="opensimMULTITOOL II"
 
     # Versionsnummer besteht aus: Jahr.Monat.Funktionsanzahl.Eigentliche_Versionsnummer
-    VERSION="V26.4.232.591" 
+    VERSION="V26.5.232.591"
     log "\e[36m$SCRIPTNAME\e[0m $VERSION"
     echo "$(msg INFO_TOOL_PURPOSE)"
     echo "$(msg INFO_USE_OWN_RISK)"
@@ -687,9 +687,6 @@ function install_dotnet() {
             elif [[ "$os_version" == "24.04" ]]; then
                 required_dotnet=${dotnet_pkg[$os_id]}
                 log "${SYM_INFO} Ubuntu 24.04 verwendet das .NET Repository für 22.04 (jammy)"
-            elif [[ "$os_version" == "26.04" ]]; then
-                required_dotnet=${dotnet_pkg[$os_id]}
-                log "${SYM_INFO} Ubuntu 26.04 (Noble+) wird mit dotnet-sdk-8.0 unterstützt"
             elif dpkg --compare-versions "$os_version" ge "20.04"; then
                 required_dotnet=${dotnet_pkg[$os_id]}
             else
@@ -781,15 +778,7 @@ function add_microsoft_repo() {
         log "${SYM_INFO} Füge Microsoft-Repository hinzu..."
         
         # Download & Install mit Fehlerabfrage
-        # Repo-URL je nach Ubuntu-Version wählen
-        local _repo_ver="22.04"
-        if [[ "${os_version:-}" == "24.04" ]]; then
-            _repo_ver="24.04"
-        elif [[ "${os_version:-}" == "26.04" ]]; then
-            _repo_ver="24.04"  # Microsoft stellt für 26.04 noch kein eigenes Repo bereit; 24.04 (noble) ist kompatibel
-        fi
-
-        if ! wget -qO packages-microsoft-prod.deb "https://packages.microsoft.com/config/ubuntu/${_repo_ver}/packages-microsoft-prod.deb"; then
+        if ! wget -qO packages-microsoft-prod.deb "https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb"; then
             log "${SYM_BAD} Download des Microsoft-Repos fehlgeschlagen!"
             return 1
         fi
@@ -867,13 +856,10 @@ function servercheck() {
             required_dotnet="dotnet-sdk-6.0"
         elif dpkg --compare-versions "$os_version" ge "20.04"; then
             required_dotnet=${dotnet_pkg[$os_id]}
-
+            
             # Spezialfall Ubuntu 24.04 (verwendet jammy Repository)
             if [[ "$os_version" == "24.04" ]]; then
                 log "${SYM_INFO} Ubuntu 24.04 verwendet das .NET Repository für Ubuntu 22.04 (jammy)"
-            # Spezialfall Ubuntu 26.04 (verwendet noble/24.04 Repo, dotnet-sdk-8.0 bleibt gültig)
-            elif [[ "$os_version" == "26.04" ]]; then
-                log "${SYM_INFO} Ubuntu 26.04 (Noble+) wird mit dotnet-sdk-8.0 unterstützt"
             fi
         else
             log "${SYM_BAD} ${COLOR_WARNING}Nicht unterstützte Ubuntu-Version: $os_version!${COLOR_RESET}"
@@ -921,13 +907,7 @@ function servercheck() {
             # Microsoft Repository hinzufügen für Debian/Ubuntu-basierte Systeme
             if [[ "$os_id" == "ubuntu" || "$os_id" == "debian" || "$os_id" == "linuxmint" || "$os_id" == "pop_os" || "$os_id" == "raspbian" ]]; then
                 log "${SYM_INFO} Füge Microsoft Repository hinzu..."
-                local _sc_repo_ver="22.04"
-                if [[ "${os_version:-}" == "24.04" ]]; then
-                    _sc_repo_ver="24.04"
-                elif [[ "${os_version:-}" == "26.04" ]]; then
-                    _sc_repo_ver="24.04"  # 26.04 noch nicht im MS-Repo; 24.04 (noble) ist kompatibel
-                fi
-                wget "https://packages.microsoft.com/config/ubuntu/${_sc_repo_ver}/packages-microsoft-prod.deb" -O packages-microsoft-prod.deb
+                wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
                 sudo dpkg -i packages-microsoft-prod.deb
                 rm packages-microsoft-prod.deb
                 sudo apt-get update
@@ -2881,57 +2861,19 @@ function createmasterestateall() {
         return 1
     fi
 
-    # 2. Starte jeden Simulator und bestätige Estate direkt danach
-    log "${COLOR_ACTION}Starte Simulator-Instanzen und bestätige Estate...${COLOR_RESET}"
+    # 2. Starte alle Simulatoren
+    log "${COLOR_ACTION}Starte Simulator-Instanzen...${COLOR_RESET}"
     local started_sims=0
-
+    
     for ((i=2; i<=999; i++)); do
-        sim_dir="${SCRIPT_DIR}/sim$i/bin"
+        sim_dir="sim$i/bin"        
         if [[ -d "$sim_dir" && -f "$sim_dir/OpenSim.dll" ]]; then
             echo -n -e "${SYM_INFO} ${COLOR_DIR}sim$i: ${COLOR_RESET}"
-
+            
             if cd "$sim_dir" && screen -fa -S "sim$i" -d -U -m dotnet OpenSim.dll; then
                 log "${COLOR_OK}gestartet${COLOR_RESET}"
                 ((started_sims++))
-
-                # Warten bis der Simulator den Estate-Prompt anzeigt
-                log "${COLOR_INFO}Warte ${Simulator_Start_wait:-30}s auf Estate-Prompt für sim$i...${COLOR_RESET}"
-                sleep "${Simulator_Start_wait:-30}"
-
-                # Estate-Bestätigung für alle Regionen dieses Simulators
-                regions_dir="${sim_dir}/Regions"
-                if [[ -d "$regions_dir" ]]; then
-                    region_count=$(find "$regions_dir" -maxdepth 1 -name "*.ini" | wc -l)
-                    log "${SYM_INFO} ${COLOR_DIR}sim$i: ${region_count} Region(en) gefunden${COLOR_RESET}"
-                    local estate_name="${gridname} Estate"
-
-                    for ((r=1; r<=region_count; r++)); do
-                        echo -n -e "  ${SYM_INFO} Region ${r}: ${COLOR_RESET}"
-
-                        if [[ $r -eq 1 ]]; then
-                            # Erste Region: Vorname, Nachname, Estate-Name eingeben
-                            # (Benutzer bereits im Grid registriert, OpenSim findet ihn und bestätigt)
-                            screen -S "sim$i" -p 0 -X eval "stuff '$VORNAME'^M"
-                            sleep 2
-                            screen -S "sim$i" -p 0 -X eval "stuff '$NACHNAME'^M"
-                            sleep 2
-                            screen -S "sim$i" -p 0 -X eval "stuff '${estate_name}'^M"
-                            sleep 2
-                            log "${COLOR_OK}Vorname/Nachname/Estate eingegeben${COLOR_RESET}"
-                        else
-                            # Weitere Regionen: Benutzer ist bereits Estate-Owner, nur Enter drücken
-                            screen -S "sim$i" -p 0 -X eval "stuff ''^M"
-                            sleep 1
-                            screen -S "sim$i" -p 0 -X eval "stuff ''^M"
-                            sleep 1
-                            screen -S "sim$i" -p 0 -X eval "stuff ''^M"
-                            sleep 1
-                            log "${COLOR_OK}mit Enter bestätigt${COLOR_RESET}"
-                        fi
-                    done
-                else
-                    log "${SYM_WARNING} ${COLOR_WARNING}sim$i: Kein Regions-Verzeichnis gefunden${COLOR_RESET}"
-                fi
+                sleep "${Simulator_Start_wait:-5}"
             else
                 log "${COLOR_ERROR}start fehlgeschlagen${COLOR_RESET}"
             fi
@@ -2939,7 +2881,42 @@ function createmasterestateall() {
         fi
     done
 
-    if [[ $started_sims -eq 0 ]]; then
+    # 3. Estate-Bestätigung für alle Regionen
+    if [[ $started_sims -gt 0 ]]; then
+        log "${COLOR_ACTION}Bestätige Estate für $started_sims Simulator(en)...${COLOR_RESET}"
+        
+        for ((i=2; i<=999; i++)); do
+            if screen -list | grep -q "sim$i"; then
+                regions_dir="${SCRIPT_DIR}/sim$i/bin/Regions"
+                if [[ -d "$regions_dir" ]]; then
+                    # Zähle die Anzahl der Regionen-Konfigurationen
+                    region_count=$(find "$regions_dir" -maxdepth 1 -name "*.ini" | wc -l)
+                    log "${SYM_INFO} ${COLOR_DIR}sim$i: ${region_count} Region(en) gefunden${COLOR_RESET}"
+                    
+                    # Für jede Region die Bestätigung senden
+                    for ((r=1; r<=region_count; r++)); do
+                        echo -n -e "  ${SYM_INFO} Region ${r}: ${COLOR_RESET}"
+                        
+                        if ! screen -S "sim$i" -p 0 -X eval "stuff 'yes'^M"; then
+                            log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von yes${COLOR_RESET}"
+                            return 1
+                        fi
+                        sleep 1
+
+                        if ! screen -S "sim$i" -p 0 -X eval "stuff '$gridname Estate'^M"; then
+                            log "${SYM_BAD} ${COLOR_ERROR}Fehler beim Senden von $gridname Estate${COLOR_RESET}"
+                            return 1
+                        fi
+                        log "${COLOR_OK}bestätigt${COLOR_RESET}"
+                        sleep 1
+                    done
+                else
+                    log "${SYM_WARNING} ${COLOR_WARNING}sim$i: Kein Regions-Verzeichnis gefunden${COLOR_RESET}"
+                    sleep 1
+                fi
+            fi
+        done
+    else
         log "${SYM_WARNING} ${COLOR_WARNING}Keine Simulatoren gestartet!${COLOR_RESET}"
         return 1
     fi
@@ -3164,6 +3141,9 @@ function opensimupgrade() {
 
         log "${COLOR_ACTION}OpenSimulator wird kopiert...${COLOR_RESET}"
         opensimcopy
+
+        log "${SYM_LOG}${COLOR_HEADING} Log-Bereinigung wird durchgeführt...${COLOR_RESET}"
+        logclean   # Logbereinigung
 
         log "${COLOR_ACTION}OpenSimulator wird gestartet...${COLOR_RESET}"
         opensimstart
